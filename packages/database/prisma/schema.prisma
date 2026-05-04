@@ -1,0 +1,201 @@
+// This is the SimpleCite Prisma schema.
+// Source of truth for the database model.
+// Learn more: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────
+
+enum UserRole {
+  ADMIN
+  DOCTOR
+  STAFF
+}
+
+enum AppointmentStatus {
+  PENDING_PAYMENT
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum SubscriptionPlan {
+  BASIC
+  PRO
+  ELITE
+}
+
+enum TenantStatus {
+  TRIAL
+  ACTIVE
+  SUSPENDED
+}
+
+// ─────────────────────────────────────
+// MODELS
+// ─────────────────────────────────────
+
+/// Organización / Clínica — Raíz de la jerarquía multi-tenant.
+model Tenant {
+  id           String           @id @default(uuid())
+  slug         String           @unique /// Subdominio: clinica-tarija.simplecite.com.bo
+  name         String
+  logoUrl      String?
+  primaryColor String           @default("#3B82F6") /// Color corporativo para la landing
+  plan         SubscriptionPlan @default(BASIC)
+  status       TenantStatus     @default(TRIAL)
+  timezone     String           @default("America/La_Paz") /// Timezone Bolivia
+
+  // Configuración de WhatsApp
+  whatsappEnabled Boolean @default(false)
+  whatsappNumber  String? /// El número vinculado al bot
+
+  // Relaciones
+  users        User[]
+  patients     Patient[]
+  services     Service[]
+  appointments Appointment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("tenants")
+}
+
+/// Usuario del sistema — Doctor, Staff o Admin de una clínica.
+model User {
+  id       String   @id @default(uuid())
+  email    String
+  password String
+  name     String
+  role     UserRole @default(DOCTOR)
+  isActive Boolean  @default(true)
+
+  // Relación con el Tenant
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  // Relaciones Médicas
+  appointments Appointment[] /// Citas asignadas a este doctor
+  medicalNotes MedicalNote[] /// Notas creadas por este doctor
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([email, tenantId])
+  @@index([tenantId])
+  @@index([tenantId, id])
+  @@map("users")
+}
+
+/// Paciente — Pertenece a una clínica específica por privacidad de datos.
+model Patient {
+  id    String  @id @default(uuid())
+  name  String
+  phone String  /// Identificador de WhatsApp (ej: 59170000000)
+  ci    String? /// Cédula de Identidad para validación médica/pagos
+
+  // Un paciente "pertenece" a una clínica por privacidad
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  appointments Appointment[]
+  medicalNotes MedicalNote[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([phone, tenantId]) /// El mismo número no puede duplicarse en la misma clínica
+  @@index([tenantId])
+  @@index([tenantId, id])
+  @@map("patients")
+}
+
+/// Servicio ofrecido por una clínica (ej: "Consulta General", "Sesión Fisioterapia").
+model Service {
+  id          String  @id @default(uuid())
+  name        String
+  description String?
+  price       Decimal @db.Decimal(10, 2) /// Precio en Bolivianos (Bs)
+  duration    Int     /// Duración en minutos
+  isActive    Boolean @default(true)
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  appointments Appointment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, id])
+  @@map("services")
+}
+
+/// Cita médica — Relación central entre Paciente, Doctor y Servicio.
+model Appointment {
+  id        String            @id @default(uuid())
+  startTime DateTime
+  endTime   DateTime
+  status    AppointmentStatus @default(PENDING_PAYMENT)
+
+  // Relaciones
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  patientId String
+  patient   Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  doctorId String
+  doctor   User @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  serviceId String
+  service   Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  // Información de Pago QR Simple
+  qrPayload String? /// El texto para generar el QR Simple
+  isPaid    Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, id])
+  @@index([tenantId, doctorId])
+  @@index([tenantId, patientId])
+  @@index([startTime, endTime])
+  @@map("appointments")
+}
+
+/// Nota médica / Historial clínico — Dato sensible, aislamiento obligatorio por tenant.
+model MedicalNote {
+  id      String @id @default(uuid())
+  content String @db.Text /// El historial clínico en sí
+
+  patientId String
+  patient   Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  doctorId String
+  doctor   User @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  // tenantId explícito para RLS — derivado de la relación Patient/Doctor
+  tenantId String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, patientId])
+  @@map("medical_notes")
+}
