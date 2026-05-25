@@ -1,8 +1,8 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
-import { ConfigService } from '@nestjs/config';
-import { PrismaService } from '../../../../common/database/prisma.service';
+import type { ConfigService } from '@nestjs/config';
+import type { PrismaService } from '../../../../common/database/prisma.service';
 
 interface JwtPayload {
   sub: string;
@@ -39,7 +39,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
    * El valor retornado se inyecta en request.user.
    */
   async validate(payload: JwtPayload) {
-    const user = await this.prisma.user.findFirst({
+    const user = await this.prisma.client.user.findFirst({
       where: {
         id: payload.sub,
         tenantId: payload.tenantId,

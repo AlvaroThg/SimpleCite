@@ -28,14 +28,6 @@ export const LoginSchema = z.object({
 });
 export type LoginDto = z.infer<typeof LoginSchema>;
 
-export const RegisterSchema = z.object({
-  email: z.string().email('Email inválido'),
-  password: z.string().min(6, 'La contraseña debe tener al menos 6 caracteres'),
-  name: z.string().min(2, 'El nombre debe tener al menos 2 caracteres'),
-  role: UserRole.default('DOCTOR'),
-});
-export type RegisterDto = z.infer<typeof RegisterSchema>;
-
 // ─── Tenant Schemas ───
 
 export const CreateTenantSchema = z.object({
@@ -53,13 +45,32 @@ export const CreateTenantSchema = z.object({
 });
 export type CreateTenantDto = z.infer<typeof CreateTenantSchema>;
 
+// ─── Doctor Schemas ───
+
+export const CreateDoctorSchema = z.object({
+  email: z.string().email('Email inválido'),
+  password: z.string().min(8, 'La contraseña debe tener al menos 8 caracteres'),
+  name: z.string().min(2).max(100),
+  specialty: z.string().min(2).max(100),
+  licenseNumber: z.string().max(50).optional(),
+  bio: z.string().max(2000).optional(),
+});
+export type CreateDoctorDto = z.infer<typeof CreateDoctorSchema>;
+
+export const UpdateDoctorSchema = z.object({
+  name: z.string().min(2).max(100).optional(),
+  specialty: z.string().min(2).max(100).optional(),
+  licenseNumber: z.string().max(50).nullable().optional(),
+  bio: z.string().max(2000).nullable().optional(),
+  isActive: z.boolean().optional(),
+});
+export type UpdateDoctorDto = z.infer<typeof UpdateDoctorSchema>;
+
 // ─── Patient Schemas ───
 
 export const CreatePatientSchema = z.object({
   name: z.string().min(2, 'El nombre debe tener al menos 2 caracteres'),
-  phone: z
-    .string()
-    .regex(/^591\d{8}$/, 'Formato de teléfono boliviano inválido (ej: 59170000000)'),
+  phone: z.string().regex(/^591\d{8}$/, 'Formato de teléfono boliviano inválido (ej: 59170000000)'),
   ci: z.string().optional(),
 });
 export type CreatePatientDto = z.infer<typeof CreatePatientSchema>;
@@ -70,20 +81,109 @@ export const CreateServiceSchema = z.object({
   name: z.string().min(2).max(100),
   description: z.string().max(500).optional(),
   price: z.number().positive('El precio debe ser mayor a 0'),
-  duration: z.number().int().min(5, 'Duración mínima: 5 minutos').max(480, 'Duración máxima: 8 horas'),
+  duration: z
+    .number()
+    .int()
+    .min(5, 'Duración mínima: 5 minutos')
+    .max(480, 'Duración máxima: 8 horas'),
 });
 export type CreateServiceDto = z.infer<typeof CreateServiceSchema>;
 
+export const UpdateServiceSchema = CreateServiceSchema.partial().extend({
+  isActive: z.boolean().optional(),
+});
+export type UpdateServiceDto = z.infer<typeof UpdateServiceSchema>;
+
+// ─── DoctorService (junction) Schemas ───
+
+export const AssignServiceToDoctorSchema = z.object({
+  serviceId: z.string().uuid(),
+  customDuration: z.number().int().min(5).max(480).optional(),
+  customPrice: z.number().positive().optional(),
+});
+export type AssignServiceToDoctorDto = z.infer<typeof AssignServiceToDoctorSchema>;
+
+export const UpdateDoctorServiceSchema = z.object({
+  customDuration: z.number().int().min(5).max(480).nullable().optional(),
+  customPrice: z.number().positive().nullable().optional(),
+  isActive: z.boolean().optional(),
+});
+export type UpdateDoctorServiceDto = z.infer<typeof UpdateDoctorServiceSchema>;
+
+// ─── Schedule Rules Schemas ───
+
+export const ScheduleRuleSchema = z
+  .object({
+    dayOfWeek: z.number().int().min(0).max(6, 'dayOfWeek: 0 (Dom) … 6 (Sáb)'),
+    startMinute: z
+      .number()
+      .int()
+      .min(0)
+      .max(1439, 'startMinute: 0…1439 (minutos desde medianoche)'),
+    endMinute: z.number().int().min(0).max(1440),
+  })
+  .refine((d) => d.endMinute > d.startMinute, {
+    message: 'endMinute debe ser mayor que startMinute',
+    path: ['endMinute'],
+  });
+export type ScheduleRuleDto = z.infer<typeof ScheduleRuleSchema>;
+
+export const ReplaceScheduleRulesSchema = z.object({
+  rules: z.array(ScheduleRuleSchema).max(50),
+});
+export type ReplaceScheduleRulesDto = z.infer<typeof ReplaceScheduleRulesSchema>;
+
+// ─── Schedule Blocks Schemas ───
+
+export const CreateScheduleBlockSchema = z
+  .object({
+    startTime: z.string().datetime(),
+    endTime: z.string().datetime(),
+    reason: z.string().max(200).optional(),
+  })
+  .refine((d) => new Date(d.endTime) > new Date(d.startTime), {
+    message: 'endTime debe ser posterior a startTime',
+    path: ['endTime'],
+  });
+export type CreateScheduleBlockDto = z.infer<typeof CreateScheduleBlockSchema>;
+
 // ─── Appointment Schemas ───
 
-export const CreateAppointmentSchema = z.object({
-  startTime: z.string().datetime(),
-  endTime: z.string().datetime(),
-  patientId: z.string().uuid(),
+export const CreateAppointmentSchema = z
+  .object({
+    startTime: z.string().datetime(),
+    endTime: z.string().datetime(),
+    patientId: z.string().uuid(),
+    doctorId: z.string().uuid(),
+    serviceId: z.string().uuid(),
+  })
+  .refine((d) => new Date(d.endTime) > new Date(d.startTime), {
+    message: 'endTime debe ser posterior a startTime',
+    path: ['endTime'],
+  });
+export type CreateAppointmentDto = z.infer<typeof CreateAppointmentSchema>;
+
+export const UpdateAppointmentStatusSchema = z.object({
+  status: AppointmentStatus,
+});
+export type UpdateAppointmentStatusDto = z.infer<typeof UpdateAppointmentStatusSchema>;
+
+// ─── Slots Engine Schemas ───
+
+export const SlotsQuerySchema = z.object({
   doctorId: z.string().uuid(),
   serviceId: z.string().uuid(),
+  from: z.string().datetime(), // ISO date inicio
+  to: z.string().datetime(), // ISO date fin
 });
-export type CreateAppointmentDto = z.infer<typeof CreateAppointmentSchema>;
+export type SlotsQueryDto = z.infer<typeof SlotsQuerySchema>;
+
+export const SlotSchema = z.object({
+  startTime: z.string().datetime(),
+  endTime: z.string().datetime(),
+  available: z.boolean(),
+});
+export type SlotDto = z.infer<typeof SlotSchema>;
 
 // ─── Medical Note Schemas ───
 

@@ -1,15 +1,12 @@
 import { Controller, Get, Param } from '@nestjs/common';
-import { TenantService } from '../../application/services/tenant.service';
+import { Public } from '../../../../common/decorators/public.decorator';
+import type { TenantService } from '../../application/services/tenant.service';
 
 @Controller('tenants')
 export class TenantController {
   constructor(private readonly tenantService: TenantService) {}
 
-  /**
-   * GET /api/tenants/slug/:slug
-   * Resuelve un tenant por su slug (usado por el frontend para subdominios).
-   * Esta ruta es pública — no requiere autenticación.
-   */
+  @Public()
   @Get('slug/:slug')
   async findBySlug(@Param('slug') slug: string) {
     const tenant = await this.tenantService.findBySlug(slug);

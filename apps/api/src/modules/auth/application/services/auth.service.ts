@@ -1,7 +1,8 @@
-import { Injectable, UnauthorizedException, Logger } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
+import type { JwtService } from '@nestjs/jwt';
+import type { Logger } from 'nestjs-pino';
 import * as bcrypt from 'bcrypt';
-import { PrismaService } from '../../../../common/database/prisma.service';
+import type { PrismaService } from '../../../../common/database/prisma.service';
 
 export interface LoginResult {
   accessToken: string;
@@ -14,43 +15,29 @@ export interface LoginResult {
   };
 }
 
-/**
- * Servicio de autenticación.
- * Valida credenciales y genera JWT firmado con tenant_id claim.
- */
 @Injectable()
 export class AuthService {
-  private readonly logger = new Logger(AuthService.name);
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
+    private readonly logger: Logger,
   ) {}
 
-  /**
-   * Autentica un usuario por email y password dentro de un tenant específico.
-   */
   async login(email: string, password: string, tenantId: string): Promise<LoginResult> {
-    // Buscar usuario por email dentro del tenant
-    const user = await this.prisma.user.findFirst({
-      where: {
-        email,
-        tenantId,
-        isActive: true,
-      },
+    // prisma.client usa el tx RLS-scoped si hay contexto activo (login route lo tiene vía interceptor)
+    const user = await this.prisma.client.user.findFirst({
+      where: { email, tenantId, isActive: true },
     });
 
     if (!user) {
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
-    // Validar password
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
-    // Generar JWT con tenant_id claim
     const payload = {
       sub: user.id,
       email: user.email,
@@ -60,7 +47,7 @@ export class AuthService {
 
     const accessToken = this.jwtService.sign(payload);
 
-    this.logger.log(`Login exitoso: ${user.email} (tenant: ${tenantId})`);
+    this.logger.log({ tenantId, userId: user.id, email: user.email }, 'Login exitoso');
 
     return {
       accessToken,
@@ -72,16 +59,5 @@ export class AuthService {
         tenantId: user.tenantId,
       },
     };
-  }
-
-  /**
-   * Valida un JWT y retorna el payload.
-   */
-  async validateToken(token: string) {
-    try {
-      return this.jwtService.verify(token);
-    } catch {
-      throw new UnauthorizedException('Token inválido o expirado');
-    }
   }
 }

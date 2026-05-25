@@ -90,6 +90,15 @@ model User {
   appointments Appointment[] /// Citas asignadas a este doctor
   medicalNotes MedicalNote[] /// Notas creadas por este doctor
 
+  // Profiles 1:1 — solo uno aplica según role
+  doctorProfile DoctorProfile?
+  staffProfile  StaffProfile?
+
+  // Catálogo y agenda del doctor
+  doctorServices       DoctorService[]
+  doctorScheduleRules  DoctorScheduleRule[]
+  doctorScheduleBlocks DoctorScheduleBlock[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -97,6 +106,41 @@ model User {
   @@index([tenantId])
   @@index([tenantId, id])
   @@map("users")
+}
+
+/// Perfil extendido para usuarios con role DOCTOR.
+model DoctorProfile {
+  id            String  @id @default(uuid())
+  specialty     String  /// Ej: "Medicina General", "Cardiología"
+  licenseNumber String? /// Matrícula profesional
+  bio           String? @db.Text
+
+  userId   String @unique
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenantId String /// Denormalizado para scope RLS directo
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@map("doctor_profiles")
+}
+
+/// Perfil extendido para usuarios con role STAFF (recepción, administración).
+model StaffProfile {
+  id       String  @id @default(uuid())
+  position String  /// Ej: "Recepcionista", "Administrador de caja"
+  notes    String?
+
+  userId   String @unique
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenantId String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@map("staff_profiles")
 }
 
 /// Paciente — Pertenece a una clínica específica por privacidad de datos.
@@ -134,11 +178,13 @@ model Service {
   tenantId String
   tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
-  appointments Appointment[]
+  appointments    Appointment[]
+  doctorServices  DoctorService[] /// Doctores que ofrecen este servicio
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([name, tenantId]) /// Evita servicios duplicados dentro de la misma clínica
   @@index([tenantId])
   @@index([tenantId, id])
   @@map("services")
@@ -199,4 +245,81 @@ model MedicalNote {
   @@index([tenantId])
   @@index([tenantId, patientId])
   @@map("medical_notes")
+}
+
+/// Catálogo de servicios que ofrece un doctor específico.
+/// Permite override de duración/precio default del Service catálogo.
+model DoctorService {
+  id String @id @default(uuid())
+
+  doctorId String
+  doctor   User   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  serviceId String
+  service   Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  tenantId String /// Denorm para scope RLS directo
+
+  /// Si está presente, sobreescribe Service.duration (minutos)
+  customDuration Int?
+  /// Si está presente, sobreescribe Service.price (Bs)
+  customPrice Decimal? @db.Decimal(10, 2)
+
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([doctorId, serviceId]) /// Un doctor no repite el mismo servicio
+  @@index([tenantId])
+  @@index([tenantId, doctorId])
+  @@map("doctor_services")
+}
+
+/// Regla semanal recurrente del horario de un doctor.
+/// Múltiples reglas por día representan rangos (ej: 8-12 + 14-18 = break implícito 12-14).
+model DoctorScheduleRule {
+  id String @id @default(uuid())
+
+  doctorId String
+  doctor   User   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  tenantId String
+
+  /// 0 = Domingo … 6 = Sábado (compatible con JavaScript Date.getDay())
+  dayOfWeek Int
+
+  /// Minutos desde medianoche en la timezone del tenant (0-1439)
+  startMinute Int
+  endMinute   Int
+
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, doctorId, dayOfWeek])
+  @@map("doctor_schedule_rules")
+}
+
+/// Bloqueo puntual del horario: vacaciones, días libres, feriados específicos del doctor.
+/// Tiene precedencia sobre DoctorScheduleRule en el motor de slots.
+model DoctorScheduleBlock {
+  id String @id @default(uuid())
+
+  doctorId String
+  doctor   User   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  tenantId String
+
+  /// Datetime UTC. Para "todo el día", usar 00:00:00–23:59:59 en local time del tenant.
+  startTime DateTime
+  endTime   DateTime
+  reason    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId, doctorId])
+  @@index([startTime, endTime])
+  @@map("doctor_schedule_blocks")
 }

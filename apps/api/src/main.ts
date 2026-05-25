@@ -1,15 +1,16 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe, Logger } from '@nestjs/common';
+import { ValidationPipe } from '@nestjs/common';
+import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
-  const logger = new Logger('Bootstrap');
+  const app = await NestFactory.create(AppModule, { bufferLogs: true });
 
-  // Prefijo global para todas las rutas
+  // Reemplazar el logger por defecto de NestJS con Pino estructurado
+  app.useLogger(app.get(Logger));
+
   app.setGlobalPrefix('api');
 
-  // Validación global de DTOs
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -18,18 +19,20 @@ async function bootstrap() {
     }),
   );
 
-  // CORS
   app.enableCors({
-    origin: process.env.NODE_ENV === 'production'
-      ? [`https://*.${process.env.APP_DOMAIN}`]
-      : ['http://localhost:3000'],
+    origin:
+      process.env.NODE_ENV === 'production'
+        ? [`https://*.${process.env.APP_DOMAIN}`]
+        : ['http://localhost:3000'],
     credentials: true,
   });
 
   const port = process.env.API_PORT || 3001;
   await app.listen(port);
-  logger.log(`🚀 SimpleCite API corriendo en http://localhost:${port}/api`);
-  logger.log(`📋 Entorno: ${process.env.NODE_ENV || 'development'}`);
+
+  const logger = app.get(Logger);
+  logger.log(`SimpleCite API corriendo en http://localhost:${port}/api`, 'Bootstrap');
+  logger.log(`Entorno: ${process.env.NODE_ENV ?? 'development'}`, 'Bootstrap');
 }
 
 bootstrap();

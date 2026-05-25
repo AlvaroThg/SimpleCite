@@ -15,6 +15,10 @@ out/
 .env
 .env.local
 .env.*.local
+.env.development
+.env.test
+.env.production
+# Mantener trackeados solo los templates .env.*.example
 
 # IDE
 .vscode/settings.json
@@ -26,8 +30,7 @@ out/
 .DS_Store
 Thumbs.db
 
-# Prisma
-packages/database/prisma/migrations/**/migration_lock.toml
+# Prisma — NO ignorar migrations; deben commitearse junto con el schema
 
 # Coverage
 coverage/

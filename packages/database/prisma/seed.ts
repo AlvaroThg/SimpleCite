@@ -28,10 +28,7 @@ async function main() {
   const adminPassword = await bcrypt.hash('admin123', SALT_ROUNDS);
   const admin = await prisma.user.upsert({
     where: {
-      email_tenantId: {
-        email: 'admin@clinica-demo.com',
-        tenantId: tenant.id,
-      },
+      email_tenantId: { email: 'admin@clinica-demo.com', tenantId: tenant.id },
     },
     update: {},
     create: {
@@ -44,14 +41,11 @@ async function main() {
   });
   console.log(`  ✅ Admin: ${admin.email}`);
 
-  // ─── 3. Doctor ───
+  // ─── 3. Doctor + DoctorProfile ───
   const doctorPassword = await bcrypt.hash('doctor123', SALT_ROUNDS);
   const doctor = await prisma.user.upsert({
     where: {
-      email_tenantId: {
-        email: 'dr.rodriguez@clinica-demo.com',
-        tenantId: tenant.id,
-      },
+      email_tenantId: { email: 'dr.rodriguez@clinica-demo.com', tenantId: tenant.id },
     },
     update: {},
     create: {
@@ -62,27 +56,44 @@ async function main() {
       tenantId: tenant.id,
     },
   });
-  console.log(`  ✅ Doctor: ${doctor.email}`);
+  await prisma.doctorProfile.upsert({
+    where: { userId: doctor.id },
+    update: {},
+    create: {
+      userId: doctor.id,
+      tenantId: tenant.id,
+      specialty: 'Medicina General',
+      licenseNumber: 'MAT-12345',
+      bio: 'Médico general con 10 años de experiencia en atención primaria.',
+    },
+  });
+  console.log(`  ✅ Doctor: ${doctor.email} (Medicina General)`);
 
-  // ─── 4. Staff ───
+  // ─── 4. Staff + StaffProfile ───
   const staffPassword = await bcrypt.hash('staff123', SALT_ROUNDS);
   const staff = await prisma.user.upsert({
     where: {
-      email_tenantId: {
-        email: 'recepcion@clinica-demo.com',
-        tenantId: tenant.id,
-      },
+      email_tenantId: { email: 'recepcion@clinica-demo.com', tenantId: tenant.id },
     },
     update: {},
     create: {
       email: 'recepcion@clinica-demo.com',
       password: staffPassword,
-      name: 'María López (Recepción)',
+      name: 'María López',
       role: UserRole.STAFF,
       tenantId: tenant.id,
     },
   });
-  console.log(`  ✅ Staff: ${staff.email}`);
+  await prisma.staffProfile.upsert({
+    where: { userId: staff.id },
+    update: {},
+    create: {
+      userId: staff.id,
+      tenantId: tenant.id,
+      position: 'Recepcionista',
+    },
+  });
+  console.log(`  ✅ Staff: ${staff.email} (Recepcionista)`);
 
   // ─── 5. Catálogo de Servicios ───
   const servicios = [
@@ -118,31 +129,61 @@ async function main() {
     },
   ];
 
+  const serviciosCreados = [];
   for (const servicio of servicios) {
     const created = await prisma.service.upsert({
-      where: {
-        // No hay @@unique en name+tenantId, usamos findFirst + create pattern
-        id: (
-          await prisma.service.findFirst({
-            where: { name: servicio.name, tenantId: tenant.id },
-          })
-        )?.id ?? 'non-existent-id',
-      },
+      where: { name_tenantId: { name: servicio.name, tenantId: tenant.id } },
       update: {},
-      create: {
-        name: servicio.name,
-        description: servicio.description,
-        price: servicio.price,
-        duration: servicio.duration,
-        tenantId: tenant.id,
-      },
+      create: { ...servicio, tenantId: tenant.id },
     });
+    serviciosCreados.push(created);
     console.log(`  ✅ Servicio: ${created.name} (Bs ${servicio.price})`);
   }
 
+  // ─── 6. DoctorServices: el doctor ofrece "Consulta General" y "Control Prenatal" ───
+  const serviciosDelDoctor = serviciosCreados.filter((s) =>
+    ['Consulta General', 'Control Prenatal'].includes(s.name),
+  );
+  for (const servicio of serviciosDelDoctor) {
+    await prisma.doctorService.upsert({
+      where: {
+        doctorId_serviceId: { doctorId: doctor.id, serviceId: servicio.id },
+      },
+      update: {},
+      create: {
+        doctorId: doctor.id,
+        serviceId: servicio.id,
+        tenantId: tenant.id,
+      },
+    });
+    console.log(`  ✅ DoctorService: ${doctor.name} → ${servicio.name}`);
+  }
+
+  // ─── 7. ScheduleRules: Lun-Vie 08:00-12:00 + 14:00-18:00 ───
+  const horarios = [
+    { dayOfWeek: 1, startMinute: 8 * 60, endMinute: 12 * 60 }, // Lun mañana
+    { dayOfWeek: 1, startMinute: 14 * 60, endMinute: 18 * 60 }, // Lun tarde
+    { dayOfWeek: 2, startMinute: 8 * 60, endMinute: 12 * 60 },
+    { dayOfWeek: 2, startMinute: 14 * 60, endMinute: 18 * 60 },
+    { dayOfWeek: 3, startMinute: 8 * 60, endMinute: 12 * 60 },
+    { dayOfWeek: 3, startMinute: 14 * 60, endMinute: 18 * 60 },
+    { dayOfWeek: 4, startMinute: 8 * 60, endMinute: 12 * 60 },
+    { dayOfWeek: 4, startMinute: 14 * 60, endMinute: 18 * 60 },
+    { dayOfWeek: 5, startMinute: 8 * 60, endMinute: 12 * 60 },
+    { dayOfWeek: 5, startMinute: 14 * 60, endMinute: 18 * 60 },
+  ];
+  // Limpia reglas previas del doctor antes de re-sembrar para que el seed sea idempotente.
+  await prisma.doctorScheduleRule.deleteMany({ where: { doctorId: doctor.id } });
+  for (const horario of horarios) {
+    await prisma.doctorScheduleRule.create({
+      data: { ...horario, doctorId: doctor.id, tenantId: tenant.id },
+    });
+  }
+  console.log(`  ✅ Horario: ${horarios.length} reglas (Lun-Vie 8-12 y 14-18)`);
+
   console.log('\n🎉 Seed completado exitosamente!');
   console.log(`\n📋 Resumen:`);
-  console.log(`   Tenant: ${tenant.slug}`);
+  console.log(`   Tenant: ${tenant.slug} (${tenant.id})`);
   console.log(`   Admin:  admin@clinica-demo.com / admin123`);
   console.log(`   Doctor: dr.rodriguez@clinica-demo.com / doctor123`);
   console.log(`   Staff:  recepcion@clinica-demo.com / staff123`);

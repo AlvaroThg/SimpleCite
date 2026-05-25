@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { LoggerModule } from 'nestjs-pino';
 import { AuthController } from './infrastructure/adapters/auth.controller';
 import { AuthService } from './application/services/auth.service';
 import { JwtStrategy } from './infrastructure/strategies/jwt.strategy';
@@ -13,12 +14,14 @@ import { JwtStrategy } from './infrastructure/strategies/jwt.strategy';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
-        secret: config.get<string>('JWT_SECRET') || 'fallback-secret',
+        secret: config.get<string>('JWT_SECRET'),
         signOptions: {
-          expiresIn: (config.get<string>('JWT_EXPIRATION') || '24h') as any,
+          expiresIn: (config.get<string>('JWT_EXPIRATION') ??
+            '24h') as `${number}${'s' | 'm' | 'h' | 'd'}`,
         },
       }),
     }),
+    LoggerModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy],
