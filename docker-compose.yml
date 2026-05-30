@@ -4,10 +4,16 @@
 # - DB externa (Supabase): NO se levanta servicio postgres aquí.
 # - env_file apunta a .env.development en local; en VPS se sustituye por
 #   .env.production sin tocar el resto del archivo.
-# - El override de NODE_ENV=development habilita pino-pretty y CORS
-#   permisivo a localhost:3000 (Next dev). Para VPS, quitar ese override
-#   o pasar NODE_ENV=production explícito.
+# - Docker socket montado para que el InstanceManagerService pueda crear
+#   contenedores Baileys dinámicamente (uno por tenant).
 # =====================================================================
+
+networks:
+  # Red interna compartida entre el API y los contenedores Baileys.
+  # El API se comunica con wa-{slug} via container name en esta red.
+  simplecite-internal:
+    driver: bridge
+    name: simplecite-internal
 
 services:
   api:
@@ -23,22 +29,31 @@ services:
     container_name: simplecite-api
     restart: unless-stopped
 
-    # Mapping host:contenedor. El host se puede override con `export API_PORT=4000`.
+    networks:
+      - simplecite-internal
+
+    # Mapping host:contenedor
     ports:
       - '${API_PORT:-3001}:3001'
 
-    # Carga DATABASE_URL, DIRECT_URL, JWT_SECRET, SUPABASE_*, etc.
+    # Docker socket — necesario para que InstanceManagerService cree contenedores.
+    # SEGURIDAD: solo montar en entornos controlados (VPS con firewall).
+    # En Windows con Docker Desktop usar: //./pipe/docker_engine://./pipe/docker_engine
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+    # Permite a los contenedores Baileys hacer POST al API usando el nombre
+    # `host.docker.internal`. En Linux, add-host es necesario (Docker Desktop
+    # lo resuelve automáticamente en Mac/Windows).
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+
     env_file:
       - .env.development
 
-    # Override: forzar dev mode dentro del contenedor para logs legibles
-    # (pino-pretty) y CORS hacia localhost:3000. Quitar para validar build
-    # tipo-producción.
     environment:
       NODE_ENV: development
 
-    # Healthcheck contra el endpoint público /api/health (HealthController).
-    # wget viene incluido en BusyBox de alpine.
     healthcheck:
       test:
         - CMD-SHELL
@@ -47,6 +62,3 @@ services:
       timeout: 5s
       retries: 3
       start_period: 15s
-
-    # Red por defecto (bridge); el contenedor sale a internet para hablar
-    # con Supabase. No se necesita configuración extra.

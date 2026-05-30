@@ -35,7 +35,18 @@ export const envSchema = z.object({
     .min(16, 'QR_SIMPLE_WEBHOOK_SECRET debe tener al menos 16 caracteres')
     .optional(),
 
-  // ─── WhatsApp Orchestrator (controla los Dockers por clínica) ───
+  // ─── WhatsApp Instance Manager (Fase 5) ───
+  // Red Docker donde viven los contenedores Baileys (uno por tenant).
+  WA_DOCKER_NETWORK: z.string().default('simplecite-internal'),
+  // URL que los contenedores usan para postear webhooks al NestJS API.
+  // En Docker: http://simplecite-api:3001 (nombre del container en la red interna).
+  // En dev local: http://host.docker.internal:3001
+  WA_CALLBACK_URL: z.string().default('http://simplecite-api:3001/api/internal/whatsapp/webhook'),
+  // Secret compartido entre API y contenedores Baileys. Mínimo 16 chars en prod.
+  WA_INTERNAL_SECRET: z.string().default(''),
+  // Imagen Docker de la instancia Baileys (debe estar disponible en el daemon).
+  WA_INSTANCE_IMAGE: z.string().default('simplecite-wa-instance:latest'),
+  // Obsoleto tras Fase 5 — mantenemos para no romper envs existentes.
   WHATSAPP_ORCHESTRATOR_URL: z.string().url().optional(),
   WHATSAPP_ORCHESTRATOR_TOKEN: z.string().optional(),
 
@@ -74,8 +85,6 @@ function assertProductionInvariants(env: Env): void {
     'QR_SIMPLE_API_URL',
     'QR_SIMPLE_API_KEY',
     'QR_SIMPLE_WEBHOOK_SECRET',
-    'WHATSAPP_ORCHESTRATOR_URL',
-    'WHATSAPP_ORCHESTRATOR_TOKEN',
     'TURNSTILE_SECRET_KEY',
   ];
 

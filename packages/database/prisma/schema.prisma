@@ -48,6 +48,22 @@ enum TenantStatus {
   SUSPENDED
 }
 
+enum WaInstanceStatus {
+  CREATING     /// Registro creado en DB, contenedor no existe aún
+  STARTING     /// Contenedor creado y arrancado, Baileys inicializando
+  PAIRING      /// Esperando que el usuario escanee el QR
+  CONNECTED    /// Sesión WhatsApp activa
+  DISCONNECTED /// Desconectado (reconectando automáticamente)
+  ERROR        /// Error no recuperable (container crashed, imagen faltante, etc.)
+  STOPPED      /// Detenido manualmente por admin
+}
+
+enum WaMessageStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
 // ─────────────────────────────────────
 // MODELS
 // ─────────────────────────────────────
@@ -68,10 +84,11 @@ model Tenant {
   whatsappNumber  String? /// El número vinculado al bot
 
   // Relaciones
-  users        User[]
-  patients     Patient[]
-  services     Service[]
-  appointments Appointment[]
+  users                User[]
+  patients             Patient[]
+  services             Service[]
+  appointments         Appointment[]
+  whatsappInstances    WhatsappInstance[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -353,4 +370,63 @@ model PatientOtp {
   @@index([tenantId, phone, createdAt]) /// Buscar último OTP del paciente
   @@index([expiresAt]) /// Cleanup batch de OTPs expirados
   @@map("patient_otps")
+}
+
+/// Instancia de WhatsApp por tenant. Un contenedor Baileys por fila.
+/// El orquestador (NestJS InstanceManagerService) crea/destruye contenedores
+/// usando el Docker socket y mantiene esta tabla como source of truth.
+model WhatsappInstance {
+  id            String           @id @default(uuid())
+  tenantId      String
+  tenant        Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  /// Nombre del contenedor Docker: `wa-{tenant.slug}`
+  containerName String           @unique
+  /// ID del contenedor (sha256 corto). Null si está en estado CREATING/ERROR.
+  containerId   String?
+  /// Puerto interno del contenedor en la red Docker (siempre 4000).
+  /// Guardado para referencia; el acceso es por nombre de contenedor en red interna.
+  internalPort  Int              @default(4000)
+
+  status        WaInstanceStatus @default(CREATING)
+  /// Número de teléfono vinculado (E.164 sin '+') tras QR exitoso.
+  phone         String?
+  lastSeen      DateTime?
+  restartCount  Int              @default(0)
+
+  messages      WhatsappMessage[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([status])
+  @@map("whatsapp_instances")
+}
+
+/// Mensaje enviado por WhatsApp (OTP u otros). Idempotencia por messageKey.
+/// El orquestador reintenta hasta MAX_ATTEMPTS veces; el estado final es SENT o FAILED.
+model WhatsappMessage {
+  id         String          @id @default(uuid())
+  tenantId   String
+  instanceId String
+  instance   WhatsappInstance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+
+  /// Clave de idempotencia: el caller la genera y el servicio la respeta.
+  /// Si ya existe un registro con esta key, NO se reenvía.
+  messageKey String          @unique
+  phone      String
+  text       String
+
+  status     WaMessageStatus @default(PENDING)
+  attempts   Int             @default(0)
+  error      String?
+  sentAt     DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([instanceId])
+  @@index([status, attempts]) /// Para re-enqueue de mensajes PENDING con pocos intentos
+  @@map("whatsapp_messages")
 }
