@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import type { CreateDoctorDto, UpdateDoctorDto } from '@simplecite/shared';
-import type { PrismaService } from '../../../../common/database/prisma.service';
+import { PrismaService } from '../../../../common/database/prisma.service';
 
 const SALT_ROUNDS = 10;
 
@@ -15,7 +15,7 @@ export class DoctorsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(tenantId: string, dto: CreateDoctorDto) {
-    // Email único dentro del tenant
+    // Email Ãºnico dentro del tenant
     const existing = await this.prisma.client.user.findFirst({
       where: { email: dto.email, tenantId },
       select: { id: true },
@@ -98,7 +98,7 @@ export class DoctorsService {
 
   /**
    * Soft delete: marca el usuario como inactivo. Las citas pasadas conservan referencia.
-   * Para borrado físico, el ADMIN debería tener una ruta separada.
+   * Para borrado fÃ­sico, el ADMIN deberÃ­a tener una ruta separada.
    */
   async archive(tenantId: string, doctorId: string) {
     const doctor = await this.prisma.client.user.findFirst({
@@ -106,7 +106,7 @@ export class DoctorsService {
       select: { id: true, isActive: true },
     });
     if (!doctor) throw new NotFoundException('Doctor no encontrado');
-    if (!doctor.isActive) throw new BadRequestException('El doctor ya está archivado');
+    if (!doctor.isActive) throw new BadRequestException('El doctor ya estÃ¡ archivado');
 
     await this.prisma.client.user.update({
       where: { id: doctorId },

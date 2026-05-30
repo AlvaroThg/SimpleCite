@@ -5,13 +5,16 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import type { CreateAppointmentDto, AppointmentStatus } from '@simplecite/shared';
-import type { PrismaService } from '../../../../common/database/prisma.service';
+import { PrismaService } from '../../../../common/database/prisma.service';
 
 /**
  * Transiciones permitidas en el ciclo de vida de una cita.
  * Cualquier intento de cambio fuera de esta tabla retorna 400.
  */
 const ALLOWED_TRANSITIONS: Record<AppointmentStatus, AppointmentStatus[]> = {
+  // TENTATIVE → confirmada por OTP (sin pago) o pendiente de pago (Fase 5),
+  // o cancelada por expiración / decisión del paciente o staff.
+  TENTATIVE: ['CONFIRMED', 'PENDING_PAYMENT', 'CANCELLED'],
   PENDING_PAYMENT: ['CONFIRMED', 'CANCELLED'],
   CONFIRMED: ['COMPLETED', 'CANCELLED', 'NO_SHOW'],
   COMPLETED: [], // terminal
@@ -127,7 +130,7 @@ export class AppointmentsService {
     const allowed = ALLOWED_TRANSITIONS[current.status];
     if (!allowed.includes(nextStatus)) {
       throw new BadRequestException(
-        `Transición inválida: ${current.status} → ${nextStatus}. Permitidas: ${allowed.join(', ') || '(estado terminal)'}`,
+        `TransiciÃ³n invÃ¡lida: ${current.status} â†’ ${nextStatus}. Permitidas: ${allowed.join(', ') || '(estado terminal)'}`,
       );
     }
 
@@ -142,7 +145,10 @@ export class AppointmentsService {
 
   private isExclusionViolation(e: unknown): boolean {
     if (typeof e !== 'object' || e === null) return false;
-    const err = e as { code?: string; meta?: { code?: string } };
-    return err.code === 'P2010' && err.meta?.code === '23P01';
+    const err = e as { code?: string; message?: string; meta?: { code?: string } };
+    if (err.code === 'P2010' && err.meta?.code === '23P01') return true;
+    // PrismaClientUnknownRequestError lo entrega solo en .message
+    if (typeof err.message === 'string' && err.message.includes('23P01')) return true;
+    return false;
   }
 }

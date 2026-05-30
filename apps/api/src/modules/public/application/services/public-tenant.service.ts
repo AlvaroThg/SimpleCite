@@ -1,0 +1,86 @@
+import { Injectable, NotFoundException } from '@nestjs/common';
+import type { PublicTenantInfo, SlotsQueryDto } from '@simplecite/shared';
+import { PrismaService } from '../../../../common/database/prisma.service';
+import { SlotsService } from '../../../slots/application/services/slots.service';
+
+/**
+ * Información pública del tenant: lo que un visitante anónimo puede ver
+ * antes de identificarse. Datos sensibles (emails de staff, configuración
+ * interna, etc.) NO se exponen acá.
+ */
+@Injectable()
+export class PublicTenantService {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly slots: SlotsService,
+  ) {}
+
+  async getInfo(tenantId: string): Promise<PublicTenantInfo> {
+    const tenant = await this.prisma.client.tenant.findUnique({
+      where: { id: tenantId },
+      select: {
+        slug: true,
+        name: true,
+        logoUrl: true,
+        primaryColor: true,
+        timezone: true,
+        whatsappEnabled: true,
+        status: true,
+      },
+    });
+    if (!tenant || tenant.status === 'SUSPENDED') {
+      throw new NotFoundException('Tenant no disponible');
+    }
+    return {
+      slug: tenant.slug,
+      name: tenant.name,
+      logoUrl: tenant.logoUrl,
+      primaryColor: tenant.primaryColor,
+      timezone: tenant.timezone,
+      whatsappEnabled: tenant.whatsappEnabled,
+    };
+  }
+
+  /**
+   * Doctores activos con su especialidad/bio + servicios que ofrecen.
+   * Forma el "catálogo" que muestra la landing/wizard.
+   */
+  async listDoctorsWithServices(tenantId: string) {
+    return this.prisma.client.user.findMany({
+      where: { tenantId, role: 'DOCTOR', isActive: true },
+      select: {
+        id: true,
+        name: true,
+        doctorProfile: {
+          select: { specialty: true, bio: true },
+        },
+        doctorServices: {
+          where: { isActive: true },
+          select: {
+            id: true,
+            customDuration: true,
+            customPrice: true,
+            service: {
+              select: {
+                id: true,
+                name: true,
+                description: true,
+                duration: true,
+                price: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: { name: 'asc' },
+    });
+  }
+
+  /**
+   * Disponibilidad de slots — delega al motor de slots existente.
+   * La validación de tenantId+doctor+service la hace SlotsService internamente.
+   */
+  async getAvailability(tenantId: string, query: SlotsQueryDto) {
+    return this.slots.generate(tenantId, query);
+  }
+}

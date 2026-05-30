@@ -1,8 +1,8 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
-import type { ConfigService } from '@nestjs/config';
-import type { PrismaService } from '../../../../common/database/prisma.service';
+import { ConfigService } from '@nestjs/config';
+import { PrismaService } from '../../../../common/database/prisma.service';
 
 interface JwtPayload {
   sub: string;
@@ -24,7 +24,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   ) {
     const secret = configService.get<string>('JWT_SECRET');
     if (!secret) {
-      throw new Error('JWT_SECRET no está configurado');
+      throw new Error('JWT_SECRET no estÃ¡ configurado');
     }
 
     super({
@@ -35,7 +35,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   /**
-   * Llamado automáticamente por Passport después de verificar la firma del JWT.
+   * Llamado automÃ¡ticamente por Passport despuÃ©s de verificar la firma del JWT.
    * El valor retornado se inyecta en request.user.
    */
   async validate(payload: JwtPayload) {

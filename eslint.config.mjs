@@ -44,4 +44,14 @@ export default tseslint.config(
       'no-console': 'off',
     },
   },
+  {
+    // NestJS resuelve DI vía emitDecoratorMetadata, que necesita los tipos
+    // como valores en runtime. `import type { PrismaService }` se borra en
+    // el JS compilado y rompe `constructor(prisma: PrismaService)`. La regla
+    // se desactiva acá para que el autofix no vuelva a introducir el bug.
+    files: ['apps/api/src/**/*.ts'],
+    rules: {
+      '@typescript-eslint/consistent-type-imports': 'off',
+    },
+  },
 );

@@ -3,6 +3,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { LoggerModule } from 'nestjs-pino';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { DatabaseModule } from './common/database/database.module';
 import { TenantMiddleware } from './common/middleware/tenant.middleware';
 import { TenantContextInterceptor } from './common/interceptors/tenant-context.interceptor';
@@ -17,6 +18,7 @@ import { ServicesModule } from './modules/services/services.module';
 import { ScheduleModule } from './modules/schedule/schedule.module';
 import { AppointmentsModule } from './modules/appointments/appointments.module';
 import { SlotsModule } from './modules/slots/slots.module';
+import { PublicModule } from './modules/public/public.module';
 
 @Module({
   imports: [
@@ -64,6 +66,14 @@ import { SlotsModule } from './modules/slots/slots.module';
       },
     }),
 
+    // Rate limiting global — store en memoria (suficiente para single-VPS).
+    // Para multi-instancia: cambiar storage a @nestjs/throttler-storage-redis.
+    // El default abarca tráfico general; los endpoints OTP/booking declaran
+    // límites más estrictos via @Throttle() en sus controllers.
+    ThrottlerModule.forRoot([
+      { name: 'default', ttl: 60_000, limit: 100 }, // 100 req/min por IP
+    ]),
+
     DatabaseModule,
     HealthModule,
     TenantModule,
@@ -73,20 +83,26 @@ import { SlotsModule } from './modules/slots/slots.module';
     ScheduleModule,
     AppointmentsModule,
     SlotsModule,
+    PublicModule,
   ],
   providers: [
     // ── Orden de ejecución de guards globales ──
-    // 1. JwtAuthGuard: valida Bearer token → inyecta request.user
+    // 1. ThrottlerGuard: rate limit antes que cualquier otra lógica
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
+    // 2. JwtAuthGuard: valida Bearer token → inyecta request.user
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,
     },
-    // 2. TenantGuard: valida que el tenant está activo
+    // 3. TenantGuard: valida que el tenant está activo
     {
       provide: APP_GUARD,
       useClass: TenantGuard,
     },
-    // 3. RolesGuard: valida RBAC (@Roles() decorator)
+    // 4. RolesGuard: valida RBAC (@Roles() decorator)
     {
       provide: APP_GUARD,
       useClass: RolesGuard,

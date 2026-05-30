@@ -1,6 +1,6 @@
 import type { CanActivate, ExecutionContext } from '@nestjs/common';
 import { Injectable, ForbiddenException } from '@nestjs/common';
-import type { Reflector } from '@nestjs/core';
+import { Reflector } from '@nestjs/core';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 import { ROLES_KEY } from '../decorators/roles.decorator';
 import type { UserRole } from '@simplecite/shared';
@@ -9,10 +9,10 @@ import type { UserRole } from '@simplecite/shared';
  * Guard de RBAC. Verifica que el usuario autenticado tenga alguno de los
  * roles requeridos declarados con @Roles(...).
  *
- * Orden de ejecución (todos registrados como APP_GUARD en este orden):
- *   1. JwtAuthGuard → inyecta request.user
- *   2. TenantGuard  → valida que el tenant está activo
- *   3. RolesGuard   → valida que el rol del usuario tiene acceso
+ * Orden de ejecuciÃ³n (todos registrados como APP_GUARD en este orden):
+ *   1. JwtAuthGuard â†’ inyecta request.user
+ *   2. TenantGuard  â†’ valida que el tenant estÃ¡ activo
+ *   3. RolesGuard   â†’ valida que el rol del usuario tiene acceso
  *
  * Si el endpoint no tiene @Roles(), cualquier usuario autenticado pasa.
  */
@@ -32,7 +32,7 @@ export class RolesGuard implements CanActivate {
       context.getClass(),
     ]);
 
-    // Sin @Roles() declarado → cualquier usuario autenticado puede acceder
+    // Sin @Roles() declarado â†’ cualquier usuario autenticado puede acceder
     if (!requiredRoles || requiredRoles.length === 0) return true;
 
     const request = context.switchToHttp().getRequest();

@@ -1,8 +1,8 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
-import type { JwtService } from '@nestjs/jwt';
-import type { Logger } from 'nestjs-pino';
+import { JwtService } from '@nestjs/jwt';
+import { Logger } from 'nestjs-pino';
 import * as bcrypt from 'bcrypt';
-import type { PrismaService } from '../../../../common/database/prisma.service';
+import { PrismaService } from '../../../../common/database/prisma.service';
 
 export interface LoginResult {
   accessToken: string;
@@ -24,18 +24,18 @@ export class AuthService {
   ) {}
 
   async login(email: string, password: string, tenantId: string): Promise<LoginResult> {
-    // prisma.client usa el tx RLS-scoped si hay contexto activo (login route lo tiene vía interceptor)
+    // prisma.client usa el tx RLS-scoped si hay contexto activo (login route lo tiene vÃ­a interceptor)
     const user = await this.prisma.client.user.findFirst({
       where: { email, tenantId, isActive: true },
     });
 
     if (!user) {
-      throw new UnauthorizedException('Credenciales inválidas');
+      throw new UnauthorizedException('Credenciales invÃ¡lidas');
     }
 
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
-      throw new UnauthorizedException('Credenciales inválidas');
+      throw new UnauthorizedException('Credenciales invÃ¡lidas');
     }
 
     const payload = {

@@ -1,6 +1,6 @@
 import { Controller, Get } from '@nestjs/common';
 import { Public } from '../../../../common/decorators/public.decorator';
-import type { PrismaService } from '../../../../common/database/prisma.service';
+import { PrismaService } from '../../../../common/database/prisma.service';
 
 @Public()
 @Controller('health')

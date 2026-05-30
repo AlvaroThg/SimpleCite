@@ -12,13 +12,13 @@ import {
 import { Roles } from '../../../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../../../common/decorators/current-user.decorator';
 import { ZodValidationPipe } from '../../../../common/pipes/zod-validation.pipe';
-import type { ServicesService } from '../../application/services/services.service';
+import { ServicesService } from '../../application/services/services.service';
 
 @Controller('services')
 export class ServicesController {
   constructor(private readonly servicesService: ServicesService) {}
 
-  // ───── Catálogo del tenant ─────
+  // â”€â”€â”€â”€â”€ CatÃ¡logo del tenant â”€â”€â”€â”€â”€
 
   @Roles('ADMIN')
   @Post()
@@ -64,7 +64,7 @@ export class ServicesController {
     return this.servicesService.archive(tenantId, id);
   }
 
-  // ───── Asignaciones doctor ↔ servicio ─────
+  // â”€â”€â”€â”€â”€ Asignaciones doctor â†” servicio â”€â”€â”€â”€â”€
 
   @Roles('ADMIN')
   @Post('doctors/:doctorId/assign')

@@ -8,13 +8,13 @@ import {
 import { Roles } from '../../../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../../../common/decorators/current-user.decorator';
 import { ZodValidationPipe } from '../../../../common/pipes/zod-validation.pipe';
-import type { ScheduleService } from '../../application/services/schedule.service';
+import { ScheduleService } from '../../application/services/schedule.service';
 
 @Controller('schedule')
 export class ScheduleController {
   constructor(private readonly scheduleService: ScheduleService) {}
 
-  // ───── Reglas semanales ─────
+  // â”€â”€â”€â”€â”€ Reglas semanales â”€â”€â”€â”€â”€
 
   @Get('doctors/:doctorId/rules')
   async listRules(@CurrentUser('tenantId') tenantId: string, @Param('doctorId') doctorId: string) {
@@ -33,7 +33,7 @@ export class ScheduleController {
     return { success: true, data: rules };
   }
 
-  // ───── Bloqueos puntuales ─────
+  // â”€â”€â”€â”€â”€ Bloqueos puntuales â”€â”€â”€â”€â”€
 
   @Roles('ADMIN', 'DOCTOR')
   @Post('doctors/:doctorId/blocks')

@@ -42,6 +42,22 @@ export const envSchema = z.object({
   // ─── Cloudflare (tunneling / DNS de subdominios) ───
   CLOUDFLARE_API_TOKEN: z.string().optional(),
   CLOUDFLARE_ZONE_ID: z.string().optional(),
+
+  // ─── Cloudflare Turnstile (bot protection en endpoints públicos) ───
+  // Si TURNSTILE_SECRET_KEY no está seteada, la verificación se omite
+  // (modo dev). En prod debería estar presente — ver assertProductionInvariants.
+  TURNSTILE_SECRET_KEY: z.string().optional(),
+
+  // ─── Patient OTP / Sesión de paciente ───
+  // Secret separado del JWT_SECRET de admin/staff/doctor para reducir el
+  // blast radius si uno se filtra. La sesión del paciente vive solo durante
+  // el flujo de booking.
+  PATIENT_JWT_SECRET: z.string().min(32, 'PATIENT_JWT_SECRET debe tener al menos 32 caracteres'),
+  PATIENT_SESSION_TTL: z.string().default('30m'),
+  // Duración del OTP en minutos
+  OTP_TTL_MINUTES: z.coerce.number().int().positive().default(10),
+  // Duración de la cita TENTATIVE antes de auto-cancelarse (minutos)
+  TENTATIVE_APPOINTMENT_TTL_MINUTES: z.coerce.number().int().positive().default(15),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -60,6 +76,7 @@ function assertProductionInvariants(env: Env): void {
     'QR_SIMPLE_WEBHOOK_SECRET',
     'WHATSAPP_ORCHESTRATOR_URL',
     'WHATSAPP_ORCHESTRATOR_TOKEN',
+    'TURNSTILE_SECRET_KEY',
   ];
 
   const missing = requiredInProd.filter((k) => !env[k]);

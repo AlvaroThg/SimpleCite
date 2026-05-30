@@ -8,7 +8,7 @@ import {
 import { Roles } from '../../../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../../../common/decorators/current-user.decorator';
 import { ZodValidationPipe } from '../../../../common/pipes/zod-validation.pipe';
-import type { DoctorsService } from '../../application/services/doctors.service';
+import { DoctorsService } from '../../application/services/doctors.service';
 
 @Controller('doctors')
 export class DoctorsController {

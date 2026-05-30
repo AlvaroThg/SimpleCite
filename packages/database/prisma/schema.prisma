@@ -3,7 +3,10 @@
 // Learn more: https://pris.ly/d/prisma-schema
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  // native: para dev local (Windows / macOS / Linux glibc)
+  // linux-musl-openssl-3.0.x: para Alpine Linux (Docker / VPS)
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
 }
 
 datasource db {
@@ -23,6 +26,9 @@ enum UserRole {
 }
 
 enum AppointmentStatus {
+  /// Reservado pero aún sin confirmar (durante el flujo OTP).
+  /// Expira a través de `expiresAt`; el slot queda bloqueado mientras tanto.
+  TENTATIVE
   PENDING_PAYMENT
   CONFIRMED
   COMPLETED
@@ -214,6 +220,11 @@ model Appointment {
   qrPayload String? /// El texto para generar el QR Simple
   isPaid    Boolean @default(false)
 
+  /// TTL para citas TENTATIVE (flujo público de reserva).
+  /// Si NOW() > expiresAt y status=TENTATIVE, un job/cleanup la marca CANCELLED.
+  /// `null` para citas creadas por staff/admin (no expiran).
+  expiresAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -322,4 +333,24 @@ model DoctorScheduleBlock {
   @@index([tenantId, doctorId])
   @@index([startTime, endTime])
   @@map("doctor_schedule_blocks")
+}
+
+/// OTP para login invisible de paciente (vía WhatsApp).
+/// El código se almacena hasheado con bcrypt; nunca en texto plano.
+/// Cada (tenant, phone) puede tener varios; se usa el más reciente no consumido.
+model PatientOtp {
+  id        String  @id @default(uuid())
+  tenantId  String /// Scope RLS — derivado del slug del tenant en la URL pública
+  phone     String /// Formato E.164 sin '+', ej: 59170000000
+  codeHash  String /// bcrypt(otp_de_6_dígitos)
+
+  expiresAt  DateTime /// now + 10 min al crearse
+  attempts   Int       @default(0) /// Verificaciones fallidas — se invalida al pasar 5
+  consumedAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, phone, createdAt]) /// Buscar último OTP del paciente
+  @@index([expiresAt]) /// Cleanup batch de OTPs expirados
+  @@map("patient_otps")
 }

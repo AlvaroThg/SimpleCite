@@ -1,14 +1,14 @@
 import type { ExecutionContext } from '@nestjs/common';
 import { Injectable } from '@nestjs/common';
-import type { Reflector } from '@nestjs/core';
+import { Reflector } from '@nestjs/core';
 import { AuthGuard } from '@nestjs/passport';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 
 /**
  * Guard JWT global. Valida el Bearer token en cada request.
- * Rutas marcadas con @Public() pasan sin validación.
+ * Rutas marcadas con @Public() pasan sin validaciÃ³n.
  *
- * Registrado como APP_GUARD en AppModule → cubre TODOS los endpoints
+ * Registrado como APP_GUARD en AppModule â†’ cubre TODOS los endpoints
  * sin necesidad de aplicarlo uno por uno.
  */
 @Injectable()

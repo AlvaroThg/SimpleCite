@@ -9,7 +9,7 @@ import {
 import { Roles } from '../../../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../../../common/decorators/current-user.decorator';
 import { ZodValidationPipe } from '../../../../common/pipes/zod-validation.pipe';
-import type { AppointmentsService } from '../../application/services/appointments.service';
+import { AppointmentsService } from '../../application/services/appointments.service';
 
 @Controller('appointments')
 export class AppointmentsController {

@@ -1,0 +1,83 @@
+# =====================================================================
+# .dockerignore — qué NO mandar al contexto de build de Docker
+# =====================================================================
+# Regla de oro: nunca incluir credenciales reales (.env*), dependencias
+# instaladas (se recompilan dentro del contenedor para arquitectura
+# musl/alpine), ni artefactos de build que se generan en el builder stage.
+# =====================================================================
+
+# ─── Dependencias instaladas (se reinstalan dentro del contenedor) ──
+**/node_modules
+**/.pnpm-store
+.pnpm-store
+
+# ─── Build outputs (se compilan dentro del contenedor) ──────────────
+**/dist
+**/.next
+**/out
+**/*.tsbuildinfo
+
+# ─── Turbo cache ─────────────────────────────────────────────────────
+**/.turbo
+
+# ─── Entornos locales con credenciales (NUNCA al contexto de build) ──
+# Los .env.*.example sí se mantienen porque son templates trackeados.
+.env
+.env.local
+.env.*.local
+.env.development
+.env.test
+.env.production
+**/.env
+**/.env.local
+**/.env.*.local
+**/.env.development
+**/.env.test
+**/.env.production
+
+# ─── Control de versiones ────────────────────────────────────────────
+.git
+.github
+.gitignore
+.gitattributes
+
+# ─── IDE / editores ──────────────────────────────────────────────────
+.vscode
+.idea
+*.swp
+*.swo
+
+# ─── OS ──────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ─── Logs ────────────────────────────────────────────────────────────
+*.log
+logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+pnpm-debug.log*
+
+# ─── Testing / coverage ──────────────────────────────────────────────
+coverage
+.nyc_output
+__snapshots__
+
+# ─── Docker mismo (evita auto-referencia) ────────────────────────────
+Dockerfile
+Dockerfile.*
+docker-compose*.yml
+.dockerignore
+
+# ─── Husky (no necesario en runtime de contenedor) ───────────────────
+.husky
+
+# ─── Documentación / markdown ────────────────────────────────────────
+README.md
+*.md
+LICENSE
+
+# ─── Web app (Next.js — deploy separado en Vercel) ───────────────────
+apps/web

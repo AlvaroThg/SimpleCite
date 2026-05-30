@@ -6,6 +6,7 @@ export const UserRole = z.enum(['ADMIN', 'DOCTOR', 'STAFF']);
 export type UserRole = z.infer<typeof UserRole>;
 
 export const AppointmentStatus = z.enum([
+  'TENTATIVE', // Reservado durante flujo OTP — expira si no se confirma
   'PENDING_PAYMENT',
   'CONFIRMED',
   'COMPLETED',
@@ -192,3 +193,61 @@ export const CreateMedicalNoteSchema = z.object({
   patientId: z.string().uuid(),
 });
 export type CreateMedicalNoteDto = z.infer<typeof CreateMedicalNoteSchema>;
+
+// ─── Public API: helpers compartidos ───
+
+/**
+ * Teléfono en formato E.164 sin '+'. Permisivo para internacional (E.164 = 7-15 dígitos
+ * después del código de país). El frontend formatea según país; el backend persiste solo dígitos.
+ * Ej: 59170000000 (Bolivia), 14155551234 (USA).
+ */
+export const PhoneSchema = z
+  .string()
+  .regex(/^[1-9]\d{7,14}$/, 'Teléfono inválido (E.164 sin +, ej: 59170000000)');
+
+/** Slug de tenant: solo minúsculas, dígitos y guiones. */
+export const TenantSlugSchema = z
+  .string()
+  .min(3)
+  .max(50)
+  .regex(/^[a-z0-9-]+$/, 'Slug inválido');
+
+// ─── Patient OTP Schemas ───
+
+export const OtpRequestSchema = z.object({
+  phone: PhoneSchema,
+  turnstileToken: z.string().optional(),
+});
+export type OtpRequestDto = z.infer<typeof OtpRequestSchema>;
+
+export const OtpVerifySchema = z.object({
+  phone: PhoneSchema,
+  code: z.string().regex(/^\d{6}$/, 'El código debe tener 6 dígitos'),
+});
+export type OtpVerifyDto = z.infer<typeof OtpVerifySchema>;
+
+// ─── Public Booking Schemas ───
+
+export const CreatePublicAppointmentSchema = z.object({
+  doctorId: z.string().uuid(),
+  serviceId: z.string().uuid(),
+  startTime: z.string().datetime(),
+  patient: z.object({
+    name: z.string().min(2).max(100),
+    /// Algunos servicios (médico-legales) requieren CI; el resto puede omitirla.
+    ci: z.string().max(20).optional(),
+  }),
+});
+export type CreatePublicAppointmentDto = z.infer<typeof CreatePublicAppointmentSchema>;
+
+// ─── Public Tenant Info (response shape, no DTO de input) ───
+
+export const PublicTenantInfoSchema = z.object({
+  slug: TenantSlugSchema,
+  name: z.string(),
+  logoUrl: z.string().nullable(),
+  primaryColor: z.string(),
+  timezone: z.string(),
+  whatsappEnabled: z.boolean(),
+});
+export type PublicTenantInfo = z.infer<typeof PublicTenantInfoSchema>;

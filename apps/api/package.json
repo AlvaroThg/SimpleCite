@@ -21,6 +21,7 @@
     "@nestjs/jwt": "^11.0.0",
     "@nestjs/passport": "^11.0.5",
     "@nestjs/platform-express": "^11.0.20",
+    "@nestjs/throttler": "^6.5.0",
     "@simplecite/config": "workspace:*",
     "@simplecite/database": "workspace:*",
     "@simplecite/shared": "workspace:*",

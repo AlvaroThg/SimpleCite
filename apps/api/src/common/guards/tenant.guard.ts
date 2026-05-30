@@ -1,17 +1,17 @@
 import type { CanActivate, ExecutionContext } from '@nestjs/common';
 import { Injectable, ForbiddenException, Logger } from '@nestjs/common';
-import type { Reflector } from '@nestjs/core';
-import type { PrismaService } from '../database/prisma.service';
+import { Reflector } from '@nestjs/core';
+import { PrismaService } from '../database/prisma.service';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 
 /**
- * Guard que valida que el tenant existe y está activo.
+ * Guard que valida que el tenant existe y estÃ¡ activo.
  *
- * Orden: se ejecuta DESPUÉS de JwtAuthGuard (inyecta request.user
+ * Orden: se ejecuta DESPUÃ‰S de JwtAuthGuard (inyecta request.user
  * cuyo tenantId es la fuente de verdad para rutas autenticadas).
  *
  * Para rutas @Public() con tenantId resuelto por subdominio, el guard
- * también valida — eso protege el Web Booking portal.
+ * tambiÃ©n valida â€” eso protege el Web Booking portal.
  * Rutas @Public() sin tenantId (ej: health) pasan libremente.
  */
 @Injectable()
@@ -32,7 +32,7 @@ export class TenantGuard implements CanActivate {
       context.getClass(),
     ]);
 
-    // Rutas públicas sin tenant resuelto (health, etc.) pasan sin validación
+    // Rutas pÃºblicas sin tenant resuelto (health, etc.) pasan sin validaciÃ³n
     if (isPublic && !tenantId) return true;
 
     if (!tenantId) {
@@ -46,13 +46,13 @@ export class TenantGuard implements CanActivate {
 
     if (!tenant) {
       this.logger.warn(`Tenant no encontrado: ${tenantId}`);
-      throw new ForbiddenException('Clínica no encontrada');
+      throw new ForbiddenException('ClÃ­nica no encontrada');
     }
 
     if (tenant.status === 'SUSPENDED') {
       this.logger.warn(`Tenant suspendido: ${tenant.slug}`);
       throw new ForbiddenException(
-        'La cuenta de esta clínica ha sido suspendida. Contacte al administrador.',
+        'La cuenta de esta clÃ­nica ha sido suspendida. Contacte al administrador.',
       );
     }
 

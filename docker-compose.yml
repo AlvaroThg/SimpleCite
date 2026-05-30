@@ -1,0 +1,52 @@
+# =====================================================================
+# docker-compose.yml — SimpleCite backend (NestJS) para dev y VPS
+# =====================================================================
+# - DB externa (Supabase): NO se levanta servicio postgres aquí.
+# - env_file apunta a .env.development en local; en VPS se sustituye por
+#   .env.production sin tocar el resto del archivo.
+# - El override de NODE_ENV=development habilita pino-pretty y CORS
+#   permisivo a localhost:3000 (Next dev). Para VPS, quitar ese override
+#   o pasar NODE_ENV=production explícito.
+# =====================================================================
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runner
+      args:
+        NODE_VERSION: 20-alpine
+        PNPM_VERSION: 10.33.2
+        TURBO_VERSION: 2.5.4
+    image: simplecite-api:dev
+    container_name: simplecite-api
+    restart: unless-stopped
+
+    # Mapping host:contenedor. El host se puede override con `export API_PORT=4000`.
+    ports:
+      - '${API_PORT:-3001}:3001'
+
+    # Carga DATABASE_URL, DIRECT_URL, JWT_SECRET, SUPABASE_*, etc.
+    env_file:
+      - .env.development
+
+    # Override: forzar dev mode dentro del contenedor para logs legibles
+    # (pino-pretty) y CORS hacia localhost:3000. Quitar para validar build
+    # tipo-producción.
+    environment:
+      NODE_ENV: development
+
+    # Healthcheck contra el endpoint público /api/health (HealthController).
+    # wget viene incluido en BusyBox de alpine.
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - 'wget --no-verbose --tries=1 --spider http://localhost:3001/api/health || exit 1'
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+    # Red por defecto (bridge); el contenedor sale a internet para hablar
+    # con Supabase. No se necesita configuración extra.

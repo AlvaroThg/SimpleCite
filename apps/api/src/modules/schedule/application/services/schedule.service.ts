@@ -1,12 +1,12 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import type { ReplaceScheduleRulesDto, CreateScheduleBlockDto } from '@simplecite/shared';
-import type { PrismaService } from '../../../../common/database/prisma.service';
+import { PrismaService } from '../../../../common/database/prisma.service';
 
 @Injectable()
 export class ScheduleService {
   constructor(private readonly prisma: PrismaService) {}
 
-  // ───── Reglas semanales ─────
+  // â”€â”€â”€â”€â”€ Reglas semanales â”€â”€â”€â”€â”€
 
   async listRules(tenantId: string, doctorId: string) {
     await this.assertDoctorBelongs(tenantId, doctorId);
@@ -17,17 +17,17 @@ export class ScheduleService {
   }
 
   /**
-   * Reemplaza atómicamente todas las reglas del doctor.
-   * Patrón típico: el frontend manda el set completo del horario semanal.
+   * Reemplaza atÃ³micamente todas las reglas del doctor.
+   * PatrÃ³n tÃ­pico: el frontend manda el set completo del horario semanal.
    */
   async replaceRules(tenantId: string, doctorId: string, dto: ReplaceScheduleRulesDto) {
     await this.assertDoctorBelongs(tenantId, doctorId);
 
-    // Validar que las reglas no se solapen dentro del mismo día
+    // Validar que las reglas no se solapen dentro del mismo dÃ­a
     this.assertNoIntraDayOverlap(dto.rules);
 
-    // El request ya corre dentro de una transacción tenant-scoped (RLS),
-    // así que delete+create son atómicos por construcción del interceptor.
+    // El request ya corre dentro de una transacciÃ³n tenant-scoped (RLS),
+    // asÃ­ que delete+create son atÃ³micos por construcciÃ³n del interceptor.
     await this.prisma.client.doctorScheduleRule.deleteMany({
       where: { doctorId, tenantId },
     });
@@ -41,7 +41,7 @@ export class ScheduleService {
     });
   }
 
-  // ───── Bloqueos puntuales ─────
+  // â”€â”€â”€â”€â”€ Bloqueos puntuales â”€â”€â”€â”€â”€
 
   async createBlock(tenantId: string, doctorId: string, dto: CreateScheduleBlockDto) {
     await this.assertDoctorBelongs(tenantId, doctorId);
@@ -78,7 +78,7 @@ export class ScheduleService {
     return { success: true };
   }
 
-  // ───── Helpers ─────
+  // â”€â”€â”€â”€â”€ Helpers â”€â”€â”€â”€â”€
 
   private async assertDoctorBelongs(tenantId: string, doctorId: string) {
     const doctor = await this.prisma.client.user.findFirst({
@@ -102,7 +102,7 @@ export class ScheduleService {
       for (let i = 1; i < ranges.length; i++) {
         if (ranges[i].startMinute < ranges[i - 1].endMinute) {
           throw new BadRequestException(
-            `Reglas solapadas en día ${day}: ${ranges[i - 1].startMinute}-${ranges[i - 1].endMinute} y ${ranges[i].startMinute}-${ranges[i].endMinute}`,
+            `Reglas solapadas en dÃ­a ${day}: ${ranges[i - 1].startMinute}-${ranges[i - 1].endMinute} y ${ranges[i].startMinute}-${ranges[i].endMinute}`,
           );
         }
       }

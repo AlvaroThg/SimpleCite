@@ -2,17 +2,17 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { addDays, startOfDay, endOfDay } from 'date-fns';
 import { fromZonedTime, toZonedTime } from 'date-fns-tz';
 import type { SlotsQueryDto, SlotDto } from '@simplecite/shared';
-import type { PrismaService } from '../../../../common/database/prisma.service';
+import { PrismaService } from '../../../../common/database/prisma.service';
 
 const MAX_RANGE_DAYS = 60;
 
 /**
- * Motor de generación de slots de disponibilidad.
+ * Motor de generaciÃ³n de slots de disponibilidad.
  *
  * Algoritmo:
- *   1. Resolver DoctorService → duración del slot (custom o catálogo)
+ *   1. Resolver DoctorService â†’ duraciÃ³n del slot (custom o catÃ¡logo)
  *   2. Resolver tenant.timezone
- *   3. Para cada día en [from, to]:
+ *   3. Para cada dÃ­a en [from, to]:
  *      a. Aplicar reglas semanales del doctor (en timezone local)
  *      b. Restar bloqueos del doctor
  *      c. Restar citas existentes (PENDING_PAYMENT + CONFIRMED)
@@ -32,10 +32,10 @@ export class SlotsService {
     }
     const days = Math.ceil((to.getTime() - from.getTime()) / 86_400_000);
     if (days > MAX_RANGE_DAYS) {
-      throw new BadRequestException(`El rango máximo es de ${MAX_RANGE_DAYS} días`);
+      throw new BadRequestException(`El rango mÃ¡ximo es de ${MAX_RANGE_DAYS} dÃ­as`);
     }
 
-    // 1. Tenant + DoctorService (duración) + reglas + bloqueos + citas existentes
+    // 1. Tenant + DoctorService (duraciÃ³n) + reglas + bloqueos + citas existentes
     const [tenant, doctorService] = await Promise.all([
       this.prisma.client.tenant.findFirst({
         where: { id: tenantId },
@@ -72,7 +72,9 @@ export class SlotsService {
       this.prisma.client.appointment.findMany({
         where: {
           doctorId: query.doctorId,
-          status: { in: ['PENDING_PAYMENT', 'CONFIRMED'] },
+          // TENTATIVE también ocupa: hay un paciente verificando OTP en este slot.
+          // Coherente con el exclusion constraint que también incluye TENTATIVE.
+          status: { in: ['TENTATIVE', 'PENDING_PAYMENT', 'CONFIRMED'] },
           endTime: { gte: from },
           startTime: { lte: to },
         },
@@ -88,7 +90,7 @@ export class SlotsService {
       rulesByDay.set(r.dayOfWeek, list);
     }
 
-    // 2. Generar slots día por día
+    // 2. Generar slots dÃ­a por dÃ­a
     const slots: SlotDto[] = [];
     const now = new Date();
 
@@ -100,7 +102,7 @@ export class SlotsService {
       if (!dayRules?.length) continue;
 
       for (const rule of dayRules) {
-        // Construir startTime/endTime en UTC a partir del minuto local del día
+        // Construir startTime/endTime en UTC a partir del minuto local del dÃ­a
         const ruleStartLocal = this.buildLocalDateTime(dayLocal, rule.startMinute);
         const ruleEndLocal = this.buildLocalDateTime(dayLocal, rule.endMinute);
         const ruleStartUtc = fromZonedTime(ruleStartLocal, timezone);
@@ -129,7 +131,7 @@ export class SlotsService {
       }
     }
 
-    // Recortar al rango [from, to] (la fecha 'to' puede partir un día)
+    // Recortar al rango [from, to] (la fecha 'to' puede partir un dÃ­a)
     return slots.filter((s) => {
       const slotStart = new Date(s.startTime);
       return slotStart >= startOfDay(from) && slotStart < endOfDay(to);

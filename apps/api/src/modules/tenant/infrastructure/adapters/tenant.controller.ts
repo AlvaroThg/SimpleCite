@@ -1,6 +1,6 @@
 import { Controller, Get, Param } from '@nestjs/common';
 import { Public } from '../../../../common/decorators/public.decorator';
-import type { TenantService } from '../../application/services/tenant.service';
+import { TenantService } from '../../application/services/tenant.service';
 
 @Controller('tenants')
 export class TenantController {
@@ -12,10 +12,10 @@ export class TenantController {
     const tenant = await this.tenantService.findBySlug(slug);
 
     if (!tenant) {
-      return { success: false, error: 'Clínica no encontrada' };
+      return { success: false, error: 'ClÃ­nica no encontrada' };
     }
 
-    // Retornar solo datos públicos (no sensibles)
+    // Retornar solo datos pÃºblicos (no sensibles)
     return {
       success: true,
       data: {
