@@ -54,4 +54,13 @@ export default tseslint.config(
       '@typescript-eslint/consistent-type-imports': 'off',
     },
   },
+  {
+    // Next.js usa valor de `NextRequest`/`NextResponse` en middleware y edge
+    // runtime aunque el autofix los clasifique como type-only. Deshabilitar
+    // en web para evitar falsos positivos del mismo autofix de ESLint.
+    files: ['apps/web/src/**/*.ts', 'apps/web/src/**/*.tsx'],
+    rules: {
+      '@typescript-eslint/consistent-type-imports': 'off',
+    },
+  },
 );
