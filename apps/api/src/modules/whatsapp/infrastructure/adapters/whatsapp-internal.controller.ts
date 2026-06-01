@@ -2,27 +2,18 @@ import { Controller, Post, Body, Headers, UnauthorizedException } from '@nestjs/
 import { Logger } from 'nestjs-pino';
 import { Public } from '../../../../common/decorators';
 import { PrismaService } from '../../../../common/database/prisma.service';
+import { WaBotService } from '../../application/services/wa-bot.service';
+
+type WaEvent = 'connected' | 'disconnected' | 'qr' | 'message_received';
 
 interface WaWebhookPayload {
   tenantId: string;
-  event: 'connected' | 'disconnected' | 'qr';
+  event: WaEvent;
   phone?: string;
+  text?: string;
   reason?: string;
 }
 
-/**
- * Webhook receiver para eventos de los contenedores Baileys.
- *
- * Los contenedores POST a este endpoint cuando cambia su estado de conexión.
- * Solo es accesible desde dentro de la red Docker `simplecite-internal`
- * (no expuesto al internet directamente). Autenticado por `x-internal-secret`.
- *
- * Este controller actualiza la tabla `whatsapp_instances` en la DB para
- * mantener sincronizado el estado real del contenedor con la vista en DB.
- *
- * @Public() es necesario para bypassear el JwtAuthGuard global.
- * La autenticación es por `x-internal-secret` (shared secret entre API y contenedores).
- */
 @Public()
 @Controller('internal/whatsapp')
 export class WhatsappInternalController {
@@ -30,6 +21,7 @@ export class WhatsappInternalController {
 
   constructor(
     private readonly prisma: PrismaService,
+    private readonly bot: WaBotService,
     private readonly logger: Logger,
   ) {}
 
@@ -38,19 +30,24 @@ export class WhatsappInternalController {
     @Headers('x-internal-secret') secret: string | undefined,
     @Body() payload: WaWebhookPayload,
   ) {
-    // Validar shared secret (solo si está configurado — dev puede dejarlo vacío)
     if (this.secret && secret !== this.secret) {
       throw new UnauthorizedException('Invalid internal secret');
     }
 
-    const { tenantId, event, phone, reason } = payload;
+    const { tenantId, event, phone, text, reason } = payload;
+
+    if (event === 'message_received') {
+      if (!phone || !text) return { received: true };
+      await this.handleIncomingMessage(tenantId, phone, text);
+      return { received: true };
+    }
 
     this.logger.log(
       { event: `wa.webhook.${event}`, tenantId, phone, reason },
       'WhatsappInternalController',
     );
 
-    const statusMap: Record<WaWebhookPayload['event'], string> = {
+    const statusMap: Record<Exclude<WaEvent, 'message_received'>, string> = {
       connected: 'CONNECTED',
       disconnected: 'DISCONNECTED',
       qr: 'PAIRING',
@@ -65,7 +62,7 @@ export class WhatsappInternalController {
       await this.prisma.whatsappInstance.update({
         where: { id: instance.id },
         data: {
-          status: statusMap[event] as never,
+          status: statusMap[event as Exclude<WaEvent, 'message_received'>] as never,
           phone: event === 'connected' ? phone : event === 'disconnected' ? null : undefined,
           lastSeen: new Date(),
         },
@@ -73,5 +70,39 @@ export class WhatsappInternalController {
     }
 
     return { received: true };
+  }
+
+  private async handleIncomingMessage(tenantId: string, phone: string, text: string) {
+    const instance = await this.prisma.whatsappInstance.findFirst({
+      where: { tenantId, status: 'CONNECTED' },
+      select: { id: true, containerName: true },
+    });
+
+    if (!instance) {
+      this.logger.warn(
+        { event: 'wa.bot.no-instance', tenantId, phone },
+        'WhatsappInternalController',
+      );
+      return;
+    }
+
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { slug: true, timezone: true },
+    });
+
+    if (!tenant) return;
+
+    // Derivar tenantSlug del containerName: "wa-clinica-demo" → "clinica-demo"
+    const tenantSlug = instance.containerName.replace(/^wa-/, '');
+
+    await this.bot.handleMessage({
+      tenantId,
+      instanceId: instance.id,
+      tenantSlug: tenant.slug ?? tenantSlug,
+      phone,
+      text,
+      timezone: tenant.timezone,
+    });
   }
 }

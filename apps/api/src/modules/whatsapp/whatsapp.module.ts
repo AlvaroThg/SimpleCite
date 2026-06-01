@@ -3,6 +3,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 
 import { InstanceManagerService } from './application/services/instance-manager.service';
 import { WaMessageService } from './application/services/wa-message.service';
+import { WaBotService } from './application/services/wa-bot.service';
 import { WhatsappHealthService } from './application/services/whatsapp-health.service';
 import { WhatsappAdminController } from './infrastructure/adapters/whatsapp-admin.controller';
 import { WhatsappInternalController } from './infrastructure/adapters/whatsapp-internal.controller';
@@ -21,7 +22,7 @@ import { WhatsappInternalController } from './infrastructure/adapters/whatsapp-i
 @Module({
   imports: [ScheduleModule.forRoot()],
   controllers: [WhatsappAdminController, WhatsappInternalController],
-  providers: [InstanceManagerService, WaMessageService, WhatsappHealthService],
+  providers: [InstanceManagerService, WaMessageService, WaBotService, WhatsappHealthService],
   exports: [InstanceManagerService, WaMessageService],
 })
 export class WhatsappModule {}

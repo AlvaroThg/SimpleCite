@@ -395,6 +395,7 @@ model WhatsappInstance {
   restartCount  Int              @default(0)
 
   messages      WhatsappMessage[]
+  conversations WaConversation[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -429,4 +430,41 @@ model WhatsappMessage {
   @@index([instanceId])
   @@index([status, attempts]) /// Para re-enqueue de mensajes PENDING con pocos intentos
   @@map("whatsapp_messages")
+}
+
+enum WaConversationState {
+  IDLE
+  AWAITING_DOCTOR
+  AWAITING_SERVICE
+  AWAITING_DATE
+  AWAITING_SLOT
+  AWAITING_NAME
+  AWAITING_OTP
+  COMPLETED
+}
+
+/// Estado conversacional de un paciente interactuando con el bot por WhatsApp.
+/// Una conversación por (tenant, phone). Expira tras 30 min de inactividad.
+model WaConversation {
+  id         String              @id @default(uuid())
+  tenantId   String
+  instanceId String
+  instance   WhatsappInstance    @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+
+  phone     String
+  state     WaConversationState @default(IDLE)
+  /// Contexto JSON: doctor seleccionado, servicio, fecha, slot, etc.
+  context   Json                @default("{}")
+
+  lastMessageAt DateTime @default(now())
+  /// La conversación expira si no hay actividad en 30 min.
+  expiresAt     DateTime
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, phone]) /// Una conversación activa por paciente
+  @@index([tenantId])
+  @@index([expiresAt])
+  @@map("wa_conversations")
 }

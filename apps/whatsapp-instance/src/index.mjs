@@ -99,6 +99,30 @@ async function startSocket() {
 
   sock.ev.on('creds.update', saveCreds);
 
+  // ─── Mensajes entrantes → webhook del orquestador ────────────────
+  // El bot conversacional vive en NestJS; esta instancia solo reenvía.
+  sock.ev.on('messages.upsert', async ({ messages, type }) => {
+    // 'notify' = mensajes nuevos del usuario; 'append' = histórico al conectar
+    if (type !== 'notify') return;
+    for (const msg of messages) {
+      // Ignorar mensajes propios, de grupos, y mensajes sin texto
+      if (!msg.message || msg.key.fromMe) continue;
+      if (msg.key.remoteJid?.endsWith('@g.us')) continue;
+
+      const phone = msg.key.remoteJid?.replace('@s.whatsapp.net', '') ?? null;
+      const text = (
+        msg.message.conversation ??
+        msg.message.extendedTextMessage?.text ??
+        msg.message.imageMessage?.caption ??
+        null
+      );
+      if (!phone || !text) continue;
+
+      await notifyWebhook({ event: 'message_received', phone, text: text.trim() });
+      logger.info({ event: 'message.forwarded', phone }, 'incoming message forwarded');
+    }
+  });
+
   sock.ev.on('connection.update', async (update) => {
     const { connection, lastDisconnect, qr } = update;
 
