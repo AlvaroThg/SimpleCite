@@ -10,9 +10,10 @@
 
 FROM node:20-alpine AS base
 
-# Dependencias de sistema que Baileys puede necesitar para criptografía
-# (libssl para operaciones TLS nativas del módulo de auth)
-RUN apk add --no-cache openssl
+# openssl  → Baileys necesita para criptografía TLS del auth
+# git      → npm lo necesita en build-time para resolver deps con URLs de git
+# python3 + make + g++ → por si alguna dep nativa requiere compilación (node-gyp)
+RUN apk add --no-cache openssl git python3 make g++
 
 WORKDIR /app
 
