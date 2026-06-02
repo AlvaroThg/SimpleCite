@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { Logger } from 'nestjs-pino';
+import { formatInTimeZone } from 'date-fns-tz';
 import { PrismaService } from '../../../../common/database/prisma.service';
+import { WaMessageService } from '../../../whatsapp/application/services/wa-message.service';
 
 export interface PaymentWebhookPayload {
   eventId: string;
@@ -27,6 +29,7 @@ export interface PaymentWebhookPayload {
 export class PaymentsWebhookService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly waMessage: WaMessageService,
     private readonly logger: Logger,
   ) {}
 
@@ -77,6 +80,8 @@ export class PaymentsWebhookService {
     // 3. Aplicar la transición idempotentemente
     if (payload.status === 'PAID') {
       await this.applyPaid(intent.id, intent.appointmentId, payload.paidAt);
+      // Confirmación por WhatsApp (no-bloqueante: un fallo no afecta el webhook).
+      void this.sendConfirmation(intent.appointmentId);
     } else if (payload.status === 'FAILED') {
       await this.applyFailed(intent.id);
     }
@@ -126,6 +131,51 @@ export class PaymentsWebhookService {
       data: { status: 'FAILED' },
     });
     // La cita permanece en PENDING_PAYMENT — el paciente puede reintentar.
+  }
+
+  /**
+   * Envía la confirmación de cita por WhatsApp tras el pago. No-bloqueante:
+   * si no hay instancia WA conectada (dev/stub), WaMessageService lanza y lo
+   * capturamos — la confirmación del pago ya se persistió igual.
+   */
+  private async sendConfirmation(appointmentId: string) {
+    try {
+      const appt = await this.prisma.appointment.findUnique({
+        where: { id: appointmentId },
+        include: {
+          patient: { select: { phone: true, name: true } },
+          doctor: { select: { name: true } },
+          service: { select: { name: true } },
+          tenant: { select: { slug: true, name: true, timezone: true } },
+        },
+      });
+      if (!appt) return;
+
+      const when = formatInTimeZone(
+        appt.startTime,
+        appt.tenant.timezone,
+        "EEEE dd/MM 'a las' HH:mm",
+      );
+      const text =
+        `✅ *Cita confirmada* — ${appt.tenant.name}\n\n` +
+        `👨‍⚕️ ${appt.doctor.name}\n` +
+        `🩺 ${appt.service.name}\n` +
+        `📅 ${when}\n\n` +
+        `¡Pago recibido! Te esperamos. Recibirás un recordatorio el día anterior.`;
+
+      await this.waMessage.send({
+        tenantId: appt.tenantId,
+        tenantSlug: appt.tenant.slug,
+        messageKey: `confirm:${appointmentId}`, // idempotente: 1 confirmación por cita
+        phone: appt.patient.phone,
+        text,
+      });
+    } catch (err) {
+      this.logger.warn(
+        { event: 'payment.confirmation.send-failed', appointmentId, err: (err as Error).message },
+        'PaymentsWebhookService',
+      );
+    }
   }
 
   private isUniqueViolation(err: unknown): boolean {

@@ -9,13 +9,15 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@simplecite/shared": "workspace:*",
     "next": "^15.3.3",
+    "qrcode": "^1.5.4",
     "react": "^19.1.0",
-    "react-dom": "^19.1.0",
-    "@simplecite/shared": "workspace:*"
+    "react-dom": "^19.1.0"
   },
   "devDependencies": {
     "@types/node": "^22.15.17",
+    "@types/qrcode": "^1.5.6",
     "@types/react": "^19.1.4",
     "@types/react-dom": "^19.1.5",
     "postcss": "^8.5.3",

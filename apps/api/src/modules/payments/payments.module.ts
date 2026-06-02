@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { PassportModule } from '@nestjs/passport';
+import { WhatsappModule } from '../whatsapp/whatsapp.module';
 
 import { QrSimpleClient } from './application/services/qr-simple.client';
 import { PaymentsService } from './application/services/payments.service';
@@ -23,7 +24,7 @@ import { PatientJwtStrategy } from '../public/infrastructure/strategies/patient-
  * en los endpoints públicos de pago (mismo patrón que PublicModule).
  */
 @Module({
-  imports: [PassportModule],
+  imports: [PassportModule, WhatsappModule],
   controllers: [PaymentsPublicController, PaymentsWebhookController],
   providers: [
     QrSimpleClient,

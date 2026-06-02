@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import QRCode from 'qrcode';
 import {
   getDoctors,
   getTenantInfo,
@@ -9,7 +10,8 @@ import {
   requestOtp,
   verifyOtp,
   createBooking,
-  confirmBooking,
+  createPayment,
+  getPaymentStatus,
   ApiError,
   type DoctorWithServices,
   type Slot,
@@ -26,6 +28,7 @@ type Step =
   | 'select-slot'
   | 'patient-info'
   | 'verify-otp'
+  | 'payment'
   | 'confirmed';
 
 interface State {
@@ -43,6 +46,12 @@ interface State {
   otpCode: string;
   sessionToken: string;
   appointmentId: string;
+  // ── Pago ──
+  intentId: string;
+  qrDataUrl: string; // imagen del QR (data:image/png;base64)
+  amount: number;
+  paymentExpiresAt: string;
+  paymentExpired: boolean;
   loading: boolean;
   error: string;
 }
@@ -98,6 +107,11 @@ export default function BookingWizard() {
     otpCode: '',
     sessionToken: '',
     appointmentId: '',
+    intentId: '',
+    qrDataUrl: '',
+    amount: 0,
+    paymentExpiresAt: '',
+    paymentExpired: false,
     loading: true,
     error: '',
   });
@@ -133,8 +147,49 @@ export default function BookingWizard() {
       .catch(() => set({ error: 'No se pudo cargar la disponibilidad.', loading: false }));
   }, [slug, state.selectedDoctor?.id, state.selectedService?.service.id, state.selectedDate]);
 
+  // ─── Polling del estado de pago (cada 3s mientras step === 'payment') ──
+  useEffect(() => {
+    if (state.step !== 'payment' || !state.intentId || state.paymentExpired) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const st = await getPaymentStatus(slug, state.sessionToken, state.intentId);
+        if (st.status === 'PAID') {
+          set({ step: 'confirmed' });
+        } else if (st.status === 'EXPIRED' || st.status === 'FAILED') {
+          set({ paymentExpired: true });
+        }
+      } catch {
+        // Error transitorio de red — el próximo tick reintenta.
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [state.step, state.intentId, state.paymentExpired, slug, state.sessionToken]);
+
+  // ─── Ticker de 1s para el countdown de expiración ──────────────────
+  const [nowTick, setNowTick] = useState(Date.now());
+  useEffect(() => {
+    if (state.step !== 'payment') return;
+    const t = setInterval(() => setNowTick(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [state.step]);
+
+  // Marcar expirado cuando el countdown llega a 0
+  useEffect(() => {
+    if (state.step === 'payment' && state.paymentExpiresAt && !state.paymentExpired) {
+      if (new Date(state.paymentExpiresAt).getTime() - nowTick <= 0) {
+        set({ paymentExpired: true });
+      }
+    }
+  }, [nowTick, state.step, state.paymentExpiresAt, state.paymentExpired]);
+
   const primary = state.tenant?.primaryColor ?? '#3B82F6';
   const tz = state.tenant?.timezone ?? 'America/La_Paz';
+  const secondsLeft =
+    state.paymentExpiresAt && !state.paymentExpired
+      ? Math.max(0, Math.floor((new Date(state.paymentExpiresAt).getTime() - nowTick) / 1000))
+      : 0;
 
   // ─── Acciones ──────────────────────────────────────────────────────
 
@@ -166,18 +221,49 @@ export default function BookingWizard() {
         },
       });
 
-      const confirmed = await confirmBooking(slug, sessionToken, booking.appointmentId);
-      void confirmed;
+      // Generar el intent de pago + QR
+      const payment = await createPayment(slug, sessionToken, booking.appointmentId);
+      const qrDataUrl = await QRCode.toDataURL(payment.qrPayload, { width: 280, margin: 1 });
 
       set({
         sessionToken,
         appointmentId: booking.appointmentId,
-        step: 'confirmed',
+        intentId: payment.intentId,
+        amount: payment.amount,
+        paymentExpiresAt: payment.expiresAt,
+        qrDataUrl,
+        paymentExpired: false,
+        step: 'payment',
         loading: false,
       });
     } catch (e) {
       set({
-        error: e instanceof ApiError ? e.message : 'Error al confirmar la cita',
+        error: e instanceof ApiError ? e.message : 'Error al generar el pago',
+        loading: false,
+      });
+    }
+  }
+
+  /**
+   * Reintento de pago: genera un nuevo intent (el backend expira el anterior)
+   * y refresca el QR + timer.
+   */
+  async function handleRetryPayment() {
+    set({ loading: true, paymentExpired: false });
+    try {
+      const payment = await createPayment(slug, state.sessionToken, state.appointmentId);
+      const qrDataUrl = await QRCode.toDataURL(payment.qrPayload, { width: 280, margin: 1 });
+      set({
+        intentId: payment.intentId,
+        amount: payment.amount,
+        paymentExpiresAt: payment.expiresAt,
+        qrDataUrl,
+        paymentExpired: false,
+        loading: false,
+      });
+    } catch (e) {
+      set({
+        error: e instanceof ApiError ? e.message : 'Error al regenerar el pago',
         loading: false,
       });
     }
@@ -378,7 +464,7 @@ export default function BookingWizard() {
             />
 
             <Btn
-              label="Confirmar mi cita"
+              label="Continuar al pago"
               color={primary}
               loading={state.loading}
               disabled={state.otpCode.length !== 6}
@@ -395,7 +481,69 @@ export default function BookingWizard() {
         </StepCard>
       )}
 
-      {/* ── Paso 6: Confirmado ── */}
+      {/* ── Paso 6: Pago QR ── */}
+      {state.step === 'payment' && (
+        <StepCard title="Escanea para pagar">
+          <div className="text-center space-y-4">
+            <p className="text-gray-600 text-sm">
+              Abre tu app de banca o billetera y escanea el código QR para pagar.
+            </p>
+
+            <div className="flex flex-col items-center gap-2">
+              <div className="text-3xl font-bold text-gray-900">Bs {state.amount.toFixed(2)}</div>
+
+              {state.paymentExpired ? (
+                <div className="w-[280px] h-[280px] flex flex-col items-center justify-center bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200 gap-3">
+                  <span className="text-4xl">⏰</span>
+                  <p className="text-gray-500 text-sm px-6">
+                    El código de pago expiró. Genera uno nuevo para continuar.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <img
+                    src={state.qrDataUrl}
+                    alt="Código QR de pago"
+                    className="w-[280px] h-[280px] rounded-2xl border border-gray-100"
+                  />
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="text-gray-400">Expira en</span>
+                    <span
+                      className="font-mono font-bold tabular-nums"
+                      style={{ color: secondsLeft < 60 ? '#dc2626' : primary }}
+                    >
+                      {Math.floor(secondsLeft / 60)}:{String(secondsLeft % 60).padStart(2, '0')}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-gray-400 mt-1">
+                    <span className="inline-block w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+                    Esperando confirmación del pago...
+                  </div>
+                </>
+              )}
+            </div>
+
+            {state.paymentExpired && (
+              <Btn
+                label="Generar nuevo código"
+                color={primary}
+                loading={state.loading}
+                disabled={state.loading}
+                onClick={handleRetryPayment}
+              />
+            )}
+
+            <button
+              className="w-full text-sm text-gray-500 underline text-center"
+              onClick={() => router.push(`/${slug}`)}
+            >
+              Cancelar y volver
+            </button>
+          </div>
+        </StepCard>
+      )}
+
+      {/* ── Paso 7: Confirmado ── */}
       {state.step === 'confirmed' && state.selectedSlot && (
         <StepCard title="">
           <div className="text-center space-y-4 py-4">
@@ -437,12 +585,13 @@ const STEPS: Step[] = [
   'select-slot',
   'patient-info',
   'verify-otp',
+  'payment',
   'confirmed',
 ];
 
 function Stepper({ step, primary }: { step: Step; primary: string }) {
   const idx = STEPS.indexOf(step);
-  const labels = ['Doctor', 'Servicio', 'Horario', 'Datos', 'OTP', '¡Listo!'];
+  const labels = ['Doctor', 'Servicio', 'Horario', 'Datos', 'OTP', 'Pago', '¡Listo!'];
   return (
     <div className="flex items-center gap-1 overflow-x-auto">
       {STEPS.map((s, i) => (
