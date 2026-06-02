@@ -3,7 +3,9 @@ import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  // rawBody: true expone req.rawBody (Buffer) — necesario para validar la
+  // firma HMAC del webhook de pagos sobre el cuerpo crudo (no re-serializado).
+  const app = await NestFactory.create(AppModule, { bufferLogs: true, rawBody: true });
 
   // Reemplazar el logger por defecto de NestJS con Pino estructurado
   app.useLogger(app.get(Logger));

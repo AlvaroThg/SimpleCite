@@ -20,6 +20,7 @@ import { AppointmentsModule } from './modules/appointments/appointments.module';
 import { SlotsModule } from './modules/slots/slots.module';
 import { PublicModule } from './modules/public/public.module';
 import { WhatsappModule } from './modules/whatsapp/whatsapp.module';
+import { PaymentsModule } from './modules/payments/payments.module';
 
 @Module({
   imports: [
@@ -86,6 +87,7 @@ import { WhatsappModule } from './modules/whatsapp/whatsapp.module';
     SlotsModule,
     PublicModule,
     WhatsappModule,
+    PaymentsModule,
   ],
   providers: [
     // ── Orden de ejecución de guards globales ──

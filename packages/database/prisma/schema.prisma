@@ -64,6 +64,13 @@ enum WaMessageStatus {
   FAILED
 }
 
+enum PaymentStatus {
+  PENDING /// Intent creado, esperando confirmación de pago
+  PAID    /// Pago confirmado vía webhook
+  FAILED  /// Pago rechazado/fallido
+  EXPIRED /// Intent expiró sin pagarse (lo marca el cron de conciliación)
+}
+
 // ─────────────────────────────────────
 // MODELS
 // ─────────────────────────────────────
@@ -234,8 +241,12 @@ model Appointment {
   service   Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
 
   // Información de Pago QR Simple
-  qrPayload String? /// El texto para generar el QR Simple
+  // `qrPayload`/`isPaid` se mantienen como flags denormalizados en la cita;
+  // la fuente de verdad del pago vive en PaymentIntent (1:N para reintentos).
+  qrPayload String? /// El texto para generar el QR Simple (del intent activo)
   isPaid    Boolean @default(false)
+
+  paymentIntents PaymentIntent[]
 
   /// TTL para citas TENTATIVE (flujo público de reserva).
   /// Si NOW() > expiresAt y status=TENTATIVE, un job/cleanup la marca CANCELLED.
@@ -467,4 +478,64 @@ model WaConversation {
   @@index([tenantId])
   @@index([expiresAt])
   @@map("wa_conversations")
+}
+
+/// Intent de pago de una cita vía QR Simple.
+/// Relación 1:N con Appointment: cada reintento crea un nuevo intent y se
+/// preserva el historial (los anteriores quedan EXPIRED/FAILED). Solo uno
+/// debería estar PENDING a la vez por cita.
+model PaymentIntent {
+  id            String   @id @default(uuid())
+  tenantId      String
+  appointmentId String
+  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+
+  /// Monto congelado al emitir el intent (snapshot del precio del servicio).
+  /// Bloquea cambios de precio: aunque Service.price cambie luego, este monto
+  /// es inmutable para este intent.
+  amount   Decimal       @db.Decimal(10, 2)
+  currency String        @default("BOB") /// Bolivianos
+  status   PaymentStatus @default(PENDING)
+
+  /// ID del cobro en el proveedor (QR Simple). Único para conciliación.
+  providerPaymentId String? @unique
+  /// Payload del QR (texto EMV o URL) para renderizar la imagen en el cliente.
+  qrPayload String? @db.Text
+
+  expiresAt DateTime
+  paidAt    DateTime?
+
+  events PaymentEvent[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([appointmentId])
+  @@index([status, expiresAt]) /// Para el cron de expiración de intents PENDING
+  @@index([providerPaymentId])
+  @@map("payment_intents")
+}
+
+/// Evento de webhook del proveedor de pagos. Guarda el payload crudo para
+/// auditoría y deduplica por `eventId` (idempotencia de webhooks).
+model PaymentEvent {
+  id              String  @id @default(uuid())
+  /// Puede ser null si el webhook llega antes de poder asociar el intent.
+  tenantId        String?
+  paymentIntentId String?
+  paymentIntent   PaymentIntent? @relation(fields: [paymentIntentId], references: [id], onDelete: SetNull)
+
+  /// ID del evento en el proveedor — clave de deduplicación.
+  eventId    String @unique
+  eventType  String /// ej: "payment.succeeded", "payment.failed"
+  rawPayload Json   /// Payload completo recibido, para auditoría
+
+  processedAt DateTime? /// null = recibido pero aún no procesado
+
+  createdAt DateTime @default(now())
+
+  @@index([eventId])
+  @@index([paymentIntentId])
+  @@map("payment_events")
 }
