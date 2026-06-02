@@ -39,7 +39,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
    * El valor retornado se inyecta en request.user.
    */
   async validate(payload: JwtPayload) {
-    const user = await this.prisma.client.user.findFirst({
+    // Usar this.prisma directamente (no .client) — el validate() del JWT
+    // corre desde JwtAuthGuard (guard) que se ejecuta ANTES del
+    // TenantContextInterceptor (interceptor), por lo que no hay transacción
+    // activa y `.client` puede retornar un tx incompleto de otra request.
+    const user = await this.prisma.user.findFirst({
       where: {
         id: payload.sub,
         tenantId: payload.tenantId,

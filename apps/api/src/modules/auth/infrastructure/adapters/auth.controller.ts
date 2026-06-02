@@ -1,38 +1,36 @@
-import { Controller, Post, Body, Headers, BadRequestException } from '@nestjs/common';
+import { Controller, Post, Body, BadRequestException } from '@nestjs/common';
 import { Public } from '../../../../common/decorators/public.decorator';
+import { CurrentTenant } from '../../../../common/decorators/current-tenant.decorator';
+import { ZodValidationPipe } from '../../../../common/pipes/zod-validation.pipe';
+import { LoginSchema, type LoginDto } from '@simplecite/shared';
 import { AuthService } from '../../application/services/auth.service';
 
-class LoginDto {
-  email!: string;
-  password!: string;
-}
-
 /**
- * Todas las rutas de auth son pÃºblicas â€” no requieren JWT previo.
- * El tenantId se resuelve del header X-Tenant-ID o del subdominio.
+ * Todas las rutas de auth son públicas — no requieren JWT previo.
+ *
+ * El tenantId se resuelve por TenantMiddleware (en orden de prioridad):
+ *   - Header x-tenant-id  (UUID directo)
+ *   - Header x-tenant-slug (slug → lookup)
+ *   - Subdominio del host
+ * Esto permite usar cualquiera de los tres desde curl/Postman/frontend.
  */
 @Public()
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
-  /**
-   * POST /api/auth/login
-   * Autentica un usuario y retorna un JWT.
-   *
-   * Requiere header X-Tenant-ID o que el tenant se resuelva por subdominio.
-   */
   @Post('login')
-  async login(@Body() loginDto: LoginDto, @Headers('x-tenant-id') tenantId?: string) {
+  async login(
+    @Body(new ZodValidationPipe(LoginSchema)) dto: LoginDto,
+    @CurrentTenant() tenantId: string,
+  ) {
     if (!tenantId) {
-      throw new BadRequestException('Se requiere el header X-Tenant-ID para autenticaciÃ³n');
+      throw new BadRequestException(
+        'Tenant no identificado. Usa el header x-tenant-slug o x-tenant-id.',
+      );
     }
 
-    const result = await this.authService.login(loginDto.email, loginDto.password, tenantId);
-
-    return {
-      success: true,
-      data: result,
-    };
+    const result = await this.authService.login(dto.email, dto.password, tenantId);
+    return { success: true, data: result };
   }
 }

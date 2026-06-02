@@ -42,6 +42,12 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
 
+    # El container necesita correr como root para poder usar el socket Docker.
+    # En producción (VPS Linux) lo correcto es agregar el user al grupo docker:
+    #   groupadd -g <HOST_DOCKER_GID> docker && usermod -aG docker node
+    # Para dev en Docker Desktop simplemente usamos root (aceptable en entorno local).
+    user: root
+
     # Permite a los contenedores Baileys hacer POST al API usando el nombre
     # `host.docker.internal`. En Linux, add-host es necesario (Docker Desktop
     # lo resuelve automáticamente en Mac/Windows).

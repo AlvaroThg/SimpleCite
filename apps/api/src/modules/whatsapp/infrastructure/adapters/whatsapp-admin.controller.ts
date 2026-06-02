@@ -8,7 +8,8 @@ import {
   MessageEvent,
   NotFoundException,
 } from '@nestjs/common';
-import { Observable } from 'rxjs';
+import { Observable, from } from 'rxjs';
+import { switchMap } from 'rxjs/operators';
 import { CurrentUser, Roles } from '../../../../common/decorators';
 import { InstanceManagerService } from '../../application/services/instance-manager.service';
 import { PrismaService } from '../../../../common/database/prisma.service';
@@ -82,19 +83,33 @@ export class WhatsappAdminController {
    * El stream se cierra automáticamente cuando el cliente desconecta.
    */
   @Sse(':id/qr')
-  async qrStream(
+  qrStream(
     @CurrentUser('tenantId') tenantId: string,
     @Param('id') instanceId: string,
-  ): Promise<Observable<MessageEvent>> {
-    // Verificar que la instancia pertenece al tenant
-    const instance = await this.prisma.whatsappInstance.findFirst({
-      where: { id: instanceId, tenantId },
-      select: { containerName: true, status: true },
-    });
-    if (!instance) throw new NotFoundException('Instancia no encontrada');
+  ): Observable<MessageEvent> {
+    // IMPORTANTE: @Sse() requiere un Observable SÍNCRONO (no Promise<Observable>).
+    // El decorador no hace await; si devolvemos una Promise, el stream no fluye.
+    // Por eso resolvemos la instancia DENTRO del stream con from()+switchMap().
+    const instance$ = from(
+      this.prisma.whatsappInstance.findFirst({
+        where: { id: instanceId, tenantId },
+        select: { containerName: true },
+      }),
+    );
 
-    const url = `http://${instance.containerName}:4000/qr`;
+    return instance$.pipe(
+      switchMap((instance) => {
+        if (!instance) throw new NotFoundException('Instancia no encontrada');
+        return this.proxyQrStream(`http://${instance.containerName}:4000/qr`);
+      }),
+    );
+  }
 
+  /**
+   * Crea un Observable que proxea el SSE del contenedor Baileys.
+   * Lee el stream de /qr del contenedor y reenvía cada evento al cliente admin.
+   */
+  private proxyQrStream(url: string): Observable<MessageEvent> {
     return new Observable<MessageEvent>((subscriber) => {
       const abortController = new AbortController();
       let cleanup: (() => void) | null = null;

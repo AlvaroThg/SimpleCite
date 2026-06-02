@@ -83,7 +83,8 @@ export class InstanceManagerService implements OnModuleInit {
 
     const containerName = this.containerName(tenantSlug);
 
-    // 1. Crear registro en DB (estado CREATING)
+    // 1. Crear registro en DB (estado CREATING) — operación rápida, dentro
+    //    de la transacción RLS del request.
     const instance = await this.prisma.whatsappInstance.create({
       data: {
         tenantId,
@@ -92,7 +93,32 @@ export class InstanceManagerService implements OnModuleInit {
       },
     });
 
-    // 2. Crear y arrancar el contenedor (fuera de la tx de tenant)
+    // 2. Provisión Docker en BACKGROUND. Crear/arrancar un contenedor puede
+    //    tardar varios segundos — más que el timeout de la transacción del
+    //    TenantContextInterceptor (5s). Por eso lo desacoplamos: respondemos
+    //    inmediatamente con estado CREATING y el contenedor se aprovisiona
+    //    aparte. El health checker + webhooks reflejarán el avance del estado.
+    void this.provisionContainer(instance.id, tenantId, tenantSlug, containerName);
+
+    this.logger.log(
+      { event: 'wa.instance.provisioning', tenantId, containerName, instanceId: instance.id },
+      'InstanceManagerService',
+    );
+
+    return instance;
+  }
+
+  /**
+   * Aprovisiona el contenedor Docker fuera del ciclo de request.
+   * Usa `this.prisma` directamente (sin contexto de transacción tenant).
+   * Actualiza el estado a STARTING al éxito, o ERROR si algo falla.
+   */
+  private async provisionContainer(
+    instanceId: string,
+    tenantId: string,
+    tenantSlug: string,
+    containerName: string,
+  ): Promise<void> {
     try {
       await this.ensureNetworkExists();
 
@@ -126,7 +152,7 @@ export class InstanceManagerService implements OnModuleInit {
       await container.start();
 
       await this.prisma.whatsappInstance.update({
-        where: { id: instance.id },
+        where: { id: instanceId },
         data: { containerId: container.id.slice(0, 12), status: 'STARTING' },
       });
 
@@ -139,18 +165,15 @@ export class InstanceManagerService implements OnModuleInit {
         },
         'InstanceManagerService',
       );
-
-      return this.prisma.whatsappInstance.findUnique({ where: { id: instance.id } });
     } catch (err) {
       await this.prisma.whatsappInstance.update({
-        where: { id: instance.id },
+        where: { id: instanceId },
         data: { status: 'ERROR' },
       });
       this.logger.error(
         { event: 'wa.instance.create.failed', tenantId, err: (err as Error).message },
         'InstanceManagerService',
       );
-      throw err;
     }
   }
 
@@ -199,10 +222,9 @@ export class InstanceManagerService implements OnModuleInit {
       }
     }
 
-    return this.prisma.whatsappInstance.update({
-      where: { id: instanceId },
-      data: { status: 'STOPPED', containerId: null },
-    });
+    // Eliminar el registro para liberar el containerName único.
+    // El historial de mensajes se borrará en cascada (correcto para destroy).
+    return this.prisma.whatsappInstance.delete({ where: { id: instanceId } });
   }
 
   async restartInstance(tenantId: string, instanceId: string) {

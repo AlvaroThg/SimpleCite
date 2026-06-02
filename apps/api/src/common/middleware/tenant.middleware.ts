@@ -49,11 +49,27 @@ export class TenantMiddleware implements NestMiddleware {
       return next();
     }
 
-    // ─── Estrategia 1: Header directo ──────────────────────────────
+    // ─── Estrategia 1a: Header x-tenant-id (UUID directo) ────────────
     const headerTenantId = req.headers['x-tenant-id'] as string;
     if (headerTenantId) {
       tenantId = headerTenantId;
-      this.logger.debug(`Tenant resuelto por header: ${tenantId}`);
+      this.logger.debug(`Tenant resuelto por x-tenant-id: ${tenantId}`);
+    }
+
+    // ─── Estrategia 1b: Header x-tenant-slug (lookup por slug) ────────
+    // Útil para clientes API, Postman y tests — evita tener que conocer el UUID.
+    if (!tenantId) {
+      const headerSlug = req.headers['x-tenant-slug'] as string | undefined;
+      if (headerSlug) {
+        const tenant = await this.prisma.tenant.findUnique({
+          where: { slug: headerSlug },
+          select: { id: true },
+        });
+        if (tenant) {
+          tenantId = tenant.id;
+          this.logger.debug(`Tenant resuelto por x-tenant-slug "${headerSlug}": ${tenantId}`);
+        }
+      }
     }
 
     // ─── Estrategia 2: Subdominio ──────────────────────────────────

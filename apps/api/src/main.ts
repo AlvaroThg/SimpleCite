@@ -1,5 +1,4 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
 import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module';
 
@@ -11,13 +10,10 @@ async function bootstrap() {
 
   app.setGlobalPrefix('api');
 
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }),
-  );
+  // No hay ValidationPipe global — toda la validación se hace con ZodValidationPipe
+  // aplicado explícitamente en cada controller. Un ValidationPipe global con
+  // whitelist: true + forbidNonWhitelisted: true rechaza payloads válidos porque
+  // los DTOs de Zod no tienen decoradores de class-validator.
 
   app.enableCors({
     origin:
