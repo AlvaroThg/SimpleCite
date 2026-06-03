@@ -39,14 +39,30 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   }
 
   /**
-   * Ejecuta `fn` dentro de una transacción donde `app.current_tenant_id`
-   * está fijado a `tenantId`. Todas las queries Prisma anidadas (vía
-   * `prisma.client.*`) heredan ese contexto y son filtradas por RLS.
+   * Ejecuta `fn` dentro de una transacción donde se fijan:
+   *   - `app.current_tenant_id` → aislamiento tenant (RLS)
+   *   - `app.current_user_id` / `app.current_user_role` → control de acceso por
+   *     rol en las políticas EHR (medical_notes). Se setean cuando hay un
+   *     usuario autenticado; en flujos públicos (paciente) quedan vacíos.
+   *
+   * Todas las queries vía `prisma.client.*` heredan este contexto. Hoy las
+   * políticas RLS están dormidas (el rol postgres bypasea RLS), pero el
+   * contexto queda correctamente poblado para cuando se active el enforcement.
    */
-  async runWithTenantContext<T>(tenantId: string, fn: () => Promise<T>): Promise<T> {
+  async runWithTenantContext<T>(
+    tenantId: string,
+    fn: () => Promise<T>,
+    userCtx?: { userId?: string; role?: string },
+  ): Promise<T> {
     return this.$transaction(async (tx) => {
       // set_config(..., true) → LOCAL: solo aplica a esta transacción
       await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+      if (userCtx?.userId) {
+        await tx.$executeRaw`SELECT set_config('app.current_user_id', ${userCtx.userId}, true)`;
+      }
+      if (userCtx?.role) {
+        await tx.$executeRaw`SELECT set_config('app.current_user_role', ${userCtx.role}, true)`;
+      }
       return tenantContextStorage.run({ tenantId, tx }, fn);
     });
   }

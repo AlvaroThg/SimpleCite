@@ -397,9 +397,13 @@ model PatientOtp {
   attempts   Int       @default(0) /// Verificaciones fallidas — se invalida al pasar 5
   consumedAt DateTime?
 
+  /// IP de origen de la solicitud — para rate limiting por IP backed por DB.
+  requestIp String?
+
   createdAt DateTime @default(now())
 
-  @@index([tenantId, phone, createdAt]) /// Buscar último OTP del paciente
+  @@index([tenantId, phone, createdAt]) /// Buscar último OTP + rate limit por phone
+  @@index([requestIp, createdAt]) /// Rate limit por IP
   @@index([expiresAt]) /// Cleanup batch de OTPs expirados
   @@map("patient_otps")
 }

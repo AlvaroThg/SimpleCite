@@ -1,4 +1,10 @@
-import { Injectable, ForbiddenException, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  ForbiddenException,
+  UnauthorizedException,
+  HttpException,
+  HttpStatus,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { Logger } from 'nestjs-pino';
@@ -9,6 +15,12 @@ import { WhatsAppService } from '../../../../common/services/whatsapp.service';
 
 const OTP_BCRYPT_ROUNDS = 10;
 const MAX_OTP_ATTEMPTS = 5;
+
+// Rate limiting backed por DB (reemplaza el throttler en memoria que el
+// ThrottlerGuard global eclipsaba). Persistente y multi-instancia.
+const RATE_WINDOW_MS = 60 * 60 * 1000; // 1 hora
+const MAX_OTP_PER_PHONE = 3; // un teléfono no necesita > 3 OTP/hora
+const MAX_OTP_PER_IP = 30; // tope por IP (holgado para clínicas con NAT)
 
 @Injectable()
 export class PublicOtpService {
@@ -43,18 +55,23 @@ export class PublicOtpService {
       throw new ForbiddenException('Verificación de bot falló');
     }
 
-    // 2. Generar código (6 dígitos, criptográficamente bien-distribuido)
+    // 2. Rate limiting backed por DB — por phone Y por IP simultáneamente.
+    //    Esto sustituye al OtpThrottlerGuard (que el guard global eclipsaba):
+    //    ahora el límite por-phone se aplica de verdad por-phone, no colectivo.
+    await this.enforceRateLimits(tenantId, phone, remoteIp);
+
+    // 3. Generar código (6 dígitos, criptográficamente bien-distribuido)
     const code = this.generateOtpCode();
     const ttlMin = this.config.get<number>('OTP_TTL_MINUTES') ?? 10;
     const expiresAt = new Date(Date.now() + ttlMin * 60 * 1000);
     const codeHash = await bcrypt.hash(code, OTP_BCRYPT_ROUNDS);
 
-    // 3. Persistir
+    // 4. Persistir (con IP para el rate limit por IP)
     await this.prisma.client.patientOtp.create({
-      data: { tenantId, phone, codeHash, expiresAt },
+      data: { tenantId, phone, codeHash, expiresAt, requestIp: remoteIp ?? null },
     });
 
-    // 4. Enviar (stub loguea el código a consola en dev)
+    // 5. Enviar (stub loguea el código a consola en dev)
     await this.whatsapp.sendOtp({ tenantId, phone, code, ttlMinutes: ttlMin });
 
     this.logger.log(
@@ -63,6 +80,48 @@ export class PublicOtpService {
     );
 
     return { success: true, expiresInSeconds: ttlMin * 60 };
+  }
+
+  /**
+   * Rate limiting de OTP backed por DB (ventana deslizante de 1 hora):
+   *   - Por (tenant, phone): máx 3/hora → un atacante no puede spamear un número.
+   *   - Por IP: máx 30/hora → frena floods rotando teléfonos desde una IP.
+   *
+   * Reemplaza al OtpThrottlerGuard, cuyo tracker IP+phone era eclipsado por el
+   * ThrottlerGuard global (que aplicaba el límite por-IP de forma colectiva).
+   */
+  private async enforceRateLimits(tenantId: string, phone: string, remoteIp?: string) {
+    const since = new Date(Date.now() - RATE_WINDOW_MS);
+
+    const phoneCount = await this.prisma.client.patientOtp.count({
+      where: { tenantId, phone, createdAt: { gte: since } },
+    });
+    if (phoneCount >= MAX_OTP_PER_PHONE) {
+      this.logger.warn(
+        { event: 'otp.ratelimit.phone', tenantId, phone, count: phoneCount },
+        'PublicOtpService',
+      );
+      throw new HttpException(
+        'Demasiadas solicitudes para este número. Intenta más tarde.',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
+    if (remoteIp) {
+      const ipCount = await this.prisma.client.patientOtp.count({
+        where: { requestIp: remoteIp, createdAt: { gte: since } },
+      });
+      if (ipCount >= MAX_OTP_PER_IP) {
+        this.logger.warn(
+          { event: 'otp.ratelimit.ip', remoteIp, count: ipCount },
+          'PublicOtpService',
+        );
+        throw new HttpException(
+          'Demasiadas solicitudes. Intenta más tarde.',
+          HttpStatus.TOO_MANY_REQUESTS,
+        );
+      }
+    }
   }
 
   /**

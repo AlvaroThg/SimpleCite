@@ -17,15 +17,23 @@ import { NextRequest, NextResponse } from 'next/server';
  *
  * Rutas excluidas: Next.js internals (_next), assets estáticos, favicon.
  */
+/** Primeros segmentos reservados que NO son slugs de tenant. */
+const RESERVED = new Set(['www', 'api', 'app', 'panel', '_next', 'favicon.ico']);
+
 export function middleware(req: NextRequest) {
   const { hostname, pathname } = req.nextUrl;
+
+  // El panel profesional (/panel) no pertenece a ningún tenant: no resolver slug.
+  if (pathname === '/panel' || pathname.startsWith('/panel/')) {
+    return NextResponse.next();
+  }
 
   // ─── Producción: resolución por subdominio ────────────────────────
   const appDomain = process.env.APP_DOMAIN ?? 'simplecite.com.bo';
   if (hostname !== 'localhost' && hostname.endsWith(`.${appDomain}`)) {
     const slug = hostname.replace(`.${appDomain}`, '').split(':')[0];
 
-    if (slug && slug !== 'www' && slug !== 'api' && slug !== 'app') {
+    if (slug && !RESERVED.has(slug)) {
       // Reescribir internamente: clinica-demo.simplecite.com.bo/booking
       //                      →  simplecite.com.bo/clinica-demo/booking
       const rewriteUrl = req.nextUrl.clone();
@@ -41,8 +49,8 @@ export function middleware(req: NextRequest) {
   const slugFromPath = pathname.split('/')[1];
   if (
     slugFromPath &&
+    !RESERVED.has(slugFromPath) &&
     !slugFromPath.startsWith('_') &&
-    !slugFromPath.startsWith('api') &&
     !/\.[a-z]+$/.test(slugFromPath) // no es un asset estático
   ) {
     const res = NextResponse.next();

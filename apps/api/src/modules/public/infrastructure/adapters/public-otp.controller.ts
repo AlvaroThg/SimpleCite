@@ -1,5 +1,4 @@
-import { Controller, Post, Body, Req, NotFoundException, UseGuards } from '@nestjs/common';
-import { Throttle } from '@nestjs/throttler';
+import { Controller, Post, Body, Req, NotFoundException } from '@nestjs/common';
 import type { Request } from 'express';
 import {
   OtpRequestSchema,
@@ -9,27 +8,24 @@ import {
 } from '@simplecite/shared';
 import { CurrentTenant, Public } from '../../../../common/decorators';
 import { ZodValidationPipe } from '../../../../common/pipes/zod-validation.pipe';
-import { OtpThrottlerGuard } from '../guards/otp-throttler.guard';
 import { PublicOtpService } from '../../application/services/public-otp.service';
 
 /**
  * Endpoints de OTP por WhatsApp (login invisible del paciente).
  *
- * Rate limiting: usa OtpThrottlerGuard con tracker `${ip}:${phone}` para que
- * los límites aplique tanto a IP rotando phones como a phone rotando IPs.
- *
- * Límites (declarados con @Throttle, store en memoria):
- *   - request: 3 cada 1 hora (3 OTPs por phone+IP)
- *   - verify:  10 cada 10 min (5 intentos por OTP * holgura)
+ * Rate limiting: backed por DB en PublicOtpService (ver enforceRateLimits):
+ *   - request: 3/hora por (tenant, phone) + 30/hora por IP
+ *   - verify:  protegido por el lock de 5 intentos por OTP en DB
+ * Este enfoque sustituye al OtpThrottlerGuard, cuyo tracker IP+phone era
+ * eclipsado por el ThrottlerGuard global (que limitaba por-IP de forma
+ * colectiva). El ThrottlerGuard global (100/min por IP) sigue como tope externo.
  */
 @Public()
 @Controller('public/tenants/:slug/otp')
-@UseGuards(OtpThrottlerGuard)
 export class PublicOtpController {
   constructor(private readonly service: PublicOtpService) {}
 
   @Post('request')
-  @Throttle({ default: { limit: 3, ttl: 60 * 60 * 1000 } })
   async request(
     @CurrentTenant() tenantId: string,
     @Body(new ZodValidationPipe(OtpRequestSchema)) dto: OtpRequestDto,
@@ -46,7 +42,6 @@ export class PublicOtpController {
   }
 
   @Post('verify')
-  @Throttle({ default: { limit: 10, ttl: 10 * 60 * 1000 } })
   async verify(
     @CurrentTenant() tenantId: string,
     @Body(new ZodValidationPipe(OtpVerifySchema)) dto: OtpVerifyDto,

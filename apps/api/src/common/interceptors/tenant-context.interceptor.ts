@@ -42,6 +42,13 @@ export class TenantContextInterceptor implements NestInterceptor {
       return next.handle();
     }
 
-    return from(this.prisma.runWithTenantContext(tenantId, () => firstValueFrom(next.handle())));
+    // Propagar contexto de usuario (id, role) si hay sesión autenticada —
+    // necesario para las políticas EHR por rol cuando RLS esté activo.
+    const user = request.user as { sub?: string; role?: string } | undefined;
+    const userCtx = user?.sub ? { userId: user.sub, role: user.role } : undefined;
+
+    return from(
+      this.prisma.runWithTenantContext(tenantId, () => firstValueFrom(next.handle()), userCtx),
+    );
   }
 }
