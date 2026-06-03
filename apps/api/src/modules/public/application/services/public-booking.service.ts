@@ -9,6 +9,7 @@ import { ConfigService } from '@nestjs/config';
 import { Logger } from 'nestjs-pino';
 import type { CreatePublicAppointmentDto } from '@simplecite/shared';
 import { PrismaService } from '../../../../common/database/prisma.service';
+import { PatientsService } from '../../../patients/application/services/patients.service';
 
 /**
  * Reserva pública de citas vía OTP.
@@ -27,6 +28,7 @@ export class PublicBookingService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
+    private readonly patients: PatientsService,
     private readonly logger: Logger,
   ) {}
 
@@ -70,18 +72,13 @@ export class PublicBookingService {
       throw new BadRequestException('No se puede reservar en el pasado');
     }
 
-    // 2. Upsert Patient (la verificación de phone ya pasó por OTP)
-    const patient = await this.prisma.client.patient.upsert({
-      where: { phone_tenantId: { phone, tenantId } },
-      create: {
-        phone,
-        tenantId,
-        name: dto.patient.name,
-        ci: dto.patient.ci ?? null,
-      },
-      // No machacar name/ci si el paciente ya existía con datos completos.
-      // En Fase 5 esto podría tener su propio "merge policy".
-      update: {},
+    // 2. Resolver Patient con dedupe por phone+ci normalizados (Fase 7).
+    //    El phone ya pasó por OTP; findOrCreate normaliza a E.164 y deduplica.
+    const patient = await this.patients.findOrCreate({
+      tenantId,
+      phone,
+      name: dto.patient.name,
+      ci: dto.patient.ci,
     });
 
     // 3. Crear appointment TENTATIVE con TTL

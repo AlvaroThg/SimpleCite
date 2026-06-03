@@ -186,13 +186,39 @@ export const SlotSchema = z.object({
 });
 export type SlotDto = z.infer<typeof SlotSchema>;
 
-// ─── Medical Note Schemas ───
+// ─── Medical Note / Clinical Notes Schemas ───
 
 export const CreateMedicalNoteSchema = z.object({
   content: z.string().min(10, 'La nota debe tener al menos 10 caracteres'),
   patientId: z.string().uuid(),
 });
 export type CreateMedicalNoteDto = z.infer<typeof CreateMedicalNoteSchema>;
+
+/** Crear una nota clínica para un paciente (el patientId va en el path). */
+export const CreateClinicalNoteSchema = z.object({
+  content: z.string().min(3, 'La nota es muy corta').max(20000),
+  /// Opcional: asociar la nota a una cita específica.
+  appointmentId: z.string().uuid().optional(),
+});
+export type CreateClinicalNoteDto = z.infer<typeof CreateClinicalNoteSchema>;
+
+/** Query del historial clínico: rango de fechas + paginación cursor. */
+export const PatientHistoryQuerySchema = z.object({
+  from: z.string().datetime().optional(),
+  to: z.string().datetime().optional(),
+  cursor: z.string().uuid().optional(),
+  limit: z.coerce.number().int().positive().max(100).optional(),
+});
+export type PatientHistoryQueryDto = z.infer<typeof PatientHistoryQuerySchema>;
+
+/** Query de listado de pacientes: búsqueda + paginación. */
+export const PatientListQuerySchema = z.object({
+  /// Búsqueda libre por nombre, phone o CI.
+  q: z.string().trim().max(100).optional(),
+  cursor: z.string().uuid().optional(),
+  limit: z.coerce.number().int().positive().max(100).optional(),
+});
+export type PatientListQueryDto = z.infer<typeof PatientListQuerySchema>;
 
 // ─── Public API: helpers compartidos ───
 

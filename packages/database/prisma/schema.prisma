@@ -71,6 +71,10 @@ enum PaymentStatus {
   EXPIRED /// Intent expiró sin pagarse (lo marca el cron de conciliación)
 }
 
+enum NoteVisibility {
+  PRIVATE /// Visible solo para author, doctor asignado y roles autorizados (default)
+}
+
 // ─────────────────────────────────────
 // MODELS
 // ─────────────────────────────────────
@@ -174,10 +178,11 @@ model StaffProfile {
 }
 
 /// Paciente — Pertenece a una clínica específica por privacidad de datos.
+/// Identidad deduplicada por (tenantId, phone) y (tenantId, ci) normalizados.
 model Patient {
   id    String  @id @default(uuid())
   name  String
-  phone String  /// Identificador de WhatsApp (ej: 59170000000)
+  phone String  /// E.164 sin '+' (ej: 59170000000) — normalizado al persistir
   ci    String? /// Cédula de Identidad para validación médica/pagos
 
   // Un paciente "pertenece" a una clínica por privacidad
@@ -191,8 +196,11 @@ model Patient {
   updatedAt DateTime @updatedAt
 
   @@unique([phone, tenantId]) /// El mismo número no puede duplicarse en la misma clínica
+  // Nota: unicidad de (ci, tenantId) se aplica con un índice parcial
+  // (WHERE ci IS NOT NULL) en la migración, ya que ci es opcional.
   @@index([tenantId])
   @@index([tenantId, id])
+  @@index([tenantId, ci]) /// Lookup/dedupe por cédula
   @@map("patients")
 }
 
@@ -247,6 +255,7 @@ model Appointment {
   isPaid    Boolean @default(false)
 
   paymentIntents PaymentIntent[]
+  medicalNotes   MedicalNote[]
 
   /// TTL para citas TENTATIVE (flujo público de reserva).
   /// Si NOW() > expiresAt y status=TENTATIVE, un job/cleanup la marca CANCELLED.
@@ -264,7 +273,10 @@ model Appointment {
   @@map("appointments")
 }
 
-/// Nota médica / Historial clínico — Dato sensible, aislamiento obligatorio por tenant.
+/// Nota clínica / Historial — Dato sensible. Aislamiento por tenant +
+/// control de acceso por rol a nivel de servicio (author / doctor-asignado /
+/// admin pueden leer; staff no accede a contenido clínico).
+/// `doctorId` es el autor de la nota (author_user_id del spec EHR).
 model MedicalNote {
   id      String @id @default(uuid())
   content String @db.Text /// El historial clínico en sí
@@ -272,10 +284,17 @@ model MedicalNote {
   patientId String
   patient   Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
 
+  /// Autor de la nota (doctor o admin que la escribió).
   doctorId String
   doctor   User @relation(fields: [doctorId], references: [id], onDelete: Cascade)
 
-  // tenantId explícito para RLS — derivado de la relación Patient/Doctor
+  /// Cita asociada (opcional — una nota puede no estar atada a una cita puntual).
+  appointmentId String?
+  appointment   Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+
+  visibility NoteVisibility @default(PRIVATE)
+
+  // tenantId explícito — fuente de verdad del aislamiento (filtro app-layer)
   tenantId String
 
   createdAt DateTime @default(now())
@@ -283,6 +302,8 @@ model MedicalNote {
 
   @@index([tenantId])
   @@index([tenantId, patientId])
+  @@index([tenantId, patientId, createdAt]) /// Historial cronológico paginado
+  @@index([appointmentId])
   @@map("medical_notes")
 }
 

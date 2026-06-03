@@ -21,6 +21,7 @@ import { SlotsModule } from './modules/slots/slots.module';
 import { PublicModule } from './modules/public/public.module';
 import { WhatsappModule } from './modules/whatsapp/whatsapp.module';
 import { PaymentsModule } from './modules/payments/payments.module';
+import { PatientsModule } from './modules/patients/patients.module';
 
 @Module({
   imports: [
@@ -85,6 +86,7 @@ import { PaymentsModule } from './modules/payments/payments.module';
     ScheduleModule,
     AppointmentsModule,
     SlotsModule,
+    PatientsModule,
     PublicModule,
     WhatsappModule,
     PaymentsModule,

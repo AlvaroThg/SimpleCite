@@ -4,6 +4,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { SlotsModule } from '../slots/slots.module';
 import { WhatsappModule } from '../whatsapp/whatsapp.module';
+import { PatientsModule } from '../patients/patients.module';
 
 import { PublicTenantService } from './application/services/public-tenant.service';
 import { PublicOtpService } from './application/services/public-otp.service';
@@ -31,6 +32,7 @@ import { WhatsAppService } from '../../common/services/whatsapp.service';
   imports: [
     SlotsModule,
     WhatsappModule,
+    PatientsModule,
     PassportModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
