@@ -3,6 +3,30 @@ import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
 import prettier from 'eslint-config-prettier';
 
+// Globals de Node 18+ (sin depender del paquete `globals`).
+/** @type {Record<string, 'readonly' | 'writable' | 'off'>} */
+const NODE_GLOBALS = {
+  process: 'readonly',
+  console: 'readonly',
+  Buffer: 'readonly',
+  __dirname: 'readonly',
+  __filename: 'readonly',
+  module: 'readonly',
+  require: 'readonly',
+  exports: 'writable',
+  fetch: 'readonly',
+  setTimeout: 'readonly',
+  clearTimeout: 'readonly',
+  setInterval: 'readonly',
+  clearInterval: 'readonly',
+  URL: 'readonly',
+  URLSearchParams: 'readonly',
+  AbortController: 'readonly',
+  AbortSignal: 'readonly',
+  TextDecoder: 'readonly',
+  TextEncoder: 'readonly',
+};
+
 export default tseslint.config(
   {
     ignores: [
@@ -61,6 +85,37 @@ export default tseslint.config(
     files: ['apps/web/src/**/*.ts', 'apps/web/src/**/*.tsx'],
     rules: {
       '@typescript-eslint/consistent-type-imports': 'off',
+    },
+  },
+  {
+    // Archivos de configuración CommonJS (jest.config.js, etc.): tienen
+    // `module`, `require`, `process`… del entorno Node.
+    files: ['**/*.config.js', '**/*.config.cjs', '**/*.cjs'],
+    languageOptions: {
+      sourceType: 'commonjs',
+      globals: NODE_GLOBALS,
+    },
+  },
+  {
+    // Instancia WhatsApp: JS/ESM plano de Node (Baileys wrapper). Usa globals
+    // de Node (process, fetch, timers, console) y un catch vacío intencional.
+    files: ['apps/whatsapp-instance/**/*.{js,mjs}'],
+    languageOptions: {
+      ecmaVersion: 2023,
+      sourceType: 'module',
+      globals: NODE_GLOBALS,
+    },
+    rules: {
+      'no-empty': ['error', { allowEmptyCatch: true }],
+      'no-unused-vars': ['error', { caughtErrorsIgnorePattern: '^_' }],
+    },
+  },
+  {
+    // Tests: los mocks de Prisma usan `any` legítimamente para castear
+    // objetos parciales; no aporta tiparlos al 100%.
+    files: ['**/*.spec.ts', '**/*.test.ts'],
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'off',
     },
   },
 );

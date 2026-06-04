@@ -59,7 +59,11 @@ const sseClients = new Set();
 function broadcast(data) {
   const line = `data: ${JSON.stringify(data)}\n\n`;
   for (const res of sseClients) {
-    try { res.write(line); } catch (_) {}
+    try {
+      res.write(line);
+    } catch {
+      /* cliente SSE desconectado — se limpia en el evento 'close' */
+    }
   }
 }
 
