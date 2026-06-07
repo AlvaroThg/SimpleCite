@@ -1,7 +1,8 @@
 import type { Metadata } from 'next';
 import Image from 'next/image';
 import { notFound } from 'next/navigation';
-import { getTenantInfo } from '@/lib/api';
+import { getTenantInfo, type TenantInfo } from '@/lib/api';
+import { TenantFooter } from '@/components/TenantFooter';
 
 interface Props {
   children: React.ReactNode;
@@ -24,19 +25,16 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function TenantLayout({ children, params }: Props) {
   const { slug } = await params;
 
-  let primaryColor = '#3B82F6';
-  let tenantName = '';
-  let logoUrl: string | null = null;
-
+  // revalidate corto: que un cambio de branding/contacto en Settings se refleje pronto.
+  let tenant: TenantInfo;
   try {
-    // revalidate corto: que un cambio de logo/color en Settings se refleje pronto.
-    const tenant = await getTenantInfo(slug, { next: { revalidate: 60 } });
-    primaryColor = tenant.primaryColor;
-    tenantName = tenant.name;
-    logoUrl = tenant.logoUrl;
+    tenant = await getTenantInfo(slug, { next: { revalidate: 60 } });
   } catch {
     notFound();
   }
+  const primaryColor = tenant.primaryColor;
+  const tenantName = tenant.name;
+  const logoUrl = tenant.logoUrl;
 
   return (
     <>
@@ -67,17 +65,14 @@ export default async function TenantLayout({ children, params }: Props) {
 
         <main className="flex-1">{children}</main>
 
-        <footer className="text-center text-xs text-gray-400 py-4 border-t">
-          Powered by{' '}
-          <a
-            href="https://simplecite.com.bo"
-            className="underline hover:text-gray-600"
-            target="_blank"
-            rel="noreferrer"
-          >
-            SimpleCite
-          </a>
-        </footer>
+        <TenantFooter
+          name={tenantName}
+          primaryColor={primaryColor}
+          address={tenant.address}
+          facebookUrl={tenant.facebookUrl}
+          instagramUrl={tenant.instagramUrl}
+          whatsappContact={tenant.whatsappContact}
+        />
       </div>
     </>
   );

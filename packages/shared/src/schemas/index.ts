@@ -88,6 +88,10 @@ export const UpdateTenantBrandingSchema = z
     specialistsTitle: z.string().max(120).nullable().optional(),
     ctaTitle: z.string().max(120).nullable().optional(),
     ctaSubtitle: z.string().max(300).nullable().optional(),
+    address: z.string().max(300).nullable().optional(),
+    facebookUrl: z.string().url('URL inválida').max(300).nullable().optional(),
+    instagramUrl: z.string().url('URL inválida').max(300).nullable().optional(),
+    whatsappContact: z.string().max(20).nullable().optional(),
   })
   .refine((v) => Object.keys(v).length > 0, { message: 'Nada que actualizar' });
 export type UpdateTenantBrandingDto = z.infer<typeof UpdateTenantBrandingSchema>;
@@ -346,6 +350,10 @@ export const PublicTenantInfoSchema = z.object({
   specialistsTitle: z.string().nullable(),
   ctaTitle: z.string().nullable(),
   ctaSubtitle: z.string().nullable(),
+  address: z.string().nullable(),
+  facebookUrl: z.string().nullable(),
+  instagramUrl: z.string().nullable(),
+  whatsappContact: z.string().nullable(),
   timezone: z.string(),
   whatsappEnabled: z.boolean(),
 });

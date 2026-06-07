@@ -28,6 +28,10 @@ export interface TenantInfo {
   specialistsTitle: string | null;
   ctaTitle: string | null;
   ctaSubtitle: string | null;
+  address: string | null;
+  facebookUrl: string | null;
+  instagramUrl: string | null;
+  whatsappContact: string | null;
   timezone: string;
   whatsappEnabled: boolean;
 }

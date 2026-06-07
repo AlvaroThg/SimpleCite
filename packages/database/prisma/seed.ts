@@ -25,6 +25,10 @@ async function main() {
     heroSubtitle:
       'Reserva en línea con nuestros especialistas y recibe la confirmación por WhatsApp. Sin llamadas, sin filas.',
     ctaTitle: '¿Listo para agendar tu cita?',
+    address: 'Av. Las Américas #123, Tarija, Bolivia',
+    facebookUrl: 'https://facebook.com/clinicademo',
+    instagramUrl: 'https://instagram.com/clinicademo',
+    whatsappContact: '59170000000',
     plan: SubscriptionPlan.PRO,
     status: TenantStatus.ACTIVE,
     timezone: 'America/La_Paz',

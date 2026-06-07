@@ -59,7 +59,10 @@ function Settings() {
         <SkeletonCards count={2} />
       ) : cfg ? (
         session?.user.role === 'ADMIN' ? (
-          <Branding cfg={cfg} onSaved={setCfg} />
+          <>
+            <Branding cfg={cfg} onSaved={setCfg} />
+            <ContactInfo cfg={cfg} onSaved={setCfg} />
+          </>
         ) : (
           <section className="bg-white rounded-2xl border border-gray-100 p-5">
             <h2 className="text-sm font-semibold text-gray-700">Marca de tu clínica</h2>
@@ -414,6 +417,102 @@ function Branding({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantConf
           className="px-4 py-2 rounded-xl bg-brand-600 text-white text-sm font-semibold hover:bg-brand-700 disabled:opacity-50"
         >
           {saving ? 'Guardando…' : 'Guardar marca'}
+        </button>
+      </div>
+    </section>
+  );
+}
+
+// ─── Contacto y redes ─────────────────────────────────────────────────────
+function ContactInfo({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantConfig) => void }) {
+  const { session } = useAuth();
+  const [address, setAddress] = useState(cfg.address ?? '');
+  const [facebookUrl, setFacebookUrl] = useState(cfg.facebookUrl ?? '');
+  const [instagramUrl, setInstagramUrl] = useState(cfg.instagramUrl ?? '');
+  const [whatsappContact, setWhatsappContact] = useState(cfg.whatsappContact ?? '');
+  const [saving, setSaving] = useState(false);
+
+  async function save() {
+    if (!session) return;
+    setSaving(true);
+    try {
+      const updated = await updateTenantBranding(session.token, session.slug, {
+        address: address.trim() || null,
+        facebookUrl: facebookUrl.trim() || null,
+        instagramUrl: instagramUrl.trim() || null,
+        whatsappContact: whatsappContact.trim() || null,
+      });
+      onSaved(updated);
+      toast.success('Cambios guardados.');
+    } catch (e) {
+      toast.error(e instanceof PanelApiError ? e.message : 'No se pudo guardar');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <section className="bg-white rounded-2xl border border-gray-100 p-5 space-y-5">
+      <div>
+        <h2 className="text-sm font-semibold text-gray-700">Contacto y redes</h2>
+        <p className="text-xs text-gray-400">
+          Dirección y enlaces que verán tus pacientes en la página pública.
+        </p>
+      </div>
+
+      <label className="block space-y-1">
+        <span className="text-sm font-medium text-gray-700">Dirección</span>
+        <input
+          value={address}
+          onChange={(e) => setAddress(e.target.value)}
+          placeholder="Av. Las Américas #123, Tarija"
+          className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+        />
+      </label>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <label className="block space-y-1">
+          <span className="text-sm font-medium text-gray-700">Facebook</span>
+          <input
+            type="url"
+            value={facebookUrl}
+            onChange={(e) => setFacebookUrl(e.target.value)}
+            placeholder="https://facebook.com/tu-clinica"
+            className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+          />
+        </label>
+
+        <label className="block space-y-1">
+          <span className="text-sm font-medium text-gray-700">Instagram</span>
+          <input
+            type="url"
+            value={instagramUrl}
+            onChange={(e) => setInstagramUrl(e.target.value)}
+            placeholder="https://instagram.com/tu-clinica"
+            className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+          />
+        </label>
+      </div>
+
+      <label className="block space-y-1">
+        <span className="text-sm font-medium text-gray-700">WhatsApp de contacto</span>
+        <input
+          type="tel"
+          value={whatsappContact}
+          onChange={(e) => setWhatsappContact(e.target.value)}
+          placeholder="59170000000"
+          className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+        />
+        <span className="text-xs text-gray-400">Número con código de país, sin el signo +.</span>
+      </label>
+
+      <div className="flex justify-end">
+        <button
+          onClick={save}
+          disabled={saving}
+          className="px-4 py-2 rounded-xl bg-brand-600 text-white text-sm font-semibold hover:bg-brand-700 disabled:opacity-50"
+        >
+          {saving ? 'Guardando…' : 'Guardar'}
         </button>
       </div>
     </section>

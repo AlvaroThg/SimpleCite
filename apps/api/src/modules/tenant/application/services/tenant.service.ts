@@ -20,6 +20,10 @@ export interface TenantConfig {
   specialistsTitle: string | null;
   ctaTitle: string | null;
   ctaSubtitle: string | null;
+  address: string | null;
+  facebookUrl: string | null;
+  instagramUrl: string | null;
+  whatsappContact: string | null;
   timezone: string;
   plan: string;
   whatsappEnabled: boolean;
@@ -75,6 +79,10 @@ export class TenantService implements TenantServicePort {
         specialistsTitle: true,
         ctaTitle: true,
         ctaSubtitle: true,
+        address: true,
+        facebookUrl: true,
+        instagramUrl: true,
+        whatsappContact: true,
         timezone: true,
         plan: true,
         whatsappEnabled: true,
@@ -101,6 +109,10 @@ export class TenantService implements TenantServicePort {
         ...(dto.specialistsTitle !== undefined && { specialistsTitle: dto.specialistsTitle }),
         ...(dto.ctaTitle !== undefined && { ctaTitle: dto.ctaTitle }),
         ...(dto.ctaSubtitle !== undefined && { ctaSubtitle: dto.ctaSubtitle }),
+        ...(dto.address !== undefined && { address: dto.address }),
+        ...(dto.facebookUrl !== undefined && { facebookUrl: dto.facebookUrl }),
+        ...(dto.instagramUrl !== undefined && { instagramUrl: dto.instagramUrl }),
+        ...(dto.whatsappContact !== undefined && { whatsappContact: dto.whatsappContact }),
       },
     });
     return this.getConfig(tenantId);

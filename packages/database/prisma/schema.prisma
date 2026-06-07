@@ -113,6 +113,12 @@ model Tenant {
   subscriptionStatus   String    @default("TRIAL") /// TRIAL | ACTIVE | PAST_DUE | CANCELED
   subscriptionEndDate  DateTime? /// Fin del período pagado; el SubscriptionGuard valida contra NOW()
 
+  // ─── Contacto y redes (footer de la landing pública) ───
+  address         String? /// Dirección física (footer + modal de Google Maps)
+  facebookUrl     String?
+  instagramUrl    String?
+  whatsappContact String? /// Número de contacto público (E.164 sin '+')
+
   // Configuración de WhatsApp
   whatsappEnabled Boolean @default(false)
   whatsappNumber  String? /// El número vinculado al bot
