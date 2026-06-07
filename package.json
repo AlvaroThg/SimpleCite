@@ -15,6 +15,7 @@
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,yaml,yml}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,yaml,yml}\"",
     "db:generate": "pnpm --filter @simplecite/database db:generate",
+    "db:bootstrap": "pnpm --filter @simplecite/database db:bootstrap",
     "db:migrate:dev": "pnpm --filter @simplecite/database db:migrate:dev",
     "db:migrate:deploy": "pnpm --filter @simplecite/database db:migrate:deploy",
     "db:seed": "pnpm --filter @simplecite/database db:seed",

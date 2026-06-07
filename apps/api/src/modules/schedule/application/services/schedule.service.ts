@@ -26,15 +26,17 @@ export class ScheduleService {
     // Validar que las reglas no se solapen dentro del mismo dÃ­a
     this.assertNoIntraDayOverlap(dto.rules);
 
-    // El request ya corre dentro de una transacciÃ³n tenant-scoped (RLS),
-    // asÃ­ que delete+create son atÃ³micos por construcciÃ³n del interceptor.
-    await this.prisma.client.doctorScheduleRule.deleteMany({
-      where: { doctorId, tenantId },
+    // Transacción explícita: delete+create deben ser atómicos. Ya no se confía
+    // en una transacción global del interceptor (en modo RLS dormante no existe).
+    await this.prisma.$transaction(async (tx) => {
+      await tx.doctorScheduleRule.deleteMany({ where: { doctorId, tenantId } });
+      if (dto.rules.length > 0) {
+        await tx.doctorScheduleRule.createMany({
+          data: dto.rules.map((r) => ({ ...r, doctorId, tenantId })),
+        });
+      }
     });
-    if (dto.rules.length === 0) return [];
-    await this.prisma.client.doctorScheduleRule.createMany({
-      data: dto.rules.map((r) => ({ ...r, doctorId, tenantId })),
-    });
+
     return this.prisma.client.doctorScheduleRule.findMany({
       where: { doctorId, tenantId },
       orderBy: [{ dayOfWeek: 'asc' }, { startMinute: 'asc' }],

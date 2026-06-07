@@ -67,7 +67,29 @@ cp .env.production.example .env.production
 
 Variables clave: `DATABASE_URL`, `DIRECT_URL`, `JWT_SECRET`, `PATIENT_JWT_SECRET`,
 `QR_SIMPLE_*`, `WA_INTERNAL_SECRET`, `TURNSTILE_SECRET_KEY`, `APP_DOMAIN`,
-`ACME_EMAIL`, `GH_REPO`, `IMAGE_TAG`.
+`ACME_EMAIL`, `GH_REPO`, `IMAGE_TAG`, `RLS_ENFORCED` (default `false`).
+
+### 4.1 Base de datos nueva (Supabase) — orden OBLIGATORIO
+
+Para un proyecto Supabase nuevo (recomendado **región sa-east-1 / São Paulo**
+por latencia desde Bolivia):
+
+```bash
+# 1. Funciones RLS helper — ANTES de migrar (las migraciones las referencian
+#    pero no las crean; sin esto, migrate deploy falla en phase3).
+pnpm db:bootstrap
+# 2. Aplicar las migraciones
+pnpm db:migrate:deploy
+# 3. Seed (tenant demo + usuarios; omitir o adaptar en prod real)
+pnpm db:seed
+```
+
+- Connection strings desde Supabase (Connect → ORM): `DATABASE_URL` = pooler de
+  transacción (puerto **6543**, `?pgbouncer=true`); `DIRECT_URL` = directo
+  (**5432**). La extensión `btree_gist` la crea la migración (no es paso manual).
+- El API **no** usa el cliente JS de Supabase; `SUPABASE_URL`/`*_KEY` solo se
+  validan al boot. Igual ponlos del proyecto nuevo.
+- Habilitar **PITR/backups** en el dashboard de Supabase.
 
 ## 5. Levantar
 

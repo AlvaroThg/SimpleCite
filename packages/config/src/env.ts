@@ -27,6 +27,16 @@ export const envSchema = z.object({
   WEB_PORT: z.coerce.number().int().positive().default(3000),
   APP_DOMAIN: z.string().default('simplecite.com.bo'),
 
+  // ─── RLS enforcement ───
+  // false (default): RLS dormante — el aislamiento lo da el filtro app-layer
+  //   `where:{tenantId}` y NO se abre transacción por request (menos latencia).
+  // true: activa el enforcement real — requiere el rol sin bypassrls y abre una
+  //   transacción con set_config por request (ver docs/rls-enforcement.md).
+  RLS_ENFORCED: z
+    .union([z.boolean(), z.enum(['true', 'false'])])
+    .transform((v) => v === true || v === 'true')
+    .default(false),
+
   // ─── QR Simple (pasarela de pagos Bolivia) ───
   QR_SIMPLE_API_URL: z.string().url().optional(),
   QR_SIMPLE_API_KEY: z.string().optional(),

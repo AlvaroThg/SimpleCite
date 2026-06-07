@@ -1,1 +1,25 @@
 @import 'tailwindcss';
+
+/* Tema de marca SimpleCite (Tailwind v4 @theme). */
+@theme {
+  /* Tipografía: Inter como sans por defecto (var inyectada por next/font). */
+  --font-sans:
+    var(--font-inter), ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+
+  /* Color de marca: azul SimpleCite (tomado del logo). "Cite" = #0a70f8. */
+  --color-brand-50: #eef5ff;
+  --color-brand-100: #d9e8ff;
+  --color-brand-200: #b6d2ff;
+  --color-brand-300: #90c0f8; /* azul claro del ícono del calendario */
+  --color-brand-400: #4d97fa;
+  --color-brand-500: #0a70f8; /* azul "Cite" */
+  --color-brand-600: #0860dd;
+  --color-brand-700: #084fb8;
+  --color-brand-800: #0c3f8f;
+  --color-brand-900: #102a5c;
+
+  /* Navy de la marca (texto "Simple" del logo) — para títulos/ink. */
+  --color-ink-700: #2a3a4d;
+  --color-ink-800: #1f2d3d;
+  --color-ink-900: #182838;
+}

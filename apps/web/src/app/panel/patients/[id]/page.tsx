@@ -6,7 +6,8 @@ import Link from 'next/link';
 import { useAuth } from '@/lib/panel-auth';
 import { getPatientHistory, createNote, PanelApiError, type PatientHistory } from '@/lib/panel-api';
 import { PanelShell } from '@/components/panel/PanelShell';
-import { StatusBadge, fmtDateTime, Spinner, ErrorBox } from '@/components/panel/ui';
+import { StatusBadge, fmtDateTime, ErrorBox } from '@/components/panel/ui';
+import { SkeletonDetail } from '@/components/panel/Skeleton';
 import { Markdown } from '@/components/panel/Markdown';
 
 export default function PatientHistoryPage() {
@@ -42,7 +43,7 @@ function PatientHistoryView() {
     void load();
   }, [load]);
 
-  if (loading) return <Spinner />;
+  if (loading) return <SkeletonDetail />;
   if (error && !data) return <ErrorBox message={error} />;
   if (!data) return null;
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { useAuth } from '@/lib/panel-auth';
 import { PanelApiError } from '@/lib/panel-api';
 
@@ -42,8 +43,22 @@ export default function PanelLoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
       <div className="w-full max-w-sm">
-        <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">SimpleCite</h1>
+        <div className="flex flex-col items-center mb-8">
+          <Image
+            src="/icon.png"
+            alt="SimpleCite"
+            width={1254}
+            height={1254}
+            priority
+            className="w-14 h-14 rounded-2xl shadow-sm"
+          />
+          <Image
+            src="/logo.png"
+            alt="SimpleCite"
+            width={2031}
+            height={774}
+            className="h-6 w-auto mt-3"
+          />
           <p className="text-sm text-gray-500 mt-1">Panel profesional</p>
         </div>
 

@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { useAuth } from '@/lib/panel-auth';
 import { getAppointments, PanelApiError, type AppointmentListItem } from '@/lib/panel-api';
 import { PanelShell } from '@/components/panel/PanelShell';
-import { StatusBadge, fmtDateTime, Spinner, ErrorBox } from '@/components/panel/ui';
+import { StatusBadge, fmtDateTime, ErrorBox } from '@/components/panel/ui';
+import { SkeletonList } from '@/components/panel/Skeleton';
 
 const STATUS_FILTERS = [
   { value: '', label: 'Todas' },
@@ -77,7 +78,7 @@ function AppointmentsList() {
 
       {error && <ErrorBox message={error} />}
       {loading ? (
-        <Spinner />
+        <SkeletonList />
       ) : items.length === 0 ? (
         <p className="text-gray-500 text-sm py-8 text-center">No hay citas para este filtro.</p>
       ) : (

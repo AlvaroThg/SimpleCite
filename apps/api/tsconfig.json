@@ -11,7 +11,10 @@
     "experimentalDecorators": true,
     "target": "ES2022",
     "sourceMap": true,
-    "incremental": true,
+    // Desactivado a propósito: con nest-cli `deleteOutDir: true`, un .tsbuildinfo
+    // persistente desincroniza tsc (cree que ya emitió) y deja dist/main.js sin
+    // generar → "Cannot find module dist/main" en `nest start --watch`.
+    "incremental": false,
     "paths": {
       "@/*": ["./src/*"]
     }

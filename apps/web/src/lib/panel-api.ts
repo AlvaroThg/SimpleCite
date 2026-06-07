@@ -195,3 +195,202 @@ export async function createNote(
   const json = await handle<{ data: ClinicalNote }>(res);
   return json.data;
 }
+
+// ─── Helpers genéricos (CRUD del dashboard) ──────────────────────────
+
+async function req<T>(
+  method: string,
+  path: string,
+  token: string,
+  slug: string,
+  body?: unknown,
+): Promise<T> {
+  const res = await fetch(`${BASE}${path}`, {
+    method,
+    headers: authHeaders(token, slug),
+    ...(body !== undefined && { body: JSON.stringify(body) }),
+  });
+  return handle<T>(res);
+}
+const get = <T>(p: string, t: string, s: string) => req<T>('GET', p, t, s);
+const post = <T>(p: string, t: string, s: string, b?: unknown) => req<T>('POST', p, t, s, b);
+const patch = <T>(p: string, t: string, s: string, b?: unknown) => req<T>('PATCH', p, t, s, b);
+const del = <T>(p: string, t: string, s: string) => req<T>('DELETE', p, t, s);
+
+// ─── Reports ──────────────────────────────────────────────────────────
+
+export interface ReportsSummary {
+  citasHoy: number;
+  ingresosMes: number;
+  tasaInasistencia: number;
+  proximasCitas: {
+    id: string;
+    startTime: string;
+    patientName: string;
+    doctorName: string;
+    serviceName: string;
+  }[];
+}
+export const getReportsSummary = (t: string, s: string) =>
+  get<{ data: ReportsSummary }>('/api/reports/summary', t, s).then((r) => r.data);
+
+// ─── Tenant config / branding ─────────────────────────────────────────
+
+export interface TenantConfig {
+  id: string;
+  slug: string;
+  name: string;
+  logoUrl: string | null;
+  primaryColor: string;
+  timezone: string;
+  plan: string;
+  whatsappEnabled: boolean;
+}
+export const getTenantConfig = (t: string, s: string) =>
+  get<{ data: TenantConfig }>('/api/tenants/current', t, s).then((r) => r.data);
+export const updateTenantBranding = (
+  t: string,
+  s: string,
+  body: { name?: string; logoUrl?: string | null; primaryColor?: string },
+) => patch<{ data: TenantConfig }>('/api/tenants/current', t, s, body).then((r) => r.data);
+
+// ─── Doctores ─────────────────────────────────────────────────────────
+
+export interface Doctor {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  isActive: boolean;
+  specialty: string | null;
+  licenseNumber: string | null;
+  bio: string | null;
+}
+export const getDoctorsAdmin = (t: string, s: string) =>
+  get<{ data: Doctor[] }>('/api/doctors', t, s).then((r) => r.data);
+export const createDoctor = (
+  t: string,
+  s: string,
+  body: {
+    email: string;
+    password: string;
+    name: string;
+    specialty: string;
+    licenseNumber?: string;
+    bio?: string;
+  },
+) => post<{ data: Doctor }>('/api/doctors', t, s, body).then((r) => r.data);
+export const updateDoctor = (t: string, s: string, id: string, body: Record<string, unknown>) =>
+  patch<{ data: Doctor }>(`/api/doctors/${id}`, t, s, body).then((r) => r.data);
+export const archiveDoctor = (t: string, s: string, id: string) =>
+  del<{ success: boolean }>(`/api/doctors/${id}`, t, s);
+
+// Asignaciones doctor ↔ servicio
+export interface DoctorServiceLink {
+  id: string;
+  serviceId: string;
+  customDuration: number | null;
+  service: ServiceItem;
+}
+export const getDoctorServices = (t: string, s: string, doctorId: string) =>
+  get<{ data: DoctorServiceLink[] }>(`/api/services/doctors/${doctorId}`, t, s).then((r) => r.data);
+export const assignServiceToDoctor = (
+  t: string,
+  s: string,
+  doctorId: string,
+  body: { serviceId: string; customDuration?: number },
+) =>
+  post<{ data: DoctorServiceLink }>(`/api/services/doctors/${doctorId}/assign`, t, s, body).then(
+    (r) => r.data,
+  );
+export const unassignServiceFromDoctor = (t: string, s: string, linkId: string) =>
+  del<{ success: boolean }>(`/api/services/assignments/${linkId}`, t, s);
+
+// ─── Servicios ────────────────────────────────────────────────────────
+
+export interface ServiceItem {
+  id: string;
+  name: string;
+  description: string | null;
+  price: string;
+  duration: number;
+  isActive: boolean;
+}
+export const getServices = (t: string, s: string) =>
+  get<{ data: ServiceItem[] }>('/api/services', t, s).then((r) => r.data);
+export const createService = (
+  t: string,
+  s: string,
+  body: { name: string; description?: string; price: number; duration: number },
+) => post<{ data: ServiceItem }>('/api/services', t, s, body).then((r) => r.data);
+export const updateService = (t: string, s: string, id: string, body: Record<string, unknown>) =>
+  patch<{ data: ServiceItem }>(`/api/services/${id}`, t, s, body).then((r) => r.data);
+export const deleteService = (t: string, s: string, id: string) =>
+  del<{ success: boolean }>(`/api/services/${id}`, t, s);
+
+// ─── Horarios (rules + blocks) ────────────────────────────────────────
+
+export interface ScheduleRule {
+  id: string;
+  dayOfWeek: number;
+  startMinute: number;
+  endMinute: number;
+}
+export const getRules = (t: string, s: string, doctorId: string) =>
+  get<{ data: ScheduleRule[] }>(`/api/schedule/doctors/${doctorId}/rules`, t, s).then(
+    (r) => r.data,
+  );
+export const replaceRules = (
+  t: string,
+  s: string,
+  doctorId: string,
+  rules: { dayOfWeek: number; startMinute: number; endMinute: number }[],
+) =>
+  put<{ data: ScheduleRule[] }>(`/api/schedule/doctors/${doctorId}/rules`, t, s, { rules }).then(
+    (r) => r.data,
+  );
+
+export interface ScheduleBlock {
+  id: string;
+  startTime: string;
+  endTime: string;
+  reason: string | null;
+}
+export const getBlocks = (t: string, s: string, doctorId: string) =>
+  get<{ data: ScheduleBlock[] }>(`/api/schedule/doctors/${doctorId}/blocks`, t, s).then(
+    (r) => r.data,
+  );
+export const createBlock = (
+  t: string,
+  s: string,
+  doctorId: string,
+  body: { startTime: string; endTime: string; reason?: string },
+) =>
+  post<{ data: ScheduleBlock }>(`/api/schedule/doctors/${doctorId}/blocks`, t, s, body).then(
+    (r) => r.data,
+  );
+export const deleteBlock = (t: string, s: string, blockId: string) =>
+  del<{ success: boolean }>(`/api/schedule/blocks/${blockId}`, t, s);
+
+// ─── WhatsApp (instancias) ────────────────────────────────────────────
+
+export interface WaInstance {
+  id: string;
+  status: string;
+  containerName: string;
+  phone: string | null;
+  lastSeen: string | null;
+}
+export const getWaInstances = (t: string, s: string) =>
+  get<{ data: WaInstance[] }>('/api/admin/whatsapp/instances', t, s).then((r) => r.data);
+export const createWaInstance = (t: string, s: string) =>
+  post<{ data: WaInstance }>('/api/admin/whatsapp/instances', t, s).then((r) => r.data);
+export const restartWaInstance = (t: string, s: string, id: string) =>
+  post<{ data: WaInstance }>(`/api/admin/whatsapp/instances/${id}/restart`, t, s);
+export const deleteWaInstance = (t: string, s: string, id: string) =>
+  del<{ success: boolean }>(`/api/admin/whatsapp/instances/${id}`, t, s);
+
+// `put` no estaba arriba; lo definimos aquí para replaceRules.
+function put<T>(p: string, t: string, s: string, b?: unknown) {
+  return req<T>('PUT', p, t, s, b);
+}

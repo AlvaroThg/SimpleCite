@@ -54,7 +54,28 @@ export function fmtDate(iso: string) {
 }
 
 export function Spinner({ label = 'Cargando…' }: { label?: string }) {
-  return <p className="text-gray-400 animate-pulse text-sm py-8 text-center">{label}</p>;
+  return (
+    <div className="flex flex-col items-center justify-center gap-3 py-12 text-gray-400">
+      <svg
+        className="animate-spin text-blue-600"
+        width={28}
+        height={28}
+        viewBox="0 0 24 24"
+        fill="none"
+        role="status"
+        aria-label="Cargando"
+      >
+        <circle cx="12" cy="12" r="10" stroke="currentColor" strokeOpacity="0.2" strokeWidth="4" />
+        <path
+          d="M22 12a10 10 0 0 0-10-10"
+          stroke="currentColor"
+          strokeWidth="4"
+          strokeLinecap="round"
+        />
+      </svg>
+      <p className="text-sm">{label}</p>
+    </div>
+  );
 }
 
 export function ErrorBox({ message }: { message: string }) {

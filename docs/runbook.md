@@ -27,6 +27,10 @@ Tras rotar: `docker compose -f docker-compose.prod.yml up -d api` y verificar
 
 No hay UI de onboarding aún (MVP). Alta manual:
 
+> **DB nueva**: si estás inicializando una base fresca, el orden es
+> `pnpm db:bootstrap` (crea las funciones RLS helper) → `pnpm db:migrate:deploy`
+> → `pnpm db:seed`. Sin el bootstrap, las migraciones fallan (ver `deploy-vps.md §4.1`).
+
 1. Crear el tenant + admin (script o SQL, con password bcrypt):
    - `slug` único (será el subdominio: `clinica-x.simplecite.com.bo`).
    - `status = ACTIVE`, `timezone = America/La_Paz`.

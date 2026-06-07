@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { useAuth } from '@/lib/panel-auth';
 import { getPatients, PanelApiError, type PatientListItem } from '@/lib/panel-api';
 import { PanelShell } from '@/components/panel/PanelShell';
-import { Spinner, ErrorBox } from '@/components/panel/ui';
+import { ErrorBox } from '@/components/panel/ui';
+import { SkeletonList } from '@/components/panel/Skeleton';
 
 export default function PatientsPage() {
   return (
@@ -64,7 +65,7 @@ function PatientsList() {
 
       {error && <ErrorBox message={error} />}
       {loading && items.length === 0 ? (
-        <Spinner />
+        <SkeletonList />
       ) : items.length === 0 ? (
         <p className="text-gray-500 text-sm py-8 text-center">No se encontraron pacientes.</p>
       ) : (

@@ -11,7 +11,8 @@ import {
   type AppointmentDetail,
 } from '@/lib/panel-api';
 import { PanelShell } from '@/components/panel/PanelShell';
-import { StatusBadge, fmtDate, fmtTime, Spinner, ErrorBox } from '@/components/panel/ui';
+import { StatusBadge, fmtDate, fmtTime, ErrorBox } from '@/components/panel/ui';
+import { SkeletonDetail } from '@/components/panel/Skeleton';
 
 // Transiciones permitidas desde el panel (espejo del backend state machine).
 const TRANSITIONS: Record<string, { status: string; label: string; cls: string }[]> = {
@@ -74,7 +75,7 @@ function AppointmentDetailView() {
     }
   }
 
-  if (loading) return <Spinner />;
+  if (loading) return <SkeletonDetail />;
   if (error && !appt) return <ErrorBox message={error} />;
   if (!appt) return null;
 

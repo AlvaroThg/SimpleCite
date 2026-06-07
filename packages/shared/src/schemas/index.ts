@@ -46,6 +46,19 @@ export const CreateTenantSchema = z.object({
 });
 export type CreateTenantDto = z.infer<typeof CreateTenantSchema>;
 
+/** Edición de branding del tenant desde el panel (ADMIN). Campos opcionales. */
+export const UpdateTenantBrandingSchema = z
+  .object({
+    name: z.string().min(2).max(100).optional(),
+    logoUrl: z.string().url('URL de logo inválida').max(500).nullable().optional(),
+    primaryColor: z
+      .string()
+      .regex(/^#[0-9a-fA-F]{6}$/, 'Color hexadecimal inválido (ej: #0EA5A4)')
+      .optional(),
+  })
+  .refine((v) => Object.keys(v).length > 0, { message: 'Nada que actualizar' });
+export type UpdateTenantBrandingDto = z.infer<typeof UpdateTenantBrandingSchema>;
+
 // ─── Doctor Schemas ───
 
 export const CreateDoctorSchema = z.object({

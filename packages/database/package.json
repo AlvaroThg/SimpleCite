@@ -9,6 +9,7 @@
     "lint": "eslint src/",
     "lint:fix": "eslint src/ --fix",
     "db:generate": "prisma generate",
+    "db:bootstrap": "dotenv -e ../../.env -- tsx prisma/bootstrap.ts",
     "db:migrate:dev": "dotenv -e ../../.env -- prisma migrate dev",
     "db:migrate:deploy": "dotenv -e ../../.env -- prisma migrate deploy",
     "db:seed": "dotenv -e ../../.env -- tsx prisma/seed.ts",

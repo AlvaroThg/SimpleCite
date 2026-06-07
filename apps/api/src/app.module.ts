@@ -22,14 +22,21 @@ import { PublicModule } from './modules/public/public.module';
 import { WhatsappModule } from './modules/whatsapp/whatsapp.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { PatientsModule } from './modules/patients/patients.module';
+import { ReportsModule } from './modules/reports/reports.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+      // Rutas relativas al CWD. Al correr vía Turbo el CWD es apps/api, por eso
+      // se incluyen también las variantes de la raíz del monorepo (../../). El
+      // primer archivo que define cada clave gana, así que el .env.<entorno>
+      // (completo) tiene prioridad sobre el .env de raíz (que puede ser parcial).
       envFilePath: [
         `.env.${process.env.NODE_ENV ?? 'development'}.local`,
         `.env.${process.env.NODE_ENV ?? 'development'}`,
+        `../../.env.${process.env.NODE_ENV ?? 'development'}.local`,
+        `../../.env.${process.env.NODE_ENV ?? 'development'}`,
         '.env.local',
         '.env',
         '../../.env',
@@ -90,6 +97,7 @@ import { PatientsModule } from './modules/patients/patients.module';
     PublicModule,
     WhatsappModule,
     PaymentsModule,
+    ReportsModule,
   ],
   providers: [
     // ── Orden de ejecución de guards globales ──

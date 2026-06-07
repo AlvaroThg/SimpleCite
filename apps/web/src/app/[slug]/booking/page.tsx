@@ -273,8 +273,33 @@ export default function BookingWizard() {
 
   if (state.loading && state.step === 'select-doctor') {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <p className="text-gray-500 animate-pulse">Cargando...</p>
+      <div className="flex flex-col items-center justify-center gap-3 min-h-[60vh] text-gray-400">
+        <svg
+          className="animate-spin"
+          style={{ color: primary }}
+          width={36}
+          height={36}
+          viewBox="0 0 24 24"
+          fill="none"
+          role="status"
+          aria-label="Cargando"
+        >
+          <circle
+            cx="12"
+            cy="12"
+            r="10"
+            stroke="currentColor"
+            strokeOpacity="0.2"
+            strokeWidth="4"
+          />
+          <path
+            d="M22 12a10 10 0 0 0-10-10"
+            stroke="currentColor"
+            strokeWidth="4"
+            strokeLinecap="round"
+          />
+        </svg>
+        <p className="text-sm">Cargando…</p>
       </div>
     );
   }

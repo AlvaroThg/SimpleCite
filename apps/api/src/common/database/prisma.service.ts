@@ -15,6 +15,14 @@ import { tenantContextStorage } from './tenant-context.storage';
 export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(PrismaService.name);
 
+  /**
+   * Cuando false (default), RLS está dormante: NO se abre transacción por
+   * request (el aislamiento lo da el filtro `where:{tenantId}` app-layer). Esto
+   * elimina ~5 round-trips por request a Supabase. Cuando true, se activa el
+   * enforcement real con transacción + set_config (ver docs/rls-enforcement.md).
+   */
+  private readonly rlsEnforced = process.env.RLS_ENFORCED === 'true';
+
   async onModuleInit() {
     await this.$connect();
     this.logger.log('✅ Conectado a PostgreSQL (Supabase)');
@@ -54,15 +62,22 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     fn: () => Promise<T>,
     userCtx?: { userId?: string; role?: string },
   ): Promise<T> {
+    // ── Modo dormante (default): sin transacción ni set_config ──
+    // El aislamiento ya lo garantiza el `where:{tenantId}` de cada servicio;
+    // abrir una transacción solo añadiría round-trips de latencia. `prisma.client`
+    // cae al cliente base (no hay `tx` en el store).
+    if (!this.rlsEnforced) {
+      return fn();
+    }
+
+    // ── Modo enforcement: transacción + contexto en UN solo round-trip ──
     return this.$transaction(async (tx) => {
-      // set_config(..., true) → LOCAL: solo aplica a esta transacción
-      await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
-      if (userCtx?.userId) {
-        await tx.$executeRaw`SELECT set_config('app.current_user_id', ${userCtx.userId}, true)`;
-      }
-      if (userCtx?.role) {
-        await tx.$executeRaw`SELECT set_config('app.current_user_role', ${userCtx.role}, true)`;
-      }
+      // set_config(..., true) → LOCAL a la transacción. Los tres en un statement
+      // para no pagar 3 viajes a la DB.
+      await tx.$executeRaw`SELECT
+        set_config('app.current_tenant_id', ${tenantId}, true),
+        set_config('app.current_user_id', ${userCtx?.userId ?? ''}, true),
+        set_config('app.current_user_role', ${userCtx?.role ?? ''}, true)`;
       return tenantContextStorage.run({ tenantId, tx }, fn);
     });
   }

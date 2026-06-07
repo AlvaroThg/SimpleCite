@@ -53,10 +53,15 @@ son rutas auth-críticas y de sistema:
 3. **Env**:
 
    ```
+   RLS_ENFORCED="true"   # activa la transacción + set_config por request
    DATABASE_URL="postgresql://simplecite_app.<ref>:<pw>@<host>:6543/postgres?pgbouncer=true"
    SYSTEM_DATABASE_URL="postgresql://postgres.<ref>:<pw>@<host>:6543/postgres?pgbouncer=true"
    DIRECT_URL  # se mantiene como postgres para migraciones
    ```
+
+   > Con `RLS_ENFORCED=false` (default) no se abre transacción por request
+   > (menos latencia) y las políticas RLS quedan dormidas. El flip a `true`
+   > requiere el rol sin bypassrls Y el dual-client del paso 2.
 
 4. **Regresión E2E obligatoria** antes de dar por bueno el flip:
    login staff, resolución de tenant, booking público, OTP, pago + webhook,
