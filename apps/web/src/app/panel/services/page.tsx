@@ -15,6 +15,7 @@ import { ErrorBox } from '@/components/panel/ui';
 import { SkeletonList } from '@/components/panel/Skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ClipboardList } from 'lucide-react';
+import { SERVICE_ICON_OPTIONS, getServiceIcon } from '@/lib/service-icons';
 
 export default function ServicesPage() {
   return (
@@ -24,8 +25,15 @@ export default function ServicesPage() {
   );
 }
 
-type Draft = { id?: string; name: string; description: string; price: string; duration: string };
-const empty: Draft = { name: '', description: '', price: '', duration: '30' };
+type Draft = {
+  id?: string;
+  name: string;
+  description: string;
+  price: string;
+  duration: string;
+  icon: string | null;
+};
+const empty: Draft = { name: '', description: '', price: '', duration: '30', icon: null };
 
 function Services() {
   const { session } = useAuth();
@@ -61,6 +69,7 @@ function Services() {
         description: draft.description.trim() || undefined,
         price: Number(draft.price),
         duration: Number(draft.duration),
+        icon: draft.icon,
       };
       if (draft.id) await updateService(session.token, session.slug, draft.id, body);
       else await createService(session.token, session.slug, body);
@@ -124,6 +133,31 @@ function Services() {
               onChange={(v) => setDraft({ ...draft, duration: v })}
             />
           </div>
+          <div className="space-y-1">
+            <span className="text-sm font-medium text-gray-700">Ícono (opcional)</span>
+            <div className="grid grid-cols-6 gap-2">
+              {SERVICE_ICON_OPTIONS.map(({ key, label, Icon }) => {
+                const selected = draft.icon === key;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    title={label}
+                    aria-label={label}
+                    aria-pressed={selected}
+                    onClick={() => setDraft({ ...draft, icon: selected ? null : key })}
+                    className={`flex items-center justify-center rounded-xl border p-2 transition-colors ${
+                      selected
+                        ? 'border-brand-500 bg-brand-50 text-brand-700'
+                        : 'border-gray-200 text-gray-500 hover:border-brand-300'
+                    }`}
+                  >
+                    <Icon className="size-5" />
+                  </button>
+                );
+              })}
+            </div>
+          </div>
           <div className="flex gap-2 justify-end">
             <button onClick={() => setDraft(null)} className="px-4 py-2 text-sm text-gray-500">
               Cancelar
@@ -149,49 +183,60 @@ function Services() {
         />
       ) : (
         <ul className="space-y-2">
-          {items.map((s) => (
-            <li
-              key={s.id}
-              className="bg-white rounded-xl border border-gray-100 p-4 flex items-center justify-between gap-4 transition-all hover:border-brand-300 hover:shadow-sm"
-            >
-              <div className="min-w-0">
-                <p className="font-semibold text-gray-900 truncate">{s.name}</p>
-                <p className="mt-1 text-sm text-gray-600 flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                  <span className="font-medium text-gray-900">Bs {Number(s.price).toFixed(0)}</span>
-                  <span className="text-gray-300">·</span>
-                  <span>{s.duration} min</span>
-                  {!s.isActive && (
-                    <>
+          {items.map((s, index) => {
+            const Icon = getServiceIcon(s.icon, index);
+            return (
+              <li
+                key={s.id}
+                className="bg-white rounded-xl border border-gray-100 p-4 flex items-center justify-between gap-4 transition-all hover:border-brand-300 hover:shadow-sm"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-700">
+                    <Icon className="size-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-semibold text-gray-900 truncate">{s.name}</p>
+                    <p className="mt-1 text-sm text-gray-600 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                      <span className="font-medium text-gray-900">
+                        Bs {Number(s.price).toFixed(0)}
+                      </span>
                       <span className="text-gray-300">·</span>
-                      <span className="text-red-500">inactivo</span>
-                    </>
-                  )}
-                </p>
-              </div>
-              <div className="flex gap-3 flex-shrink-0 text-sm">
-                <button
-                  onClick={() =>
-                    setDraft({
-                      id: s.id,
-                      name: s.name,
-                      description: s.description ?? '',
-                      price: String(s.price),
-                      duration: String(s.duration),
-                    })
-                  }
-                  className="text-brand-600 font-medium transition-colors hover:text-brand-800"
-                >
-                  Editar
-                </button>
-                <button
-                  onClick={() => remove(s.id)}
-                  className="text-red-500 transition-colors hover:text-red-700"
-                >
-                  Eliminar
-                </button>
-              </div>
-            </li>
-          ))}
+                      <span>{s.duration} min</span>
+                      {!s.isActive && (
+                        <>
+                          <span className="text-gray-300">·</span>
+                          <span className="text-red-500">inactivo</span>
+                        </>
+                      )}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex gap-3 flex-shrink-0 text-sm">
+                  <button
+                    onClick={() =>
+                      setDraft({
+                        id: s.id,
+                        name: s.name,
+                        description: s.description ?? '',
+                        price: String(s.price),
+                        duration: String(s.duration),
+                        icon: s.icon,
+                      })
+                    }
+                    className="text-brand-600 font-medium transition-colors hover:text-brand-800"
+                  >
+                    Editar
+                  </button>
+                  <button
+                    onClick={() => remove(s.id)}
+                    className="text-red-500 transition-colors hover:text-red-700"
+                  >
+                    Eliminar
+                  </button>
+                </div>
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>

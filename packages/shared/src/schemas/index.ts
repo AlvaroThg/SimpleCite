@@ -8,6 +8,23 @@ export type UserRole = z.infer<typeof UserRole>;
 export const PaymentMethod = z.enum(['CASH', 'STATIC_QR']);
 export type PaymentMethod = z.infer<typeof PaymentMethod>;
 
+/** Íconos disponibles para los servicios en la landing (mirror en el frontend). */
+export const ServiceIcon = z.enum([
+  'stethoscope',
+  'heart',
+  'activity',
+  'baby',
+  'bone',
+  'eye',
+  'pill',
+  'brain',
+  'syringe',
+  'microscope',
+  'ear',
+  'scan',
+]);
+export type ServiceIcon = z.infer<typeof ServiceIcon>;
+
 export const AppointmentStatus = z.enum([
   'TENTATIVE', // Reservado durante flujo OTP — expira si no se confirma
   'PENDING_PAYMENT',
@@ -58,7 +75,19 @@ export const UpdateTenantBrandingSchema = z
       .string()
       .regex(/^#[0-9a-fA-F]{6}$/, 'Color hexadecimal inválido (ej: #0EA5A4)')
       .optional(),
+    secondaryColor: z
+      .string()
+      .regex(/^#[0-9a-fA-F]{6}$/, 'Color hexadecimal inválido')
+      .nullable()
+      .optional(),
     staticQrUrl: z.string().url('URL de QR inválida').max(500).nullable().optional(),
+    heroImageUrl: z.string().url('URL de imagen inválida').max(500).nullable().optional(),
+    heroTitle: z.string().max(120).nullable().optional(),
+    heroSubtitle: z.string().max(300).nullable().optional(),
+    servicesTitle: z.string().max(120).nullable().optional(),
+    specialistsTitle: z.string().max(120).nullable().optional(),
+    ctaTitle: z.string().max(120).nullable().optional(),
+    ctaSubtitle: z.string().max(300).nullable().optional(),
   })
   .refine((v) => Object.keys(v).length > 0, { message: 'Nada que actualizar' });
 export type UpdateTenantBrandingDto = z.infer<typeof UpdateTenantBrandingSchema>;
@@ -104,6 +133,7 @@ export const CreateServiceSchema = z.object({
     .int()
     .min(5, 'Duración mínima: 5 minutos')
     .max(480, 'Duración máxima: 8 horas'),
+  icon: ServiceIcon.nullable().optional(),
 });
 export type CreateServiceDto = z.infer<typeof CreateServiceSchema>;
 
@@ -291,6 +321,14 @@ export const PublicTenantInfoSchema = z.object({
   name: z.string(),
   logoUrl: z.string().nullable(),
   primaryColor: z.string(),
+  secondaryColor: z.string().nullable(),
+  heroImageUrl: z.string().nullable(),
+  heroTitle: z.string().nullable(),
+  heroSubtitle: z.string().nullable(),
+  servicesTitle: z.string().nullable(),
+  specialistsTitle: z.string().nullable(),
+  ctaTitle: z.string().nullable(),
+  ctaSubtitle: z.string().nullable(),
   timezone: z.string(),
   whatsappEnabled: z.boolean(),
 });

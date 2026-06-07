@@ -80,11 +80,20 @@ function Branding({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantConf
   const { session } = useAuth();
   const [name, setName] = useState(cfg.name);
   const [color, setColor] = useState(cfg.primaryColor || '#0a70f8');
+  const [secondaryColor, setSecondaryColor] = useState(cfg.secondaryColor || '#0ea5e9');
+  const [heroTitle, setHeroTitle] = useState(cfg.heroTitle ?? '');
+  const [heroSubtitle, setHeroSubtitle] = useState(cfg.heroSubtitle ?? '');
+  const [servicesTitle, setServicesTitle] = useState(cfg.servicesTitle ?? '');
+  const [specialistsTitle, setSpecialistsTitle] = useState(cfg.specialistsTitle ?? '');
+  const [ctaTitle, setCtaTitle] = useState(cfg.ctaTitle ?? '');
+  const [ctaSubtitle, setCtaSubtitle] = useState(cfg.ctaSubtitle ?? '');
   const [saving, setSaving] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [uploadingQr, setUploadingQr] = useState(false);
+  const [uploadingHero, setUploadingHero] = useState(false);
   const logoInputRef = useRef<HTMLInputElement>(null);
   const qrInputRef = useRef<HTMLInputElement>(null);
+  const heroInputRef = useRef<HTMLInputElement>(null);
 
   async function save() {
     if (!session) return;
@@ -93,6 +102,13 @@ function Branding({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantConf
       const updated = await updateTenantBranding(session.token, session.slug, {
         name: name.trim(),
         primaryColor: color,
+        secondaryColor: secondaryColor || null,
+        heroTitle: heroTitle.trim() || null,
+        heroSubtitle: heroSubtitle.trim() || null,
+        servicesTitle: servicesTitle.trim() || null,
+        specialistsTitle: specialistsTitle.trim() || null,
+        ctaTitle: ctaTitle.trim() || null,
+        ctaSubtitle: ctaSubtitle.trim() || null,
       });
       onSaved(updated);
       toast.success('Cambios guardados.');
@@ -103,7 +119,10 @@ function Branding({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantConf
     }
   }
 
-  function handleFileUpload(type: 'logo' | 'static-qr', setUploading: (v: boolean) => void) {
+  function handleFileUpload(
+    type: 'logo' | 'static-qr' | 'hero',
+    setUploading: (v: boolean) => void,
+  ) {
     return async (e: React.ChangeEvent<HTMLInputElement>) => {
       if (!session) return;
       const file = e.target.files?.[0];
@@ -122,7 +141,13 @@ function Branding({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantConf
           mimeType: file.type,
         });
         onSaved(updated);
-        toast.success(type === 'logo' ? 'Logo actualizado.' : 'QR bancario actualizado.');
+        toast.success(
+          type === 'logo'
+            ? 'Logo actualizado.'
+            : type === 'hero'
+              ? 'Imagen de portada actualizada.'
+              : 'QR bancario actualizado.',
+        );
       } catch (e) {
         toast.error(
           e instanceof PanelApiError
@@ -167,6 +192,23 @@ function Branding({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantConf
             <input
               value={color}
               onChange={(e) => setColor(e.target.value)}
+              className="w-28 border border-gray-300 rounded-xl px-3 py-2 text-sm"
+            />
+          </div>
+        </div>
+
+        <div className="space-y-1">
+          <span className="text-sm font-medium text-gray-700">Color secundario</span>
+          <div className="flex items-center gap-2 mt-1">
+            <input
+              type="color"
+              value={secondaryColor}
+              onChange={(e) => setSecondaryColor(e.target.value)}
+              className="w-10 h-10 rounded-lg border border-gray-300 cursor-pointer"
+            />
+            <input
+              value={secondaryColor}
+              onChange={(e) => setSecondaryColor(e.target.value)}
               className="w-28 border border-gray-300 rounded-xl px-3 py-2 text-sm"
             />
           </div>
@@ -246,6 +288,123 @@ function Branding({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantConf
             />
           </div>
         </div>
+      </div>
+
+      {/* Hero image upload */}
+      <div className="border-t border-gray-50 pt-4">
+        <p className="text-sm font-semibold text-gray-700 mb-1">Imagen de portada</p>
+        <p className="text-xs text-gray-400 mb-3">
+          Imagen principal (hero) que verán tus pacientes en la página pública.
+        </p>
+        <div className="flex items-center gap-4">
+          {cfg.heroImageUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={cfg.heroImageUrl}
+              alt="Portada"
+              className="h-32 w-auto max-w-[320px] rounded-xl border border-gray-100 bg-white object-cover"
+            />
+          ) : (
+            <div className="flex h-32 w-48 items-center justify-center rounded-xl border-2 border-dashed border-gray-200 text-xs text-gray-300">
+              Sin portada
+            </div>
+          )}
+          <div className="space-y-1">
+            <button
+              type="button"
+              onClick={() => heroInputRef.current?.click()}
+              disabled={uploadingHero}
+              className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg hover:border-blue-300 hover:text-blue-700 disabled:opacity-50 transition"
+            >
+              {uploadingHero ? 'Subiendo…' : cfg.heroImageUrl ? 'Cambiar portada' : 'Subir portada'}
+            </button>
+            <p className="text-xs text-gray-400">PNG, JPG · máx. 2 MB</p>
+            <input
+              ref={heroInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              className="hidden"
+              onChange={handleFileUpload('hero', setUploadingHero)}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Landing texts */}
+      <div className="border-t border-gray-50 pt-4 space-y-4">
+        <div>
+          <p className="text-sm font-semibold text-gray-700">Textos de la página</p>
+          <p className="text-xs text-gray-400">
+            Personaliza los títulos y subtítulos de tu página pública. Deja un campo vacío para usar
+            el valor por defecto.
+          </p>
+        </div>
+
+        <label className="block space-y-1">
+          <span className="text-sm font-medium text-gray-700">Título de portada</span>
+          <input
+            value={heroTitle}
+            onChange={(e) => setHeroTitle(e.target.value)}
+            placeholder="Reserva tu cita en minutos"
+            className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+          />
+        </label>
+
+        <label className="block space-y-1">
+          <span className="text-sm font-medium text-gray-700">Subtítulo de portada</span>
+          <textarea
+            value={heroSubtitle}
+            onChange={(e) => setHeroSubtitle(e.target.value)}
+            rows={2}
+            placeholder="Agenda con tu especialista de confianza de forma rápida y segura."
+            className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+          />
+        </label>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <label className="block space-y-1">
+            <span className="text-sm font-medium text-gray-700">Título de servicios</span>
+            <input
+              value={servicesTitle}
+              onChange={(e) => setServicesTitle(e.target.value)}
+              placeholder="Nuestros servicios"
+              className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+            />
+          </label>
+
+          <label className="block space-y-1">
+            <span className="text-sm font-medium text-gray-700">Título de especialistas</span>
+            <input
+              value={specialistsTitle}
+              onChange={(e) => setSpecialistsTitle(e.target.value)}
+              placeholder="Nuestros especialistas"
+              className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+            />
+          </label>
+        </div>
+
+        <label className="block space-y-1">
+          <span className="text-sm font-medium text-gray-700">Título de llamada a la acción</span>
+          <input
+            value={ctaTitle}
+            onChange={(e) => setCtaTitle(e.target.value)}
+            placeholder="¿Listo para tu próxima cita?"
+            className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+          />
+        </label>
+
+        <label className="block space-y-1">
+          <span className="text-sm font-medium text-gray-700">
+            Subtítulo de llamada a la acción
+          </span>
+          <textarea
+            value={ctaSubtitle}
+            onChange={(e) => setCtaSubtitle(e.target.value)}
+            rows={2}
+            placeholder="Reserva ahora y recibe confirmación al instante por WhatsApp."
+            className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+          />
+        </label>
       </div>
 
       <div className="flex justify-end">

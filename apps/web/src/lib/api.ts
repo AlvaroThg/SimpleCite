@@ -20,6 +20,14 @@ export interface TenantInfo {
   name: string;
   logoUrl: string | null;
   primaryColor: string;
+  secondaryColor: string | null;
+  heroImageUrl: string | null;
+  heroTitle: string | null;
+  heroSubtitle: string | null;
+  servicesTitle: string | null;
+  specialistsTitle: string | null;
+  ctaTitle: string | null;
+  ctaSubtitle: string | null;
   timezone: string;
   whatsappEnabled: boolean;
 }
@@ -38,6 +46,7 @@ export interface DoctorWithServices {
       description: string | null;
       duration: number;
       price: string;
+      icon: string | null;
     };
   }[];
 }

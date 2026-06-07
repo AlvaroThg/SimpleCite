@@ -270,7 +270,15 @@ export interface TenantConfig {
   name: string;
   logoUrl: string | null;
   primaryColor: string;
+  secondaryColor: string | null;
   staticQrUrl: string | null;
+  heroImageUrl: string | null;
+  heroTitle: string | null;
+  heroSubtitle: string | null;
+  servicesTitle: string | null;
+  specialistsTitle: string | null;
+  ctaTitle: string | null;
+  ctaSubtitle: string | null;
   timezone: string;
   plan: string;
   whatsappEnabled: boolean;
@@ -284,14 +292,22 @@ export const updateTenantBranding = (
     name?: string;
     logoUrl?: string | null;
     primaryColor?: string;
+    secondaryColor?: string | null;
     staticQrUrl?: string | null;
+    heroImageUrl?: string | null;
+    heroTitle?: string | null;
+    heroSubtitle?: string | null;
+    servicesTitle?: string | null;
+    specialistsTitle?: string | null;
+    ctaTitle?: string | null;
+    ctaSubtitle?: string | null;
   },
 ) => patch<{ data: TenantConfig }>('/api/tenants/current', t, s, body).then((r) => r.data);
 
 export const uploadTenantAsset = (
   t: string,
   s: string,
-  body: { type: 'logo' | 'static-qr'; imageBase64: string; mimeType: string },
+  body: { type: 'logo' | 'static-qr' | 'hero'; imageBase64: string; mimeType: string },
 ) => post<{ data: TenantConfig }>('/api/tenants/current/assets', t, s, body).then((r) => r.data);
 
 // ─── Doctores ─────────────────────────────────────────────────────────
@@ -355,13 +371,20 @@ export interface ServiceItem {
   price: string;
   duration: number;
   isActive: boolean;
+  icon: string | null;
 }
 export const getServices = (t: string, s: string) =>
   get<{ data: ServiceItem[] }>('/api/services', t, s).then((r) => r.data);
 export const createService = (
   t: string,
   s: string,
-  body: { name: string; description?: string; price: number; duration: number },
+  body: {
+    name: string;
+    description?: string;
+    price: number;
+    duration: number;
+    icon?: string | null;
+  },
 ) => post<{ data: ServiceItem }>('/api/services', t, s, body).then((r) => r.data);
 export const updateService = (t: string, s: string, id: string, body: Record<string, unknown>) =>
   patch<{ data: ServiceItem }>(`/api/services/${id}`, t, s, body).then((r) => r.data);

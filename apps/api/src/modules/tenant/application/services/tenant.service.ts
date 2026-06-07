@@ -11,7 +11,15 @@ export interface TenantConfig {
   name: string;
   logoUrl: string | null;
   primaryColor: string;
+  secondaryColor: string | null;
   staticQrUrl: string | null;
+  heroImageUrl: string | null;
+  heroTitle: string | null;
+  heroSubtitle: string | null;
+  servicesTitle: string | null;
+  specialistsTitle: string | null;
+  ctaTitle: string | null;
+  ctaSubtitle: string | null;
   timezone: string;
   plan: string;
   whatsappEnabled: boolean;
@@ -58,7 +66,15 @@ export class TenantService implements TenantServicePort {
         name: true,
         logoUrl: true,
         primaryColor: true,
+        secondaryColor: true,
         staticQrUrl: true,
+        heroImageUrl: true,
+        heroTitle: true,
+        heroSubtitle: true,
+        servicesTitle: true,
+        specialistsTitle: true,
+        ctaTitle: true,
+        ctaSubtitle: true,
         timezone: true,
         plan: true,
         whatsappEnabled: true,
@@ -76,7 +92,15 @@ export class TenantService implements TenantServicePort {
         ...(dto.name !== undefined && { name: dto.name }),
         ...(dto.logoUrl !== undefined && { logoUrl: dto.logoUrl }),
         ...(dto.primaryColor !== undefined && { primaryColor: dto.primaryColor }),
+        ...(dto.secondaryColor !== undefined && { secondaryColor: dto.secondaryColor }),
         ...(dto.staticQrUrl !== undefined && { staticQrUrl: dto.staticQrUrl }),
+        ...(dto.heroImageUrl !== undefined && { heroImageUrl: dto.heroImageUrl }),
+        ...(dto.heroTitle !== undefined && { heroTitle: dto.heroTitle }),
+        ...(dto.heroSubtitle !== undefined && { heroSubtitle: dto.heroSubtitle }),
+        ...(dto.servicesTitle !== undefined && { servicesTitle: dto.servicesTitle }),
+        ...(dto.specialistsTitle !== undefined && { specialistsTitle: dto.specialistsTitle }),
+        ...(dto.ctaTitle !== undefined && { ctaTitle: dto.ctaTitle }),
+        ...(dto.ctaSubtitle !== undefined && { ctaSubtitle: dto.ctaSubtitle }),
       },
     });
     return this.getConfig(tenantId);
@@ -88,7 +112,7 @@ export class TenantService implements TenantServicePort {
    */
   async uploadAsset(
     tenantId: string,
-    type: 'logo' | 'static-qr',
+    type: 'logo' | 'static-qr' | 'hero',
     imageBase64: string,
     mimeType: string,
   ): Promise<TenantConfig> {
@@ -96,7 +120,7 @@ export class TenantService implements TenantServicePort {
     const path = `${tenantId}/${type}.${ext}`;
     const url = await this.storage.uploadFromBase64('assets', path, imageBase64, mimeType);
 
-    const field = type === 'logo' ? 'logoUrl' : 'staticQrUrl';
+    const field = type === 'logo' ? 'logoUrl' : type === 'hero' ? 'heroImageUrl' : 'staticQrUrl';
     await this.prisma.client.tenant.update({
       where: { id: tenantId },
       data: { [field]: url },

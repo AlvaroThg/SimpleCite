@@ -98,6 +98,16 @@ model Tenant {
   // Pagos: QR estático bancario de la clínica
   staticQrUrl     String? /// URL de la imagen del QR bancario estático
 
+  // ─── Personalización de la landing pública (editable por el admin) ───
+  secondaryColor  String? /// Color secundario de la paleta (hex). Acentos/gradientes.
+  heroImageUrl    String? /// Imagen de portada (hero) de la landing del tenant
+  heroTitle       String? /// Título del hero (si null, se usa uno por defecto)
+  heroSubtitle    String? /// Subtítulo del hero
+  servicesTitle   String? /// Título de la sección de servicios
+  specialistsTitle String? /// Título de la sección de especialistas
+  ctaTitle        String? /// Título del bloque CTA final
+  ctaSubtitle     String? /// Subtítulo del bloque CTA final
+
   // Configuración de WhatsApp
   whatsappEnabled Boolean @default(false)
   whatsappNumber  String? /// El número vinculado al bot
@@ -222,6 +232,8 @@ model Service {
   price       Decimal @db.Decimal(10, 2) /// Precio en Bolivianos (Bs)
   duration    Int     /// Duración en minutos
   isActive    Boolean @default(true)
+  /// Clave de ícono para la landing (mirror de ServiceIcon en @simplecite/shared).
+  icon        String?
 
   tenantId String
   tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
