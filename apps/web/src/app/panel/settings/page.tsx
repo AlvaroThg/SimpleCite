@@ -5,6 +5,7 @@ import { useAuth } from '@/lib/panel-auth';
 import {
   getTenantConfig,
   updateTenantBranding,
+  uploadTenantAsset,
   getWaInstances,
   createWaInstance,
   restartWaInstance,
@@ -53,7 +54,21 @@ function Settings() {
     <div className="space-y-6">
       <h1 className="text-xl font-bold text-gray-900">Configuración</h1>
       {error && <ErrorBox message={error} />}
-      {loading ? <SkeletonCards count={2} /> : cfg && <Branding cfg={cfg} onSaved={setCfg} />}
+      {loading ? (
+        <SkeletonCards count={2} />
+      ) : cfg ? (
+        session?.user.role === 'ADMIN' ? (
+          <Branding cfg={cfg} onSaved={setCfg} />
+        ) : (
+          <section className="bg-white rounded-2xl border border-gray-100 p-5">
+            <h2 className="text-sm font-semibold text-gray-700">Marca de tu clínica</h2>
+            <p className="text-xs text-gray-400 mt-1">
+              Solo los administradores pueden editar el nombre, logo, color y QR de pago de la
+              clínica.
+            </p>
+          </section>
+        )
+      ) : null}
       <WhatsApp />
     </div>
   );
@@ -63,11 +78,14 @@ function Settings() {
 function Branding({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantConfig) => void }) {
   const { session } = useAuth();
   const [name, setName] = useState(cfg.name);
-  const [logoUrl, setLogoUrl] = useState(cfg.logoUrl ?? '');
   const [color, setColor] = useState(cfg.primaryColor || '#0a70f8');
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
   const [err, setErr] = useState('');
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [uploadingQr, setUploadingQr] = useState(false);
+  const logoInputRef = useRef<HTMLInputElement>(null);
+  const qrInputRef = useRef<HTMLInputElement>(null);
 
   async function save() {
     if (!session) return;
@@ -77,11 +95,10 @@ function Branding({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantConf
     try {
       const updated = await updateTenantBranding(session.token, session.slug, {
         name: name.trim(),
-        logoUrl: logoUrl.trim() || null,
         primaryColor: color,
       });
       onSaved(updated);
-      setMsg('Cambios guardados. Se reflejan en tu página pública de reservas.');
+      setMsg('Cambios guardados.');
     } catch (e) {
       setErr(e instanceof PanelApiError ? e.message : 'No se pudo guardar');
     } finally {
@@ -89,8 +106,38 @@ function Branding({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantConf
     }
   }
 
+  function handleFileUpload(type: 'logo' | 'static-qr', setUploading: (v: boolean) => void) {
+    return async (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (!session) return;
+      const file = e.target.files?.[0];
+      if (!file) return;
+      setUploading(true);
+      setErr('');
+      try {
+        const reader = new FileReader();
+        const base64 = await new Promise<string>((resolve, reject) => {
+          reader.onload = () => resolve((reader.result as string).split(',')[1]);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+        const updated = await uploadTenantAsset(session.token, session.slug, {
+          type,
+          imageBase64: base64,
+          mimeType: file.type,
+        });
+        onSaved(updated);
+        setMsg(type === 'logo' ? 'Logo actualizado.' : 'QR bancario actualizado.');
+      } catch (e) {
+        setErr(e instanceof PanelApiError ? e.message : 'Error al subir imagen');
+      } finally {
+        setUploading(false);
+        e.target.value = '';
+      }
+    };
+  }
+
   return (
-    <section className="bg-white rounded-2xl border border-gray-100 p-5 space-y-4">
+    <section className="bg-white rounded-2xl border border-gray-100 p-5 space-y-5">
       <div>
         <h2 className="text-sm font-semibold text-gray-700">Marca de tu clínica</h2>
         <p className="text-xs text-gray-400">
@@ -107,21 +154,10 @@ function Branding({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantConf
             className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
           />
         </label>
-        <label className="block space-y-1">
-          <span className="text-sm font-medium text-gray-700">URL del logo (opcional)</span>
-          <input
-            value={logoUrl}
-            onChange={(e) => setLogoUrl(e.target.value)}
-            placeholder="https://…/logo.png"
-            className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
-          />
-        </label>
-      </div>
 
-      <div className="flex items-center gap-4">
-        <label className="block space-y-1">
+        <div className="space-y-1">
           <span className="text-sm font-medium text-gray-700">Color principal</span>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 mt-1">
             <input
               type="color"
               value={color}
@@ -134,14 +170,82 @@ function Branding({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantConf
               className="w-28 border border-gray-300 rounded-xl px-3 py-2 text-sm"
             />
           </div>
-        </label>
-        {logoUrl.trim() && (
+        </div>
+      </div>
+
+      {/* Logo upload */}
+      <div className="flex items-center gap-4">
+        {cfg.logoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={logoUrl}
-            alt="Vista previa del logo"
-            className="h-10 w-auto rounded border border-gray-100"
+            src={cfg.logoUrl}
+            alt="Logo"
+            className="h-14 w-14 rounded-xl border border-gray-100 object-contain"
           />
+        ) : (
+          <div className="h-14 w-14 rounded-xl border-2 border-dashed border-gray-200 flex items-center justify-center text-gray-300 text-xs">
+            Logo
+          </div>
         )}
+        <div className="space-y-1">
+          <p className="text-sm font-medium text-gray-700">Logo de la clínica</p>
+          <button
+            type="button"
+            onClick={() => logoInputRef.current?.click()}
+            disabled={uploadingLogo}
+            className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg hover:border-blue-300 hover:text-blue-700 disabled:opacity-50 transition"
+          >
+            {uploadingLogo ? 'Subiendo…' : cfg.logoUrl ? 'Cambiar logo' : 'Subir logo'}
+          </button>
+          <input
+            ref={logoInputRef}
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            className="hidden"
+            onChange={handleFileUpload('logo', setUploadingLogo)}
+          />
+        </div>
+      </div>
+
+      {/* Static QR upload */}
+      <div className="border-t border-gray-50 pt-4">
+        <p className="text-sm font-semibold text-gray-700 mb-1">QR bancario de pago</p>
+        <p className="text-xs text-gray-400 mb-3">
+          El bot enviará esta imagen al paciente cuando elija pagar con QR. Debe ser el QR de tu
+          cuenta bancaria.
+        </p>
+        <div className="flex items-center gap-4">
+          {cfg.staticQrUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={cfg.staticQrUrl}
+              alt="QR bancario"
+              className="h-24 w-24 rounded-xl border border-gray-100 object-contain"
+            />
+          ) : (
+            <div className="h-24 w-24 rounded-xl border-2 border-dashed border-gray-200 flex items-center justify-center text-gray-300 text-xs text-center leading-tight p-2">
+              Sin QR
+            </div>
+          )}
+          <div className="space-y-1">
+            <button
+              type="button"
+              onClick={() => qrInputRef.current?.click()}
+              disabled={uploadingQr}
+              className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg hover:border-blue-300 hover:text-blue-700 disabled:opacity-50 transition"
+            >
+              {uploadingQr ? 'Subiendo…' : cfg.staticQrUrl ? 'Cambiar QR' : 'Subir QR bancario'}
+            </button>
+            <p className="text-xs text-gray-400">PNG, JPG · máx. 2 MB</p>
+            <input
+              ref={qrInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              className="hidden"
+              onChange={handleFileUpload('static-qr', setUploadingQr)}
+            />
+          </div>
+        </div>
       </div>
 
       {err && <ErrorBox message={err} />}

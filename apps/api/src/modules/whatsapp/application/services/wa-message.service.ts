@@ -119,4 +119,41 @@ export class WaMessageService {
 
     return { sent: false, messageKey };
   }
+
+  /**
+   * Envía una imagen WhatsApp al paciente (p.ej. el QR de pago).
+   * No requiere idempotencia en DB — es un mensaje secundario complementario.
+   */
+  async sendImage(params: {
+    tenantId: string;
+    tenantSlug: string;
+    phone: string;
+    imageUrl: string;
+    caption?: string;
+    messageKey: string;
+  }): Promise<void> {
+    const { tenantId, tenantSlug, phone, imageUrl, caption, messageKey } = params;
+
+    const instance = await this.manager.getInstanceByTenantId(tenantId);
+    if (!instance || instance.status !== 'CONNECTED') return;
+
+    try {
+      const url = `${this.manager.getInstanceServiceUrl(tenantSlug)}/send-image`;
+      await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-internal-secret': process.env.WA_INTERNAL_SECRET ?? '',
+        },
+        body: JSON.stringify({ phone, imageUrl, caption, messageKey }),
+        signal: AbortSignal.timeout(15_000),
+      });
+      this.logger.log({ event: 'wa.image.sent', messageKey, phone }, 'WaMessageService');
+    } catch (err) {
+      this.logger.warn(
+        { event: 'wa.image.send.failed', messageKey, err: (err as Error).message },
+        'WaMessageService',
+      );
+    }
+  }
 }

@@ -2,6 +2,7 @@
 import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
 import prettier from 'eslint-config-prettier';
+import nextPlugin from '@next/eslint-plugin-next';
 
 // Globals de Node 18+ (sin depender del paquete `globals`).
 /** @type {Record<string, 'readonly' | 'writable' | 'off'>} */
@@ -86,6 +87,20 @@ export default tseslint.config(
     rules: {
       '@typescript-eslint/consistent-type-imports': 'off',
     },
+  },
+  {
+    // Plugin oficial de Next.js: registra las reglas `@next/next/*`. Sin esto,
+    // los `eslint-disable-next-line @next/next/no-img-element` del código web
+    // apuntan a una regla inexistente y `next build` (fase ESLint) falla con
+    // "Definition for rule '@next/next/no-img-element' was not found".
+    files: ['apps/web/**/*.{ts,tsx}'],
+    plugins: { '@next/next': nextPlugin },
+    // Cast: el plugin tipa los valores como `string`; en flat config son
+    // RuleEntry válidos en runtime ("warn"/"error"). `@ts-check` necesita el cast.
+    rules: /** @type {Record<string, any>} */ ({
+      ...nextPlugin.configs.recommended.rules,
+      ...nextPlugin.configs['core-web-vitals'].rules,
+    }),
   },
   {
     // Archivos de configuración CommonJS (jest.config.js, etc.): tienen

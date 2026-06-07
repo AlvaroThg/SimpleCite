@@ -18,11 +18,13 @@
  *   LOG_LEVEL      — nivel de log pino (default: warn)
  */
 
-import makeWASocket, {
+import {
+  makeWASocket,
   DisconnectReason,
   useMultiFileAuthState,
   fetchLatestBaileysVersion,
   makeCacheableSignalKeyStore,
+  downloadMediaMessage,
 } from '@whiskeysockets/baileys';
 import { Boom } from '@hapi/boom';
 import express from 'express';
@@ -109,18 +111,33 @@ async function startSocket() {
     // 'notify' = mensajes nuevos del usuario; 'append' = histórico al conectar
     if (type !== 'notify') return;
     for (const msg of messages) {
-      // Ignorar mensajes propios, de grupos, y mensajes sin texto
+      // Ignorar mensajes propios, de grupos, y mensajes sin contenido
       if (!msg.message || msg.key.fromMe) continue;
       if (msg.key.remoteJid?.endsWith('@g.us')) continue;
 
       const phone = msg.key.remoteJid?.replace('@s.whatsapp.net', '') ?? null;
+      if (!phone) continue;
+
+      // Imagen recibida — puede ser un comprobante de pago
+      if (msg.message.imageMessage) {
+        try {
+          const buffer = await downloadMediaMessage(msg, 'buffer', {});
+          const mimeType = msg.message.imageMessage.mimetype ?? 'image/jpeg';
+          const imageBase64 = buffer.toString('base64');
+          await notifyWebhook({ event: 'image_received', phone, imageBase64, mimeType });
+          logger.info({ event: 'image.forwarded', phone }, 'image forwarded to webhook');
+        } catch (err) {
+          logger.warn({ event: 'image.download.failed', phone, err: err.message }, 'image download failed');
+        }
+        continue;
+      }
+
       const text = (
         msg.message.conversation ??
         msg.message.extendedTextMessage?.text ??
-        msg.message.imageMessage?.caption ??
         null
       );
-      if (!phone || !text) continue;
+      if (!text) continue;
 
       await notifyWebhook({ event: 'message_received', phone, text: text.trim() });
       logger.info({ event: 'message.forwarded', phone }, 'incoming message forwarded');
@@ -254,6 +271,35 @@ app.post('/send', requireInternalSecret, async (req, res) => {
     return res.json({ success: true, messageId: result?.key?.id, messageKey });
   } catch (err) {
     logger.error({ event: 'message.error', phone, err: err.message }, 'send failed');
+    return res.status(500).json({ error: err.message, messageKey });
+  }
+});
+
+/**
+ * Enviar imagen de WhatsApp (comprobante → paciente, o QR → paciente).
+ * Body: { phone, imageUrl, caption?, messageKey? }
+ * imageUrl debe ser una URL pública accesible por el proceso Node.
+ */
+app.post('/send-image', requireInternalSecret, async (req, res) => {
+  const { phone, imageUrl, caption, messageKey } = req.body ?? {};
+
+  if (!phone || !imageUrl) {
+    return res.status(400).json({ error: 'phone and imageUrl are required' });
+  }
+
+  if (instanceStatus !== 'connected') {
+    return res.status(503).json({ error: 'not connected', status: instanceStatus });
+  }
+
+  try {
+    const jid = phone.includes('@') ? phone : `${phone}@s.whatsapp.net`;
+    const content = { image: { url: imageUrl } };
+    if (caption) content.caption = caption;
+    const result = await sock.sendMessage(jid, content);
+    logger.info({ event: 'image.sent', phone, messageKey }, 'image sent');
+    return res.json({ success: true, messageId: result?.key?.id, messageKey });
+  } catch (err) {
+    logger.error({ event: 'image.send.error', phone, err: err.message }, 'send-image failed');
     return res.status(500).json({ error: err.message, messageKey });
   }
 });

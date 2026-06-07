@@ -54,6 +54,9 @@ export class AppointmentsService {
       throw new BadRequestException('No se pueden crear citas en el pasado');
     }
 
+    const paymentMethod = dto.paymentMethod ?? 'CASH';
+    const status = paymentMethod === 'STATIC_QR' ? 'PENDING_PAYMENT' : 'CONFIRMED';
+
     try {
       return await this.prisma.client.appointment.create({
         data: {
@@ -63,6 +66,8 @@ export class AppointmentsService {
           serviceId: dto.serviceId,
           startTime: start,
           endTime: end,
+          paymentMethod,
+          status,
         },
       });
     } catch (e: unknown) {

@@ -45,19 +45,12 @@ export default function PanelLoginPage() {
       <div className="w-full max-w-sm">
         <div className="flex flex-col items-center mb-8">
           <Image
-            src="/icon.png"
-            alt="SimpleCite"
-            width={1254}
-            height={1254}
-            priority
-            className="w-14 h-14 rounded-2xl shadow-sm"
-          />
-          <Image
             src="/logo.png"
             alt="SimpleCite"
             width={2031}
             height={774}
-            className="h-6 w-auto mt-3"
+            priority
+            className="h-16 w-auto"
           />
           <p className="text-sm text-gray-500 mt-1">Panel profesional</p>
         </div>

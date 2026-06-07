@@ -2,15 +2,19 @@ import { Controller, Post, Body, Headers, UnauthorizedException } from '@nestjs/
 import { Logger } from 'nestjs-pino';
 import { Public } from '../../../../common/decorators';
 import { PrismaService } from '../../../../common/database/prisma.service';
+import { StorageService } from '../../../../common/services/storage.service';
 import { WaBotService } from '../../application/services/wa-bot.service';
+import { WaMessageService } from '../../application/services/wa-message.service';
 
-type WaEvent = 'connected' | 'disconnected' | 'qr' | 'message_received';
+type WaEvent = 'connected' | 'disconnected' | 'qr' | 'message_received' | 'image_received';
 
 interface WaWebhookPayload {
   tenantId: string;
   event: WaEvent;
   phone?: string;
   text?: string;
+  imageBase64?: string;
+  mimeType?: string;
   reason?: string;
 }
 
@@ -21,7 +25,9 @@ export class WhatsappInternalController {
 
   constructor(
     private readonly prisma: PrismaService,
+    private readonly storage: StorageService,
     private readonly bot: WaBotService,
+    private readonly waMessage: WaMessageService,
     private readonly logger: Logger,
   ) {}
 
@@ -34,11 +40,17 @@ export class WhatsappInternalController {
       throw new UnauthorizedException('Invalid internal secret');
     }
 
-    const { tenantId, event, phone, text, reason } = payload;
+    const { tenantId, event, phone, text, imageBase64, mimeType, reason } = payload;
 
     if (event === 'message_received') {
       if (!phone || !text) return { received: true };
       await this.handleIncomingMessage(tenantId, phone, text);
+      return { received: true };
+    }
+
+    if (event === 'image_received') {
+      if (!phone || !imageBase64 || !mimeType) return { received: true };
+      await this.handleReceiptImage(tenantId, phone, imageBase64, mimeType);
       return { received: true };
     }
 
@@ -47,7 +59,7 @@ export class WhatsappInternalController {
       'WhatsappInternalController',
     );
 
-    const statusMap: Record<Exclude<WaEvent, 'message_received'>, string> = {
+    const statusMap: Record<Exclude<WaEvent, 'message_received' | 'image_received'>, string> = {
       connected: 'CONNECTED',
       disconnected: 'DISCONNECTED',
       qr: 'PAIRING',
@@ -62,7 +74,9 @@ export class WhatsappInternalController {
       await this.prisma.whatsappInstance.update({
         where: { id: instance.id },
         data: {
-          status: statusMap[event as Exclude<WaEvent, 'message_received'>] as never,
+          status: statusMap[
+            event as Exclude<WaEvent, 'message_received' | 'image_received'>
+          ] as never,
           phone: event === 'connected' ? phone : event === 'disconnected' ? null : undefined,
           lastSeen: new Date(),
         },
@@ -70,6 +84,63 @@ export class WhatsappInternalController {
     }
 
     return { received: true };
+  }
+
+  private async handleReceiptImage(
+    tenantId: string,
+    phone: string,
+    imageBase64: string,
+    mimeType: string,
+  ) {
+    // Find patient's open PENDING_PAYMENT + STATIC_QR appointment
+    const patient = await this.prisma.patient.findUnique({
+      where: { phone_tenantId: { phone, tenantId } },
+      select: { id: true },
+    });
+    if (!patient) return;
+
+    const appointment = await this.prisma.appointment.findFirst({
+      where: {
+        tenantId,
+        patientId: patient.id,
+        status: 'PENDING_PAYMENT',
+        paymentMethod: 'STATIC_QR',
+        receiptUrl: null,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (!appointment) return;
+
+    // Upload receipt to Supabase Storage
+    const ext = mimeType.split('/')[1]?.replace('jpeg', 'jpg') ?? 'jpg';
+    const path = `${tenantId}/${appointment.id}.${ext}`;
+    const receiptUrl = await this.storage.uploadFromBase64('receipts', path, imageBase64, mimeType);
+
+    await this.prisma.appointment.update({
+      where: { id: appointment.id },
+      data: { receiptUrl },
+    });
+
+    this.logger.log(
+      { event: 'wa.receipt.uploaded', tenantId, phone, appointmentId: appointment.id },
+      'WhatsappInternalController',
+    );
+
+    // Reply to patient
+    const instance = await this.prisma.whatsappInstance.findFirst({
+      where: { tenantId, status: 'CONNECTED' },
+      select: { id: true, containerName: true },
+    });
+    if (!instance) return;
+
+    const tenantSlug = instance.containerName.replace(/^wa-/, '');
+    await this.waMessage.send({
+      tenantId,
+      tenantSlug,
+      phone,
+      messageKey: `receipt:${appointment.id}`,
+      text: '✅ *Comprobante recibido.*\n\nUn administrativo revisará tu pago y confirmará tu cita en breve. ¡Gracias!',
+    });
   }
 
   private async handleIncomingMessage(tenantId: string, phone: string, text: string) {

@@ -19,10 +19,18 @@ interface BotContext {
   slotEnd?: string;
   slotLabel?: string;
   patientName?: string;
+  paymentMethod?: 'CASH' | 'STATIC_QR';
   doctorList?: { id: string; name: string; specialty?: string | null }[];
   serviceList?: { id: string; name: string; price: string; duration: number }[];
   dateList?: { label: string; date: string }[];
   slotList?: { start: string; end: string; label: string }[];
+}
+
+interface DispatchResult {
+  reply: string;
+  nextState: string;
+  nextCtx: BotContext;
+  sendImageAfter?: { imageUrl: string; caption: string };
 }
 
 const CONVERSATION_TTL_MS = 30 * 60 * 1000;
@@ -63,31 +71,36 @@ export class WaBotService {
     const ctx = (conv.context ?? {}) as BotContext;
     const input = text.trim().toLowerCase();
 
-    let reply: string;
-    let nextState: string = conv.state as string;
-    let nextCtx: BotContext = ctx;
+    let result: DispatchResult;
 
     try {
       if (['cancelar', 'cancel', 'salir'].includes(input)) {
-        reply = '👋 Reserva cancelada. Escribe *hola* cuando quieras agendar.';
-        nextState = 'IDLE';
-        nextCtx = {};
+        result = {
+          reply: '👋 Reserva cancelada. Escribe *hola* cuando quieras agendar.',
+          nextState: 'IDLE',
+          nextCtx: {},
+        };
       } else {
-        ({ reply, nextState, nextCtx } = await this.dispatch(conv.state, input, text, ctx, {
+        result = await this.dispatch(conv.state, input, text, ctx, {
           tenantId,
+          tenantSlug,
           phone,
           timezone,
-        }));
+        });
       }
     } catch (err) {
-      reply = '❌ Ocurrió un error. Escribe *hola* para intentar de nuevo.';
-      nextState = 'IDLE';
-      nextCtx = {};
+      result = {
+        reply: '❌ Ocurrió un error. Escribe *hola* para intentar de nuevo.',
+        nextState: 'IDLE',
+        nextCtx: {},
+      };
       this.logger.error(
         { event: 'wa.bot.error', err: (err as Error).message, phone },
         'WaBotService',
       );
     }
+
+    const { reply, nextState, nextCtx, sendImageAfter } = result;
 
     await this.prisma.waConversation.update({
       where: { id: conv.id },
@@ -102,6 +115,17 @@ export class WaBotService {
       text: reply,
     });
 
+    if (sendImageAfter) {
+      await this.waMessage.sendImage({
+        tenantId,
+        tenantSlug,
+        phone,
+        imageUrl: sendImageAfter.imageUrl,
+        caption: sendImageAfter.caption,
+        messageKey: `bot:${tenantId}:${phone}:${now.getTime()}:qr`,
+      });
+    }
+
     this.logger.log(
       { event: 'wa.bot.step', phone, from: conv.state, to: nextState },
       'WaBotService',
@@ -115,8 +139,8 @@ export class WaBotService {
     input: string,
     raw: string,
     ctx: BotContext,
-    meta: { tenantId: string; phone: string; timezone: string },
-  ): Promise<{ reply: string; nextState: string; nextCtx: BotContext }> {
+    meta: { tenantId: string; tenantSlug: string; phone: string; timezone: string },
+  ): Promise<DispatchResult> {
     switch (state) {
       case 'IDLE':
       case 'COMPLETED':
@@ -133,6 +157,8 @@ export class WaBotService {
         return this.enterName(raw, ctx, meta.tenantId, meta.phone);
       case 'AWAITING_OTP':
         return this.verifyOtp(input, ctx, meta.tenantId, meta.phone);
+      case 'AWAITING_PAYMENT_METHOD':
+        return this.selectPaymentMethod(input, ctx, meta.tenantId, meta.phone);
       default:
         return this.showDoctors(meta.tenantId);
     }
@@ -357,9 +383,13 @@ export class WaBotService {
     });
 
     if (patient?.name) {
-      await this.issueOtp(tenantId, phone);
+      const code = await this.issueOtp(tenantId, phone);
       return {
-        reply: `📅 *${slot.label}* seleccionado.\n\nHola *${patient.name}*, te enviamos un código de verificación.\n*Escribe el código de 6 dígitos:*`,
+        reply:
+          `📅 *${slot.label}* seleccionado.\n\n` +
+          `Hola *${patient.name}*, tu código de verificación es:\n\n` +
+          `*${code}*\n\n` +
+          `Escríbelo para confirmar tu cita.`,
         nextState: 'AWAITING_OTP',
         nextCtx: { ...nextCtx, patientName: patient.name },
       };
@@ -388,10 +418,13 @@ export class WaBotService {
       update: {},
     });
 
-    await this.issueOtp(tenantId, phone);
+    const code = await this.issueOtp(tenantId, phone);
 
     return {
-      reply: `👋 *${name}*, te enviamos un código de verificación a este WhatsApp.\n*Escribe el código de 6 dígitos:*`,
+      reply:
+        `👋 *${name}*, tu código de verificación es:\n\n` +
+        `*${code}*\n\n` +
+        `Escríbelo para confirmar tu cita.`,
       nextState: 'AWAITING_OTP',
       nextCtx: { ...ctx, patientName: name },
     };
@@ -437,10 +470,59 @@ export class WaBotService {
       data: { consumedAt: new Date() },
     });
 
-    const { slotStart, slotEnd, slotLabel, doctorId, serviceId, patientName } = ctx;
-    if (!slotStart || !doctorId || !serviceId) {
+    if (!ctx.slotStart || !ctx.doctorId || !ctx.serviceId) {
       return {
         reply: 'Error interno. Escribe *hola* para empezar de nuevo.',
+        nextState: 'IDLE',
+        nextCtx: {},
+      };
+    }
+
+    // Upsert patient record before payment selection
+    const patient = await this.prisma.patient.findFirst({ where: { phone, tenantId } });
+    const name = patient?.name ?? ctx.patientName ?? phone;
+
+    return {
+      reply:
+        `✅ *${name}*, identidad verificada.\n\n` +
+        `*¿Cómo deseas pagar?*\n\n` +
+        `  *1.* 📲 QR bancario (pago previo)\n` +
+        `  *2.* 💵 Efectivo (en la clínica)\n\n` +
+        `Responde con el número.`,
+      nextState: 'AWAITING_PAYMENT_METHOD',
+      nextCtx: { ...ctx, patientName: name },
+    };
+  }
+
+  private async selectPaymentMethod(
+    input: string,
+    ctx: BotContext,
+    tenantId: string,
+    phone: string,
+  ): Promise<DispatchResult> {
+    if (input !== '1' && input !== '2') {
+      return {
+        reply: '❓ Responde *1* para pagar con QR bancario o *2* para pagar en efectivo.',
+        nextState: 'AWAITING_PAYMENT_METHOD',
+        nextCtx: ctx,
+      };
+    }
+
+    const paymentMethod: 'CASH' | 'STATIC_QR' = input === '1' ? 'STATIC_QR' : 'CASH';
+    const {
+      slotStart,
+      slotEnd,
+      doctorId,
+      serviceId,
+      patientName,
+      slotLabel,
+      doctorName,
+      serviceName,
+    } = ctx;
+
+    if (!slotStart || !doctorId || !serviceId) {
+      return {
+        reply: 'Error interno. Escribe *hola* para empezar.',
         nextState: 'IDLE',
         nextCtx: {},
       };
@@ -452,6 +534,8 @@ export class WaBotService {
       update: {},
     });
 
+    const status = paymentMethod === 'STATIC_QR' ? 'PENDING_PAYMENT' : 'CONFIRMED';
+
     await this.prisma.appointment.create({
       data: {
         tenantId,
@@ -460,21 +544,62 @@ export class WaBotService {
         serviceId,
         startTime: new Date(slotStart),
         endTime: new Date(slotEnd ?? slotStart),
-        status: 'CONFIRMED',
+        status,
+        paymentMethod,
       },
     });
 
-    this.logger.log({ event: 'wa.bot.appointment.created', tenantId, phone }, 'WaBotService');
+    this.logger.log(
+      { event: 'wa.bot.appointment.created', tenantId, phone, paymentMethod },
+      'WaBotService',
+    );
+
+    if (paymentMethod === 'CASH') {
+      return {
+        reply:
+          `✅ *¡Cita confirmada!*\n\n` +
+          `📅 *${doctorName}* — ${serviceName}\n` +
+          `🕐 ${slotLabel}\n\n` +
+          `💵 Recuerda traer el pago en efectivo.\n` +
+          `Recibirás un recordatorio el día anterior.\n` +
+          `Escribe *hola* para otra reserva.`,
+        nextState: 'COMPLETED',
+        nextCtx: {},
+      };
+    }
+
+    // STATIC_QR — get tenant's bank QR image
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { staticQrUrl: true },
+    });
+
+    if (!tenant?.staticQrUrl) {
+      return {
+        reply:
+          `✅ *Cita registrada.*\n\n` +
+          `📅 *${doctorName}* — ${serviceName}\n` +
+          `🕐 ${slotLabel}\n\n` +
+          `Contacta a la clínica para coordinar el pago y confirmar tu cita.\n` +
+          `Escribe *hola* para otra reserva.`,
+        nextState: 'COMPLETED',
+        nextCtx: {},
+      };
+    }
 
     return {
       reply:
-        `✅ *¡Cita confirmada!*\n\n` +
-        `📅 *${ctx.doctorName}* — ${ctx.serviceName}\n` +
+        `🎉 *Cita registrada — pendiente de pago.*\n\n` +
+        `📅 *${doctorName}* — ${serviceName}\n` +
         `🕐 ${slotLabel}\n\n` +
-        `Recibirás un recordatorio el día anterior.\n` +
-        `Escribe *hola* para hacer otra reserva.`,
+        `Escanea el QR que te enviamos a continuación, realiza el pago y envíanos la *foto del comprobante* para confirmar tu cita.\n\n` +
+        `Escribe *hola* para otra reserva.`,
       nextState: 'COMPLETED',
       nextCtx: {},
+      sendImageAfter: {
+        imageUrl: tenant.staticQrUrl,
+        caption: '📲 Escanea este QR para realizar tu pago',
+      },
     };
   }
 

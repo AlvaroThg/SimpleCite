@@ -70,4 +70,14 @@ export class WhatsappHealthService {
       },
     });
   }
+
+  @Cron(CronExpression.EVERY_HOUR)
+  async cleanExpiredConversations() {
+    const { count } = await this.prisma.waConversation.deleteMany({
+      where: { expiresAt: { lt: new Date() } },
+    });
+    if (count > 0) {
+      this.logger.log({ event: 'wa.conversations.cleaned', count }, 'WhatsappHealthService');
+    }
+  }
 }

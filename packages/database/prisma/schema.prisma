@@ -75,6 +75,11 @@ enum NoteVisibility {
   PRIVATE /// Visible solo para author, doctor asignado y roles autorizados (default)
 }
 
+enum PaymentMethod {
+  CASH       /// Efectivo en la clínica
+  STATIC_QR  /// QR bancario estático — paciente envía comprobante por WhatsApp
+}
+
 // ─────────────────────────────────────
 // MODELS
 // ─────────────────────────────────────
@@ -89,6 +94,9 @@ model Tenant {
   plan         SubscriptionPlan @default(BASIC)
   status       TenantStatus     @default(TRIAL)
   timezone     String           @default("America/La_Paz") /// Timezone Bolivia
+
+  // Pagos: QR estático bancario de la clínica
+  staticQrUrl     String? /// URL de la imagen del QR bancario estático
 
   // Configuración de WhatsApp
   whatsappEnabled Boolean @default(false)
@@ -115,6 +123,8 @@ model User {
   name     String
   role     UserRole @default(DOCTOR)
   isActive Boolean  @default(true)
+  /// Teléfono de contacto (E.164 sin '+', ej: 59170000000). Capturado en el onboarding del admin.
+  phone    String?
 
   // Relación con el Tenant
   tenantId String
@@ -248,10 +258,12 @@ model Appointment {
   serviceId String
   service   Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
 
-  // Información de Pago QR Simple
-  // `qrPayload`/`isPaid` se mantienen como flags denormalizados en la cita;
-  // la fuente de verdad del pago vive en PaymentIntent (1:N para reintentos).
-  qrPayload String? /// El texto para generar el QR Simple (del intent activo)
+  paymentMethod PaymentMethod @default(CASH)
+  /// URL del comprobante de pago enviado por el paciente vía WhatsApp.
+  receiptUrl    String?
+
+  // Campos legacy de QR Simple dinámico (sin uso en MVP estático, preservados para migración futura)
+  qrPayload String?
   isPaid    Boolean @default(false)
 
   paymentIntents PaymentIntent[]
@@ -476,6 +488,7 @@ enum WaConversationState {
   AWAITING_SLOT
   AWAITING_NAME
   AWAITING_OTP
+  AWAITING_PAYMENT_METHOD
   COMPLETED
 }
 

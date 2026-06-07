@@ -5,6 +5,9 @@ import { z } from 'zod';
 export const UserRole = z.enum(['ADMIN', 'DOCTOR', 'STAFF']);
 export type UserRole = z.infer<typeof UserRole>;
 
+export const PaymentMethod = z.enum(['CASH', 'STATIC_QR']);
+export type PaymentMethod = z.infer<typeof PaymentMethod>;
+
 export const AppointmentStatus = z.enum([
   'TENTATIVE', // Reservado durante flujo OTP — expira si no se confirma
   'PENDING_PAYMENT',
@@ -55,6 +58,7 @@ export const UpdateTenantBrandingSchema = z
       .string()
       .regex(/^#[0-9a-fA-F]{6}$/, 'Color hexadecimal inválido (ej: #0EA5A4)')
       .optional(),
+    staticQrUrl: z.string().url('URL de QR inválida').max(500).nullable().optional(),
   })
   .refine((v) => Object.keys(v).length > 0, { message: 'Nada que actualizar' });
 export type UpdateTenantBrandingDto = z.infer<typeof UpdateTenantBrandingSchema>;
@@ -170,6 +174,7 @@ export const CreateAppointmentSchema = z
     patientId: z.string().uuid(),
     doctorId: z.string().uuid(),
     serviceId: z.string().uuid(),
+    paymentMethod: PaymentMethod.default('CASH'),
   })
   .refine((d) => new Date(d.endTime) > new Date(d.startTime), {
     message: 'endTime debe ser posterior a startTime',

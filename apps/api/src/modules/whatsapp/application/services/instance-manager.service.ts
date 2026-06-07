@@ -10,7 +10,6 @@ import { Logger } from 'nestjs-pino';
 import Docker from 'dockerode';
 import { PrismaService } from '../../../../common/database/prisma.service';
 
-const WA_INSTANCE_IMAGE = 'simplecite-wa-instance:latest';
 const WA_INTERNAL_PORT = 4000;
 
 /**
@@ -32,6 +31,7 @@ export class InstanceManagerService implements OnModuleInit {
   private readonly dockerNetwork: string;
   private readonly waCallbackUrl: string;
   private readonly internalSecret: string;
+  private readonly waInstanceImage: string;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -43,6 +43,8 @@ export class InstanceManagerService implements OnModuleInit {
       config.get<string>('WA_CALLBACK_URL') ??
       'http://simplecite-api:3001/api/internal/whatsapp/webhook';
     this.internalSecret = config.get<string>('WA_INTERNAL_SECRET') ?? '';
+    this.waInstanceImage =
+      config.get<string>('WA_INSTANCE_IMAGE') ?? 'simplecite-wa-instance:latest';
   }
 
   onModuleInit() {
@@ -127,7 +129,7 @@ export class InstanceManagerService implements OnModuleInit {
 
       const container = await this.docker.createContainer({
         name: containerName,
-        Image: WA_INSTANCE_IMAGE,
+        Image: this.waInstanceImage,
         Env: [
           `TENANT_ID=${tenantId}`,
           `PORT=${WA_INTERNAL_PORT}`,

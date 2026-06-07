@@ -1,8 +1,8 @@
 import Link from 'next/link';
 import Image from 'next/image';
 
-// Número de WhatsApp de ventas (reemplazar por el real, E.164 sin '+').
-const WA_NUMBER = '59170000000';
+// Número de WhatsApp de ventas (E.164 sin '+').
+const WA_NUMBER = '59161869814';
 const waLink = (msg: string) => `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(msg)}`;
 const CTA_MSG = 'Hola, quiero probar SimpleCite para mi consultorio.';
 
@@ -24,14 +24,14 @@ export default function LandingPage() {
 function Nav() {
   return (
     <header className="sticky top-0 z-20 bg-white/80 backdrop-blur border-b border-gray-100">
-      <div className="max-w-6xl mx-auto px-5 h-16 flex items-center justify-between">
+      <div className="max-w-6xl mx-auto px-5 h-20 flex items-center justify-between">
         <Image
           src="/logo.png"
           alt="SimpleCite"
           width={2031}
           height={774}
           priority
-          className="h-8 w-auto"
+          className="h-16 w-auto"
         />
         <nav className="flex items-center gap-3 text-sm">
           <Link href="/panel/login" className="text-gray-600 hover:text-gray-900 font-medium px-2">
@@ -62,8 +62,8 @@ function Hero() {
           <span className="text-brand-600">sin salir de WhatsApp.</span>
         </h1>
         <p className="mt-5 text-lg text-gray-600 max-w-xl">
-          Tus pacientes reservan online, confirman por WhatsApp y pagan con QR Simple. Tu agenda se
-          llena sola y reduces las inasistencias con recordatorios automáticos.
+          Tus pacientes reservan online, confirman por WhatsApp y pagan con QR bancario. Tu agenda
+          se llena sola y reduces las inasistencias con recordatorios automáticos.
         </p>
         <div className="mt-8 flex flex-col sm:flex-row gap-3">
           <a
@@ -115,7 +115,7 @@ function PhoneMockup() {
           <Bubble side="in">🕐 Horarios: *1.* 09:00 · *2.* 10:30 · *3.* 15:00</Bubble>
           <Bubble side="out">2</Bubble>
           <Bubble side="in">
-            ✅ ¡Listo! Para confirmar, paga con este QR 👇{' '}
+            ✅ ¡Listo! Escanea el QR de pago y envíanos el comprobante.{' '}
             <span className="inline-block mt-1">📲 Bs 80</span>
           </Bubble>
         </div>
@@ -157,7 +157,7 @@ function ProblemSolution() {
           <h3 className="mt-3 text-xl font-bold">SimpleCite lo resuelve por ti</h3>
           <ul className="mt-3 space-y-2 text-gray-700">
             <li>• Recordatorios automáticos por WhatsApp → menos inasistencias.</li>
-            <li>• Pago por QR Simple al reservar → compromiso real del paciente.</li>
+            <li>• Pago por QR bancario al reservar → compromiso real del paciente.</li>
             <li>• Confirmación instantánea → tu recepción deja de llamar.</li>
           </ul>
         </div>
@@ -176,7 +176,7 @@ function HowItWorks() {
     },
     {
       n: '2',
-      t: 'Confirma y paga por QR Simple',
+      t: 'Confirma y paga por QR bancario',
       d: 'Recibe el QR por WhatsApp y paga al instante. La cita queda asegurada.',
     },
     {
@@ -206,41 +206,77 @@ function HowItWorks() {
 
 // ─── Testimonios ──────────────────────────────────────────────────────
 function Testimonials() {
-  const items = [
-    {
-      q: 'Reduje las inasistencias casi a la mitad. Los pacientes pagan al reservar y ya no faltan.',
-      a: 'Dra. Mariana Fernández',
-      r: 'Ginecología · Tarija',
-    },
-    {
-      q: 'Mi recepcionista dejó de pasar el día llamando para confirmar. Todo es por WhatsApp.',
-      a: 'Dr. Luis Vargas',
-      r: 'Fisioterapia · Santa Cruz',
-    },
-    {
-      q: 'Configurarlo fue rapidísimo y mis pacientes lo usan sin que les explique nada.',
-      a: 'Dr. Andrés Quispe',
-      r: 'Odontología · La Paz',
-    },
-  ];
   return (
     <section className="bg-gray-50 border-y border-gray-100">
       <div className="max-w-6xl mx-auto px-5 py-20">
         <h2 className="text-3xl font-bold text-center">Lo que dicen los doctores</h2>
-        <div className="mt-12 grid md:grid-cols-3 gap-6">
-          {items.map((t) => (
-            <figure key={t.a} className="bg-white rounded-3xl p-6 border border-gray-100">
-              <div className="text-brand-500 text-xl">★★★★★</div>
-              <blockquote className="mt-3 text-gray-700 leading-relaxed">“{t.q}”</blockquote>
-              <figcaption className="mt-4 text-sm">
-                <span className="font-semibold text-gray-900">{t.a}</span>
-                <span className="block text-gray-400">{t.r}</span>
-              </figcaption>
-            </figure>
-          ))}
+        <div className="mt-12 flex flex-col items-center justify-center gap-3 text-center py-10">
+          <span className="text-5xl">🩺</span>
+          <p className="text-lg font-semibold text-gray-700">¡No hay clientes aún!</p>
+          <p className="text-gray-400 text-sm">Sé el primero.</p>
         </div>
       </div>
     </section>
+  );
+}
+
+// ─── Shadcn-style primitives (pure Tailwind) ──────────────────────────
+
+function Card({ children, featured = false }: { children: React.ReactNode; featured?: boolean }) {
+  return (
+    <div
+      className={`relative bg-white rounded-2xl border flex flex-col ${
+        featured
+          ? 'border-brand-500 shadow-2xl ring-1 ring-brand-200 md:-translate-y-3'
+          : 'border-gray-200 shadow-sm'
+      }`}
+    >
+      {children}
+    </div>
+  );
+}
+
+function CardHeader({ children }: { children: React.ReactNode }) {
+  return <div className="px-6 pt-6 pb-2">{children}</div>;
+}
+
+function CardContent({ children }: { children: React.ReactNode }) {
+  return <div className="px-6 py-4 flex-1">{children}</div>;
+}
+
+function CardFooter({ children }: { children: React.ReactNode }) {
+  return <div className="px-6 pb-6 pt-2">{children}</div>;
+}
+
+function Badge({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="inline-flex items-center rounded-full bg-brand-100 text-brand-700 border border-brand-200 px-3 py-1 text-xs font-semibold">
+      {children}
+    </span>
+  );
+}
+
+function Button({
+  href,
+  variant = 'default',
+  children,
+}: {
+  href: string;
+  variant?: 'default' | 'outline' | 'secondary';
+  children: React.ReactNode;
+}) {
+  const styles = {
+    default: 'bg-brand-600 text-white hover:bg-brand-700',
+    outline: 'border border-gray-300 text-gray-700 hover:bg-gray-50',
+    secondary: 'bg-gray-100 text-gray-700 hover:bg-gray-200',
+  };
+  return (
+    <a
+      href={href}
+      className={`block w-full text-center px-5 py-3 rounded-xl font-semibold text-sm transition ${styles[variant]}`}
+    >
+      {children}
+    </a>
   );
 }
 
@@ -250,40 +286,53 @@ function Pricing() {
     {
       name: 'Básico',
       price: '15',
-      tagline: 'Médicos recién graduados',
+      tagline: 'Ideal para consultorios individuales que recién digitalizan su agenda.',
       featured: false,
+      badge: null,
+      buttonLabel: 'Obtener Básico',
+      buttonVariant: 'outline' as const,
+      checkColor: 'text-gray-400',
       features: [
-        'Agenda web (booking público)',
-        'Sin bot de WhatsApp',
-        'Recordatorios manuales',
-        'Soporte por correo (48 hrs)',
-        'Diseño básico',
+        'Agenda digital en la nube',
+        'Web Booking público (Subdominio propio)',
+        'Gestión de historias clínicas (EHR) básicas',
+        'Cobros físicos en clínica',
+        'Soporte por correo electrónico',
       ],
     },
     {
-      name: 'Pro',
+      name: 'Profesional',
       price: '35',
-      tagline: 'Consultorios y especialistas',
+      tagline: 'Todo lo que necesitas para automatizar tu clínica y evitar inasistencias.',
       featured: true,
+      badge: '⭐ Recomendado',
+      buttonLabel: 'Obtener Profesional',
+      buttonVariant: 'default' as const,
+      checkColor: 'text-brand-500',
       features: [
-        'Agenda web (booking público)',
-        'Bot de WhatsApp (QR / Baileys)',
-        'Recordatorios automáticos',
-        'Soporte por chat prioritario',
-        'Diseño destacado',
+        'Todo lo del plan Básico, más:',
+        'Bot de WhatsApp Propio (Bot 24/7)',
+        'Confirmaciones y recordatorios automáticos',
+        'Cobro por QR estático (Cero comisiones)',
+        'Recepción de comprobantes en el panel',
+        'Soporte prioritario por WhatsApp',
       ],
     },
     {
-      name: 'Élite',
-      price: '99',
-      tagline: 'Clínicas de múltiples especialidades',
+      name: 'Clínica',
+      price: '75',
+      tagline: 'Para centros médicos con múltiples especialistas y secretarias.',
       featured: false,
+      badge: null,
+      buttonLabel: 'Obtener Clínica',
+      buttonVariant: 'secondary' as const,
+      checkColor: 'text-gray-400',
       features: [
-        'Agenda web (booking público)',
-        'WhatsApp con API oficial de Meta',
-        'Recordatorios automáticos + plantillas',
-        'Ejecutivo de cuenta asignado',
-        'Diseño premium',
+        'Todo lo del plan Profesional, más:',
+        'Multiusuario (Cuentas para Doctores y Staff)',
+        'Asignación de citas por especialista',
+        'Reportes avanzados de asistencia',
+        'Onboarding personalizado (Videollamada)',
       ],
     },
   ];
@@ -297,46 +346,55 @@ function Pricing() {
 
       <div className="mt-12 grid md:grid-cols-3 gap-6 items-start">
         {plans.map((p) => (
-          <div
-            key={p.name}
-            className={`rounded-3xl p-7 border bg-white relative ${
-              p.featured
-                ? 'border-brand-500 shadow-xl md:-translate-y-3 ring-1 ring-brand-200'
-                : 'border-gray-200'
-            }`}
-          >
-            {p.featured && (
-              <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-brand-600 text-white text-xs font-bold px-3 py-1 rounded-full">
-                Más Popular
-              </span>
-            )}
-            <h3 className="text-lg font-bold">{p.name}</h3>
-            <p className="text-sm text-gray-500 h-10">{p.tagline}</p>
-            <div className="mt-2 flex items-end gap-1">
-              <span className="text-4xl font-extrabold">${p.price}</span>
-              <span className="text-gray-400 mb-1">/mes</span>
-            </div>
-            <ul className="mt-6 space-y-2.5 text-sm">
-              {p.features.map((f) => (
-                <li key={f} className="flex items-start gap-2">
-                  <span className="text-brand-500 mt-0.5">✓</span>
-                  <span className="text-gray-700">{f}</span>
-                </li>
-              ))}
-            </ul>
-            <a
-              href={waLink(`Hola, me interesa el plan ${p.name} de SimpleCite.`)}
-              className={`mt-7 block text-center px-5 py-3 rounded-2xl font-semibold transition ${
-                p.featured
-                  ? 'bg-brand-600 text-white hover:bg-brand-700'
-                  : 'border border-gray-200 text-gray-700 hover:bg-gray-50'
-              }`}
-            >
-              Empezar con {p.name}
-            </a>
-          </div>
+          <Card key={p.name} featured={p.featured}>
+            <CardHeader>
+              {p.badge && (
+                <div className="mb-3">
+                  <Badge>{p.badge}</Badge>
+                </div>
+              )}
+              <h3 className="text-xl font-bold text-gray-900">{p.name}</h3>
+              <div className="mt-1 flex items-end gap-1">
+                <span className="text-4xl font-extrabold text-gray-900">${p.price}</span>
+                <span className="text-gray-400 mb-1 text-sm">USD / mes</span>
+              </div>
+              <p className="mt-2 text-sm text-gray-500 leading-snug">{p.tagline}</p>
+            </CardHeader>
+
+            <CardContent>
+              <ul className="space-y-2.5 text-sm">
+                {p.features.map((f, i) => (
+                  <li key={i} className="flex items-start gap-2">
+                    {f.startsWith('Todo') ? (
+                      <span className="text-gray-400 mt-0.5 font-bold">›</span>
+                    ) : (
+                      <span className={`${p.checkColor} mt-0.5`}>✓</span>
+                    )}
+                    <span
+                      className={f.startsWith('Todo') ? 'text-gray-500 italic' : 'text-gray-700'}
+                    >
+                      {f}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </CardContent>
+
+            <CardFooter>
+              <Button
+                href={waLink(`Hola, quiero más información sobre el Plan ${p.name} de SimpleCite.`)}
+                variant={p.buttonVariant}
+              >
+                {p.buttonLabel}
+              </Button>
+            </CardFooter>
+          </Card>
         ))}
       </div>
+
+      <p className="mt-6 text-center text-sm text-gray-400 italic">
+        cambio dólar a bolivianos: 9.72 bs
+      </p>
     </section>
   );
 }
@@ -347,22 +405,17 @@ function Footer() {
     <footer className="bg-gray-900 text-gray-300">
       <div className="max-w-6xl mx-auto px-5 py-12 flex flex-col sm:flex-row justify-between gap-6">
         <div>
-          <div className="flex items-center gap-2">
-            <Image
-              src="/icon.png"
-              alt=""
-              width={1254}
-              height={1254}
-              className="w-7 h-7 rounded-lg"
-            />
-            <span className="text-lg font-bold text-white">
-              Simple<span className="text-brand-400">Cite</span>
-            </span>
-          </div>
-          <p className="mt-2 text-sm text-brand-300">
+          <Image
+            src="/logo-full.png"
+            alt="SimpleCite"
+            width={2031}
+            height={774}
+            className="h-20 w-auto brightness-0 invert"
+          />
+          <p className="mt-3 text-sm text-brand-300">
             Gestiona citas. Atiende mejor. Hazlo simple.
           </p>
-          <p className="mt-2 text-sm text-gray-400 max-w-xs">
+          <p className="mt-1 text-sm text-gray-400 max-w-xs">
             Agenda médica y cobros por WhatsApp para Bolivia.
           </p>
         </div>

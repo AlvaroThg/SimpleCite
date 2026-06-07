@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Body, Param } from '@nestjs/common';
+import { Controller, Get, Patch, Post, Body, Param, BadRequestException } from '@nestjs/common';
 import { UpdateTenantBrandingSchema, type UpdateTenantBrandingDto } from '@simplecite/shared';
 import { Public } from '../../../../common/decorators/public.decorator';
 import { CurrentUser, Roles } from '../../../../common/decorators';
@@ -40,7 +40,7 @@ export class TenantController {
     return { success: true, data };
   }
 
-  /** Editar branding (nombre/logo/color). Solo ADMIN. */
+  /** Editar branding (nombre/logo/color/QR). Solo ADMIN. */
   @Patch('current')
   @Roles('ADMIN')
   async updateCurrent(
@@ -48,6 +48,28 @@ export class TenantController {
     @Body(new ZodValidationPipe(UpdateTenantBrandingSchema)) dto: UpdateTenantBrandingDto,
   ) {
     const data = await this.tenantService.updateBranding(tenantId, dto);
+    return { success: true, data };
+  }
+
+  /**
+   * Sube un asset (logo o QR estático) a Supabase Storage.
+   * Body: { type: 'logo' | 'static-qr', imageBase64: string, mimeType: string }
+   * El frontend lee el archivo como base64 con FileReader.
+   */
+  @Post('current/assets')
+  @Roles('ADMIN')
+  async uploadAsset(
+    @CurrentUser('tenantId') tenantId: string,
+    @Body() body: { type: 'logo' | 'static-qr'; imageBase64: string; mimeType: string },
+  ) {
+    const { type, imageBase64, mimeType } = body;
+    if (!['logo', 'static-qr'].includes(type)) {
+      throw new BadRequestException('type debe ser "logo" o "static-qr"');
+    }
+    if (!imageBase64 || !mimeType) {
+      throw new BadRequestException('imageBase64 y mimeType son requeridos');
+    }
+    const data = await this.tenantService.uploadAsset(tenantId, type, imageBase64, mimeType);
     return { success: true, data };
   }
 }

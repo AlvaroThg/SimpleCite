@@ -30,12 +30,16 @@ export interface PanelUser {
   tenantId: string;
 }
 
+export type PaymentMethod = 'CASH' | 'STATIC_QR';
+
 export interface AppointmentListItem {
   id: string;
   startTime: string;
   endTime: string;
   status: string;
   isPaid: boolean;
+  paymentMethod: PaymentMethod;
+  receiptUrl: string | null;
   patient: { id: string; name: string; phone: string };
   doctor: { id: string; name: string };
   service: { id: string; name: string; duration: number; price: string };
@@ -150,6 +154,30 @@ export async function transitionAppointment(
   await handle(res);
 }
 
+export async function createAppointment(
+  token: string,
+  slug: string,
+  body: {
+    patientId: string;
+    doctorId: string;
+    serviceId: string;
+    startTime: string;
+    endTime: string;
+    paymentMethod?: PaymentMethod;
+  },
+): Promise<AppointmentListItem> {
+  const res = await fetch(`${BASE}/api/appointments`, {
+    method: 'POST',
+    headers: authHeaders(token, slug),
+    body: JSON.stringify(body),
+  });
+  const json = await handle<{ data: AppointmentListItem }>(res);
+  return json.data;
+}
+
+export const approvePayment = (token: string, slug: string, id: string) =>
+  transitionAppointment(token, slug, id, 'CONFIRMED');
+
 // ─── Patients + EHR ──────────────────────────────────────────────────
 
 export async function getPatients(
@@ -242,6 +270,7 @@ export interface TenantConfig {
   name: string;
   logoUrl: string | null;
   primaryColor: string;
+  staticQrUrl: string | null;
   timezone: string;
   plan: string;
   whatsappEnabled: boolean;
@@ -251,8 +280,19 @@ export const getTenantConfig = (t: string, s: string) =>
 export const updateTenantBranding = (
   t: string,
   s: string,
-  body: { name?: string; logoUrl?: string | null; primaryColor?: string },
+  body: {
+    name?: string;
+    logoUrl?: string | null;
+    primaryColor?: string;
+    staticQrUrl?: string | null;
+  },
 ) => patch<{ data: TenantConfig }>('/api/tenants/current', t, s, body).then((r) => r.data);
+
+export const uploadTenantAsset = (
+  t: string,
+  s: string,
+  body: { type: 'logo' | 'static-qr'; imageBase64: string; mimeType: string },
+) => post<{ data: TenantConfig }>('/api/tenants/current/assets', t, s, body).then((r) => r.data);
 
 // ─── Doctores ─────────────────────────────────────────────────────────
 

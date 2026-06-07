@@ -96,6 +96,7 @@ function assertProductionInvariants(env: Env): void {
     'QR_SIMPLE_API_KEY',
     'QR_SIMPLE_WEBHOOK_SECRET',
     'TURNSTILE_SECRET_KEY',
+    'WA_INTERNAL_SECRET',
   ];
 
   const missing = requiredInProd.filter((k) => !env[k]);

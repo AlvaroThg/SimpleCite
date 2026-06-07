@@ -16,6 +16,22 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   private readonly logger = new Logger(PrismaService.name);
 
   /**
+   * Referencia al cliente proxy-envuelto. En Prisma 6 el constructor de
+   * PrismaClient devuelve un Proxy: los delegates de modelos (`.tenant`,
+   * `.user`, …) se resuelven en el handler `get` del Proxy, NO son propiedades
+   * reales del target. Como el handler no reenvía el `receiver`, un getter que
+   * haga `return this` devolvería el target crudo (sin delegates). Tras
+   * `super()`, en una subclase `this` YA es el Proxy, así que lo capturamos
+   * aquí para que `client` devuelva la referencia correcta.
+   */
+  private readonly self: this;
+
+  constructor() {
+    super();
+    this.self = this;
+  }
+
+  /**
    * Cuando false (default), RLS está dormante: NO se abre transacción por
    * request (el aislamiento lo da el filtro `where:{tenantId}` app-layer). Esto
    * elimina ~5 round-trips por request a Supabase. Cuando true, se activa el
@@ -43,7 +59,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'
   > {
     const ctx = tenantContextStorage.getStore();
-    return (ctx?.tx ?? this) as never;
+    return (ctx?.tx ?? this.self) as never;
   }
 
   /**
