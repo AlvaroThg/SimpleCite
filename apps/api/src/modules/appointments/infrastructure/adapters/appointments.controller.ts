@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Body, Param, Query } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards } from '@nestjs/common';
 import {
   CreateAppointmentSchema,
   UpdateAppointmentStatusSchema,
@@ -9,8 +9,11 @@ import {
 import { Roles } from '../../../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../../../common/decorators/current-user.decorator';
 import { ZodValidationPipe } from '../../../../common/pipes/zod-validation.pipe';
+import { SubscriptionGuard } from '../../../billing/infrastructure/guards/subscription.guard';
 import { AppointmentsService } from '../../application/services/appointments.service';
 
+// Toda la gestión de citas requiere suscripción vigente (402 si vencida).
+@UseGuards(SubscriptionGuard)
 @Controller('appointments')
 export class AppointmentsController {
   constructor(private readonly appointmentsService: AppointmentsService) {}

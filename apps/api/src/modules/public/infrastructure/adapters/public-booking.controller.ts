@@ -4,6 +4,7 @@ import { CreatePublicAppointmentSchema, type CreatePublicAppointmentDto } from '
 import { CurrentPatient, CurrentTenant, Public } from '../../../../common/decorators';
 import { ZodValidationPipe } from '../../../../common/pipes/zod-validation.pipe';
 import { PatientSessionGuard } from '../guards/patient-session.guard';
+import { SubscriptionGuard } from '../../../billing/infrastructure/guards/subscription.guard';
 import { PublicBookingService } from '../../application/services/public-booking.service';
 
 /**
@@ -16,7 +17,10 @@ import { PublicBookingService } from '../../application/services/public-booking.
  * Rate limit: por sessionToken implícitamente (un token = un phone), más
  * 30 reservas por hora por IP para evitar bots con muchos tokens.
  */
+// Si la clínica no tiene suscripción vigente, su booking público queda cerrado (402).
+// El SubscriptionGuard resuelve el tenant desde el slug (req.tenantId del middleware).
 @Public() // bypass JwtAuthGuard global (no es staff/admin)
+@UseGuards(SubscriptionGuard)
 @Controller('public/tenants/:slug/appointments')
 export class PublicBookingController {
   constructor(private readonly service: PublicBookingService) {}

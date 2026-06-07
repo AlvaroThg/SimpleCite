@@ -1,10 +1,12 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { LogOut } from 'lucide-react';
+import { CreditCard, LogOut } from 'lucide-react';
 import { useAuth, useRequireAuth } from '@/lib/panel-auth';
+import { getBillingStatus, type BillingStatus } from '@/lib/panel-api';
 import { BrandSpinner } from '@/components/panel/Skeleton';
 
 /** Activo: exacto para "/panel" (Inicio), prefijo para el resto. */
@@ -26,6 +28,15 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
   const { logout } = useAuth();
   const pathname = usePathname();
 
+  // Estado de suscripción: si está inactiva, el panel pide renovar.
+  const [billing, setBilling] = useState<BillingStatus | null>(null);
+  useEffect(() => {
+    if (!session) return;
+    getBillingStatus(session.token, session.slug)
+      .then(setBilling)
+      .catch(() => {});
+  }, [session]);
+
   // Mientras carga / redirige a login, no renderizar el contenido protegido.
   if (!session) {
     return (
@@ -36,6 +47,14 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
   }
 
   const role = session.user.role;
+  const subInactive =
+    !!billing &&
+    (billing.subscriptionStatus === 'PAST_DUE' ||
+      billing.subscriptionStatus === 'CANCELED' ||
+      (billing.subscriptionEndDate
+        ? new Date(billing.subscriptionEndDate).getTime() < Date.now()
+        : false));
+  const onBilling = pathname.startsWith('/panel/billing');
   const nav = [
     { href: '/panel', label: 'Inicio', icon: '🏠', roles: ['ADMIN', 'DOCTOR', 'STAFF'] },
     {
@@ -133,7 +152,33 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
         </div>
 
         {/* Contenido */}
-        <main className="flex-1 min-w-0 pb-20 md:pb-0">{children}</main>
+        <main className="flex-1 min-w-0 pb-20 md:pb-0">
+          {subInactive && !onBilling ? <RenewPrompt /> : children}
+        </main>
+      </div>
+    </div>
+  );
+}
+
+/** Prompt que bloquea el panel cuando la suscripción está inactiva. */
+function RenewPrompt() {
+  return (
+    <div className="flex min-h-[60vh] flex-col items-center justify-center px-4 text-center">
+      <div className="max-w-md rounded-2xl border border-amber-200 bg-amber-50 p-8">
+        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-amber-100 text-amber-600">
+          <CreditCard className="size-7" />
+        </div>
+        <h2 className="text-xl font-bold text-gray-900">Suscripción inactiva</h2>
+        <p className="mt-2 text-sm text-gray-600">
+          Tu suscripción está vencida o inactiva. Renueva tu plan para volver a gestionar citas,
+          pacientes y WhatsApp.
+        </p>
+        <Link
+          href="/panel/billing"
+          className="mt-6 inline-flex items-center justify-center gap-2 rounded-xl bg-brand-600 px-6 py-3 font-semibold text-white transition hover:bg-brand-700 active:scale-95"
+        >
+          <CreditCard className="size-4" /> Renovar suscripción
+        </Link>
       </div>
     </div>
   );

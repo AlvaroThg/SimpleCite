@@ -7,10 +7,12 @@ import {
   Sse,
   MessageEvent,
   NotFoundException,
+  UseGuards,
 } from '@nestjs/common';
 import { Observable, from } from 'rxjs';
 import { switchMap } from 'rxjs/operators';
 import { CurrentUser, Roles } from '../../../../common/decorators';
+import { SubscriptionGuard } from '../../../billing/infrastructure/guards/subscription.guard';
 import { InstanceManagerService } from '../../application/services/instance-manager.service';
 import { PrismaService } from '../../../../common/database/prisma.service';
 
@@ -26,7 +28,9 @@ import { PrismaService } from '../../../../common/database/prisma.service';
  *   POST   /admin/whatsapp/instances/:id/restart → reiniciar
  *   GET    /admin/whatsapp/instances/:id/qr    → SSE stream del QR de pairing
  */
+// La gestión de WhatsApp requiere suscripción vigente (402 si vencida).
 @Roles('ADMIN')
+@UseGuards(SubscriptionGuard)
 @Controller('admin/whatsapp/instances')
 export class WhatsappAdminController {
   constructor(

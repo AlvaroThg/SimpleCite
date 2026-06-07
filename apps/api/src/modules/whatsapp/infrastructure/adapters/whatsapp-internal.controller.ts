@@ -92,6 +92,13 @@ export class WhatsappInternalController {
     imageBase64: string,
     mimeType: string,
   ) {
+    // Bot bloqueado si la suscripción de la clínica no está vigente.
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { subscriptionStatus: true, subscriptionEndDate: true },
+    });
+    if (!tenant || this.subscriptionInactive(tenant)) return;
+
     // Find patient's open PENDING_PAYMENT + STATIC_QR appointment
     const patient = await this.prisma.patient.findUnique({
       where: { phone_tenantId: { phone, tenantId } },
@@ -159,13 +166,37 @@ export class WhatsappInternalController {
 
     const tenant = await this.prisma.tenant.findUnique({
       where: { id: tenantId },
-      select: { slug: true, timezone: true },
+      select: {
+        slug: true,
+        timezone: true,
+        subscriptionStatus: true,
+        subscriptionEndDate: true,
+      },
     });
 
     if (!tenant) return;
 
     // Derivar tenantSlug del containerName: "wa-clinica-demo" → "clinica-demo"
     const tenantSlug = instance.containerName.replace(/^wa-/, '');
+
+    // Bot totalmente bloqueado si la clínica no tiene suscripción vigente.
+    // Avisamos a lo sumo una vez al día por paciente (messageKey con fecha).
+    if (this.subscriptionInactive(tenant)) {
+      this.logger.warn(
+        { event: 'wa.bot.subscription-inactive', tenantId },
+        'WhatsappInternalController',
+      );
+      await this.waMessage
+        .send({
+          tenantId,
+          tenantSlug: tenant.slug ?? tenantSlug,
+          phone,
+          messageKey: `sub-inactive:${tenantId}:${phone}:${new Date().toISOString().slice(0, 10)}`,
+          text: '⚠️ El servicio de reservas por WhatsApp no está disponible en este momento. Por favor, contacta directamente a la clínica.',
+        })
+        .catch(() => undefined);
+      return;
+    }
 
     await this.bot.handleMessage({
       tenantId,
@@ -175,5 +206,15 @@ export class WhatsappInternalController {
       text,
       timezone: tenant.timezone,
     });
+  }
+
+  /** ¿La suscripción del tenant está vencida/inactiva? (bloquea el bot) */
+  private subscriptionInactive(t: {
+    subscriptionStatus: string;
+    subscriptionEndDate: Date | null;
+  }): boolean {
+    if (t.subscriptionStatus === 'PAST_DUE' || t.subscriptionStatus === 'CANCELED') return true;
+    if (t.subscriptionEndDate && t.subscriptionEndDate.getTime() < Date.now()) return true;
+    return false;
   }
 }

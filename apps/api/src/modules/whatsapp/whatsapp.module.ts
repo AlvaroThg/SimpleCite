@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
 
+import { BillingModule } from '../billing/billing.module';
 import { StorageService } from '../../common/services/storage.service';
 import { InstanceManagerService } from './application/services/instance-manager.service';
 import { WaMessageService } from './application/services/wa-message.service';
@@ -22,7 +23,7 @@ import { WhatsappInternalController } from './infrastructure/adapters/whatsapp-i
  *   - Que el Docker socket esté montado en el contenedor del API
  */
 @Module({
-  imports: [ScheduleModule.forRoot()],
+  imports: [ScheduleModule.forRoot(), BillingModule],
   controllers: [WhatsappAdminController, WhatsappInternalController],
   providers: [
     StorageService,
