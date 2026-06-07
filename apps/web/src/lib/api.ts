@@ -179,10 +179,11 @@ export async function confirmBooking(
   slug: string,
   sessionToken: string,
   appointmentId: string,
-): Promise<{ id: string; status: string; startTime: string; endTime: string }> {
+  paymentMethod: 'CASH' | 'STATIC_QR',
+): Promise<{ id: string; status: string }> {
   return apiPost(
     `/api/public/tenants/${slug}/appointments/${appointmentId}/confirm`,
-    {},
+    { paymentMethod },
     sessionToken,
   );
 }

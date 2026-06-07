@@ -27,7 +27,7 @@ export class ReportsService {
     const monthEnd = fromZonedTime(endOfMonth(localNow), tz);
     const last30 = subDays(now, 30);
 
-    const [citasHoy, ingresos, noShow, completed, proximas] = await Promise.all([
+    const [citasHoy, ingresoAppts, noShow, completed, proximas] = await Promise.all([
       // Citas de hoy (no canceladas)
       this.prisma.client.appointment.count({
         where: {
@@ -36,10 +36,16 @@ export class ReportsService {
           status: { notIn: ['CANCELLED', 'TENTATIVE'] },
         },
       }),
-      // Ingresos del mes: suma de intents PAID con paidAt en el mes
-      this.prisma.client.paymentIntent.aggregate({
-        where: { tenantId, status: 'PAID', paidAt: { gte: monthStart, lte: monthEnd } },
-        _sum: { amount: true },
+      // Ingresos del mes (modelo híbrido): citas del mes ya cobradas — pagadas por
+      // QR (isPaid) o completadas (efectivo cobrado en clínica). Se valora por el
+      // precio del servicio. (PaymentIntent quedó legacy y ya no se usa.)
+      this.prisma.client.appointment.findMany({
+        where: {
+          tenantId,
+          startTime: { gte: monthStart, lte: monthEnd },
+          OR: [{ isPaid: true }, { status: 'COMPLETED' }],
+        },
+        select: { service: { select: { price: true } } },
       }),
       // Inasistencias (últimos 30 días)
       this.prisma.client.appointment.count({
@@ -65,10 +71,11 @@ export class ReportsService {
 
     const totalCerradas = noShow + completed;
     const tasaInasistencia = totalCerradas > 0 ? Math.round((noShow / totalCerradas) * 100) : 0;
+    const ingresosMes = ingresoAppts.reduce((sum, a) => sum + Number(a.service.price), 0);
 
     return {
       citasHoy,
-      ingresosMes: Number(ingresos._sum.amount ?? 0),
+      ingresosMes,
       tasaInasistencia, // porcentaje 0-100 (últimos 30 días)
       proximasCitas: proximas.map((a) => ({
         id: a.id,

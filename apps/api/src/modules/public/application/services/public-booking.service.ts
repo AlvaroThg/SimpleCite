@@ -7,9 +7,10 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Logger } from 'nestjs-pino';
-import type { CreatePublicAppointmentDto } from '@simplecite/shared';
+import type { CreatePublicAppointmentDto, PaymentMethod } from '@simplecite/shared';
 import { PrismaService } from '../../../../common/database/prisma.service';
 import { PatientsService } from '../../../patients/application/services/patients.service';
+import { WaMessageService } from '../../../whatsapp/application/services/wa-message.service';
 
 /**
  * Reserva pública de citas vía OTP.
@@ -29,6 +30,7 @@ export class PublicBookingService {
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
     private readonly patients: PatientsService,
+    private readonly waMessage: WaMessageService,
     private readonly logger: Logger,
   ) {}
 
@@ -133,8 +135,13 @@ export class PublicBookingService {
    *
    * En Fase 5, esta transición será TENTATIVE → PENDING_PAYMENT (con QR Simple).
    */
-  async confirm(params: { tenantId: string; phone: string; appointmentId: string }) {
-    const { tenantId, phone, appointmentId } = params;
+  async confirm(params: {
+    tenantId: string;
+    phone: string;
+    appointmentId: string;
+    paymentMethod: PaymentMethod;
+  }) {
+    const { tenantId, phone, appointmentId, paymentMethod } = params;
 
     const appointment = await this.prisma.client.appointment.findFirst({
       where: { id: appointmentId, tenantId },
@@ -170,22 +177,74 @@ export class PublicBookingService {
       throw new BadRequestException('La reserva expiró. Inicia el proceso de nuevo.');
     }
 
+    // CASH → CONFIRMED directo. STATIC_QR → PENDING_PAYMENT: el QR y el
+    // comprobante se gestionan por WhatsApp (los datos del paciente ya están
+    // guardados para poder confirmarlo por ese canal).
+    const status = paymentMethod === 'STATIC_QR' ? 'PENDING_PAYMENT' : 'CONFIRMED';
     const updated = await this.prisma.client.appointment.update({
       where: { id: appointmentId },
-      data: { status: 'CONFIRMED', expiresAt: null },
+      data: { status, paymentMethod, expiresAt: null },
     });
 
+    if (paymentMethod === 'STATIC_QR') {
+      // No-bloqueante: el envío del QR no debe frenar la respuesta al paciente.
+      void this.sendStaticQrByWhatsApp(tenantId, phone, appointmentId);
+    }
+
     this.logger.log(
-      {
-        event: 'public.appointment.confirmed',
-        tenantId,
-        appointmentId,
-        phone,
-      },
+      { event: 'public.appointment.confirmed', tenantId, appointmentId, phone, paymentMethod },
       'PublicBookingService',
     );
 
     return updated;
+  }
+
+  /**
+   * Envía el QR bancario estático del tenant al paciente por WhatsApp y le pide
+   * el comprobante. Best-effort: si no hay instancia conectada (dev), se ignora.
+   */
+  private async sendStaticQrByWhatsApp(tenantId: string, phone: string, appointmentId: string) {
+    try {
+      const tenant = await this.prisma.client.tenant.findUnique({
+        where: { id: tenantId },
+        select: { slug: true, staticQrUrl: true },
+      });
+      if (!tenant) return;
+
+      if (tenant.staticQrUrl) {
+        await this.waMessage.send({
+          tenantId,
+          tenantSlug: tenant.slug,
+          phone,
+          messageKey: `qr-booking:${appointmentId}`,
+          text:
+            '🎉 *Cita registrada — pendiente de pago.*\n\n' +
+            'Escanea el QR que te enviamos, realiza el pago y envíanos la *foto del comprobante* ' +
+            'por aquí para confirmar tu cita.',
+        });
+        await this.waMessage.sendImage({
+          tenantId,
+          tenantSlug: tenant.slug,
+          phone,
+          imageUrl: tenant.staticQrUrl,
+          caption: '📲 Escanea este QR para realizar tu pago',
+          messageKey: `qr-booking-img:${appointmentId}`,
+        });
+      } else {
+        await this.waMessage.send({
+          tenantId,
+          tenantSlug: tenant.slug,
+          phone,
+          messageKey: `qr-booking:${appointmentId}`,
+          text: 'Tu cita quedó registrada. Contacta a la clínica para coordinar el pago por QR y confirmarla.',
+        });
+      }
+    } catch (err) {
+      this.logger.warn(
+        { event: 'public.booking.qr-send-failed', appointmentId, err: (err as Error).message },
+        'PublicBookingService',
+      );
+    }
   }
 
   /**

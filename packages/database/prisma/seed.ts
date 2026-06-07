@@ -215,6 +215,14 @@ async function main() {
   const prenatal = serviciosCreados.find((s) => s.name === 'Control Prenatal')!;
 
   const citas = [
+    // CONFIRMED hoy → cuenta en "Citas de hoy" y "Próximas citas"
+    {
+      paciente: pacientes[1],
+      servicio: consulta,
+      start: at(0, 23, 0),
+      status: 'CONFIRMED',
+      paymentMethod: 'CASH',
+    },
     // CONFIRMED + CASH → badge "Por cobrar en clínica"
     {
       paciente: pacientes[0],

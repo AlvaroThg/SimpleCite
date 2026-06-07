@@ -314,6 +314,12 @@ export const CreatePublicAppointmentSchema = z.object({
 });
 export type CreatePublicAppointmentDto = z.infer<typeof CreatePublicAppointmentSchema>;
 
+/** Confirmación de la reserva pública: elige método de pago (efectivo o QR). */
+export const ConfirmPublicBookingSchema = z.object({
+  paymentMethod: PaymentMethod,
+});
+export type ConfirmPublicBookingDto = z.infer<typeof ConfirmPublicBookingSchema>;
+
 // ─── Public Tenant Info (response shape, no DTO de input) ───
 
 // ─── Billing / Suscripciones (PayPal) ───

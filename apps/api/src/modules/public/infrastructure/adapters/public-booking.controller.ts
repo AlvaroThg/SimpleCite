@@ -1,6 +1,11 @@
 import { Controller, Post, Body, Param, UseGuards, NotFoundException } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
-import { CreatePublicAppointmentSchema, type CreatePublicAppointmentDto } from '@simplecite/shared';
+import {
+  CreatePublicAppointmentSchema,
+  ConfirmPublicBookingSchema,
+  type CreatePublicAppointmentDto,
+  type ConfirmPublicBookingDto,
+} from '@simplecite/shared';
 import { CurrentPatient, CurrentTenant, Public } from '../../../../common/decorators';
 import { ZodValidationPipe } from '../../../../common/pipes/zod-validation.pipe';
 import { PatientSessionGuard } from '../guards/patient-session.guard';
@@ -46,12 +51,14 @@ export class PublicBookingController {
     @CurrentTenant() tenantId: string,
     @CurrentPatient('phone') phone: string,
     @Param('id') appointmentId: string,
+    @Body(new ZodValidationPipe(ConfirmPublicBookingSchema)) dto: ConfirmPublicBookingDto,
   ) {
     if (!tenantId) throw new NotFoundException('Tenant no encontrado');
     const result = await this.service.confirm({
       tenantId,
       phone,
       appointmentId,
+      paymentMethod: dto.paymentMethod,
     });
     return { success: true, data: result };
   }

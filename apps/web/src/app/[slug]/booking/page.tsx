@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import QRCode from 'qrcode';
 import {
   getDoctors,
   getTenantInfo,
@@ -10,8 +9,7 @@ import {
   requestOtp,
   verifyOtp,
   createBooking,
-  createPayment,
-  getPaymentStatus,
+  confirmBooking,
   ApiError,
   type DoctorWithServices,
   type Slot,
@@ -28,7 +26,7 @@ type Step =
   | 'select-slot'
   | 'patient-info'
   | 'verify-otp'
-  | 'payment'
+  | 'payment-method'
   | 'confirmed';
 
 interface State {
@@ -47,12 +45,7 @@ interface State {
   otpCode: string;
   sessionToken: string;
   appointmentId: string;
-  // ── Pago ──
-  intentId: string;
-  qrDataUrl: string; // imagen del QR (data:image/png;base64)
-  amount: number;
-  paymentExpiresAt: string;
-  paymentExpired: boolean;
+  chosenMethod: '' | 'CASH' | 'STATIC_QR'; // método de pago elegido al confirmar
   loading: boolean;
   error: string;
 }
@@ -119,11 +112,7 @@ export default function BookingWizard() {
     otpCode: '',
     sessionToken: '',
     appointmentId: '',
-    intentId: '',
-    qrDataUrl: '',
-    amount: 0,
-    paymentExpiresAt: '',
-    paymentExpired: false,
+    chosenMethod: '',
     loading: true,
     error: '',
   });
@@ -167,50 +156,9 @@ export default function BookingWizard() {
       .catch(() => set({ error: 'No se pudo cargar la disponibilidad.', loading: false }));
   }, [slug, state.selectedDoctor?.id, state.selectedService?.service.id]);
 
-  // ─── Polling del estado de pago (cada 3s mientras step === 'payment') ──
-  useEffect(() => {
-    if (state.step !== 'payment' || !state.intentId || state.paymentExpired) return;
-
-    const interval = setInterval(async () => {
-      try {
-        const st = await getPaymentStatus(slug, state.sessionToken, state.intentId);
-        if (st.status === 'PAID') {
-          set({ step: 'confirmed' });
-        } else if (st.status === 'EXPIRED' || st.status === 'FAILED') {
-          set({ paymentExpired: true });
-        }
-      } catch {
-        // Error transitorio de red — el próximo tick reintenta.
-      }
-    }, 3000);
-
-    return () => clearInterval(interval);
-  }, [state.step, state.intentId, state.paymentExpired, slug, state.sessionToken]);
-
-  // ─── Ticker de 1s para el countdown de expiración ──────────────────
-  const [nowTick, setNowTick] = useState(Date.now());
-  useEffect(() => {
-    if (state.step !== 'payment') return;
-    const t = setInterval(() => setNowTick(Date.now()), 1000);
-    return () => clearInterval(t);
-  }, [state.step]);
-
-  // Marcar expirado cuando el countdown llega a 0
-  useEffect(() => {
-    if (state.step === 'payment' && state.paymentExpiresAt && !state.paymentExpired) {
-      if (new Date(state.paymentExpiresAt).getTime() - nowTick <= 0) {
-        set({ paymentExpired: true });
-      }
-    }
-  }, [nowTick, state.step, state.paymentExpiresAt, state.paymentExpired]);
-
   const primary = state.tenant?.primaryColor ?? '#3B82F6';
   const tz = state.tenant?.timezone ?? 'America/La_Paz';
   const daySlots = state.slots.filter((s) => localDateStr(s.startTime, tz) === state.selectedDate);
-  const secondsLeft =
-    state.paymentExpiresAt && !state.paymentExpired
-      ? Math.max(0, Math.floor((new Date(state.paymentExpiresAt).getTime() - nowTick) / 1000))
-      : 0;
 
   // ─── Acciones ──────────────────────────────────────────────────────
 
@@ -242,49 +190,29 @@ export default function BookingWizard() {
         },
       });
 
-      // Generar el intent de pago + QR
-      const payment = await createPayment(slug, sessionToken, booking.appointmentId);
-      const qrDataUrl = await QRCode.toDataURL(payment.qrPayload, { width: 280, margin: 1 });
-
       set({
         sessionToken,
         appointmentId: booking.appointmentId,
-        intentId: payment.intentId,
-        amount: payment.amount,
-        paymentExpiresAt: payment.expiresAt,
-        qrDataUrl,
-        paymentExpired: false,
-        step: 'payment',
+        step: 'payment-method',
         loading: false,
       });
     } catch (e) {
       set({
-        error: e instanceof ApiError ? e.message : 'Error al generar el pago',
+        error: e instanceof ApiError ? e.message : 'No se pudo registrar la reserva',
         loading: false,
       });
     }
   }
 
-  /**
-   * Reintento de pago: genera un nuevo intent (el backend expira el anterior)
-   * y refresca el QR + timer.
-   */
-  async function handleRetryPayment() {
-    set({ loading: true, paymentExpired: false });
+  /** Finaliza la reserva con el método de pago elegido. */
+  async function handleConfirm(method: 'CASH' | 'STATIC_QR') {
+    set({ loading: true });
     try {
-      const payment = await createPayment(slug, state.sessionToken, state.appointmentId);
-      const qrDataUrl = await QRCode.toDataURL(payment.qrPayload, { width: 280, margin: 1 });
-      set({
-        intentId: payment.intentId,
-        amount: payment.amount,
-        paymentExpiresAt: payment.expiresAt,
-        qrDataUrl,
-        paymentExpired: false,
-        loading: false,
-      });
+      await confirmBooking(slug, state.sessionToken, state.appointmentId, method);
+      set({ chosenMethod: method, step: 'confirmed', loading: false });
     } catch (e) {
       set({
-        error: e instanceof ApiError ? e.message : 'Error al regenerar el pago',
+        error: e instanceof ApiError ? e.message : 'No se pudo confirmar la cita',
         loading: false,
       });
     }
@@ -548,65 +476,44 @@ export default function BookingWizard() {
         </StepCard>
       )}
 
-      {/* ── Paso 6: Pago QR ── */}
-      {state.step === 'payment' && (
-        <StepCard title="Escanea para pagar">
-          <div className="text-center space-y-4">
-            <p className="text-gray-600 text-sm">
-              Abre tu app de banca o billetera y escanea el código QR para pagar.
-            </p>
+      {/* ── Paso 6: Elegir método de pago ── */}
+      {state.step === 'payment-method' && state.selectedSlot && (
+        <StepCard title="¿Cómo deseas pagar?">
+          <div className="bg-blue-50 rounded-xl p-3 mb-5 text-sm text-blue-800">
+            <span className="font-medium">{state.selectedDoctor?.name}</span> ·{' '}
+            {formatDate(state.selectedSlot.startTime, tz)} a las{' '}
+            {formatTime(state.selectedSlot.startTime, tz)}
+          </div>
 
-            <div className="flex flex-col items-center gap-2">
-              <div className="text-3xl font-bold text-gray-900">Bs {state.amount.toFixed(2)}</div>
-
-              {state.paymentExpired ? (
-                <div className="w-[280px] h-[280px] flex flex-col items-center justify-center bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200 gap-3">
-                  <span className="text-4xl">⏰</span>
-                  <p className="text-gray-500 text-sm px-6">
-                    El código de pago expiró. Genera uno nuevo para continuar.
-                  </p>
-                </div>
-              ) : (
-                <>
-                  <img
-                    src={state.qrDataUrl}
-                    alt="Código QR de pago"
-                    className="w-[280px] h-[280px] rounded-2xl border border-gray-100"
-                  />
-                  <div className="flex items-center gap-2 text-sm">
-                    <span className="text-gray-400">Expira en</span>
-                    <span
-                      className="font-mono font-bold tabular-nums"
-                      style={{ color: secondsLeft < 60 ? '#dc2626' : primary }}
-                    >
-                      {Math.floor(secondsLeft / 60)}:{String(secondsLeft % 60).padStart(2, '0')}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2 text-xs text-gray-400 mt-1">
-                    <span className="inline-block w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-                    Esperando confirmación del pago...
-                  </div>
-                </>
-              )}
-            </div>
-
-            {state.paymentExpired && (
-              <Btn
-                label="Generar nuevo código"
-                color={primary}
-                loading={state.loading}
-                disabled={state.loading}
-                onClick={handleRetryPayment}
-              />
-            )}
+          <div className="space-y-3">
+            <button
+              onClick={() => handleConfirm('CASH')}
+              disabled={state.loading}
+              className="flex w-full items-center gap-3 rounded-2xl border border-gray-200 bg-white p-4 text-left transition-all hover:border-blue-400 hover:shadow-sm active:scale-[.99] disabled:opacity-50"
+            >
+              <span className="text-2xl">💵</span>
+              <div>
+                <p className="font-semibold text-gray-900">Efectivo (en la clínica)</p>
+                <p className="text-sm text-gray-500">Reserva tu cita y paga al llegar.</p>
+              </div>
+            </button>
 
             <button
-              className="w-full text-sm text-gray-500 underline text-center"
-              onClick={() => router.push(`/${slug}`)}
+              onClick={() => handleConfirm('STATIC_QR')}
+              disabled={state.loading}
+              className="flex w-full items-center gap-3 rounded-2xl border border-gray-200 bg-white p-4 text-left transition-all hover:border-blue-400 hover:shadow-sm active:scale-[.99] disabled:opacity-50"
             >
-              Cancelar y volver
+              <span className="text-2xl">📲</span>
+              <div>
+                <p className="font-semibold text-gray-900">QR bancario (por WhatsApp)</p>
+                <p className="text-sm text-gray-500">
+                  Te enviamos el QR por WhatsApp; paga y manda el comprobante por ahí.
+                </p>
+              </div>
             </button>
           </div>
+
+          {state.loading && <p className="mt-3 text-center text-sm text-gray-400">Procesando…</p>}
         </StepCard>
       )}
 
@@ -618,19 +525,30 @@ export default function BookingWizard() {
               className="w-16 h-16 rounded-full flex items-center justify-center text-white text-3xl mx-auto"
               style={{ backgroundColor: primary }}
             >
-              ✓
+              {state.chosenMethod === 'STATIC_QR' ? '📲' : '✓'}
             </div>
-            <h2 className="text-2xl font-bold text-gray-900">¡Cita confirmada!</h2>
+            <h2 className="text-2xl font-bold text-gray-900">
+              {state.chosenMethod === 'STATIC_QR' ? '¡Cita registrada!' : '¡Cita confirmada!'}
+            </h2>
             <p className="text-gray-600">
-              Tu cita con <span className="font-semibold">{state.selectedDoctor?.name}</span> está
-              agendada para el{' '}
+              Tu cita con <span className="font-semibold">{state.selectedDoctor?.name}</span> es el{' '}
               <span className="font-semibold">{formatDate(state.selectedSlot.startTime, tz)}</span>{' '}
               a las{' '}
               <span className="font-semibold">{formatTime(state.selectedSlot.startTime, tz)}</span>.
             </p>
-            <p className="text-sm text-gray-500">
-              Recibirás un recordatorio por WhatsApp el día anterior.
-            </p>
+            {state.chosenMethod === 'STATIC_QR' ? (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-left text-sm text-amber-800">
+                📲 Te enviamos el <span className="font-semibold">QR de pago por WhatsApp</span> al{' '}
+                <span className="font-semibold">{state.phone}</span>. Realiza el pago y envía la{' '}
+                <span className="font-semibold">foto del comprobante</span> por WhatsApp para
+                confirmar tu cita.
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500">
+                💵 Recuerda traer el pago en efectivo. Recibirás un recordatorio por WhatsApp el día
+                anterior.
+              </p>
+            )}
             <button
               className="mt-4 text-sm underline text-gray-500"
               onClick={() => router.push(`/${slug}`)}
@@ -652,7 +570,7 @@ const STEPS: Step[] = [
   'select-slot',
   'patient-info',
   'verify-otp',
-  'payment',
+  'payment-method',
   'confirmed',
 ];
 
