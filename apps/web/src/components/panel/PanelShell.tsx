@@ -53,6 +53,7 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
     { href: '/panel/services', label: 'Servicios', icon: '🩺', roles: ['ADMIN'] },
     { href: '/panel/doctors', label: 'Doctores', icon: '👨‍⚕️', roles: ['ADMIN'] },
     { href: '/panel/schedule', label: 'Horarios', icon: '🗓️', roles: ['ADMIN', 'DOCTOR'] },
+    { href: '/panel/billing', label: 'Suscripción', icon: '💳', roles: ['ADMIN'] },
     { href: '/panel/settings', label: 'Configuración', icon: '⚙️', roles: ['ADMIN'] },
   ].filter((item) => item.roles.includes(role));
 

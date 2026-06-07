@@ -310,6 +310,21 @@ export const uploadTenantAsset = (
   body: { type: 'logo' | 'static-qr' | 'hero'; imageBase64: string; mimeType: string },
 ) => post<{ data: TenantConfig }>('/api/tenants/current/assets', t, s, body).then((r) => r.data);
 
+// ─── Billing / Suscripción (PayPal) ───────────────────────────────────
+
+export interface BillingStatus {
+  paypalSubscriptionId: string | null;
+  subscriptionStatus: string; // TRIAL | ACTIVE | PAST_DUE | CANCELED
+  subscriptionEndDate: string | null;
+  plan: string;
+}
+export const getBillingStatus = (t: string, s: string) =>
+  get<{ data: BillingStatus }>('/api/billing/status', t, s).then((r) => r.data);
+export const linkSubscription = (t: string, s: string, subscriptionId: string) =>
+  post<{ data: BillingStatus }>('/api/billing/link-subscription', t, s, { subscriptionId }).then(
+    (r) => r.data,
+  );
+
 // ─── Doctores ─────────────────────────────────────────────────────────
 
 export interface Doctor {

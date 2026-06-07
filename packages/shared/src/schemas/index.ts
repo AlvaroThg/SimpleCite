@@ -316,6 +316,17 @@ export type CreatePublicAppointmentDto = z.infer<typeof CreatePublicAppointmentS
 
 // ─── Public Tenant Info (response shape, no DTO de input) ───
 
+// ─── Billing / Suscripciones (PayPal) ───
+
+export const LinkSubscriptionSchema = z.object({
+  subscriptionId: z.string().min(1, 'subscriptionId requerido'),
+  /// El cliente puede enviar tenantId, pero el backend usa el del JWT (se ignora).
+  tenantId: z.string().optional(),
+});
+export type LinkSubscriptionDto = z.infer<typeof LinkSubscriptionSchema>;
+
+// ─── Public Tenant Info (response shape, no DTO de input) ───
+
 export const PublicTenantInfoSchema = z.object({
   slug: TenantSlugSchema,
   name: z.string(),

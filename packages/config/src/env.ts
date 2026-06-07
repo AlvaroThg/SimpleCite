@@ -45,6 +45,16 @@ export const envSchema = z.object({
     .min(16, 'QR_SIMPLE_WEBHOOK_SECRET debe tener al menos 16 caracteres')
     .optional(),
 
+  // ─── PayPal (suscripciones recurrentes) ───
+  // En dev/test apunta SIEMPRE al entorno Sandbox. Cambiar a
+  // https://api-m.paypal.com solo en producción con credenciales live.
+  PAYPAL_API_BASE: z.string().url().default('https://api-m.sandbox.paypal.com'),
+  PAYPAL_CLIENT_ID: z.string().optional(),
+  PAYPAL_CLIENT_SECRET: z.string().optional(),
+  // ID del webhook configurado en el dashboard de PayPal — requerido para
+  // verificar la firma de los webhooks entrantes.
+  PAYPAL_WEBHOOK_ID: z.string().optional(),
+
   // ─── WhatsApp Instance Manager (Fase 5) ───
   // Red Docker donde viven los contenedores Baileys (uno por tenant).
   WA_DOCKER_NETWORK: z.string().default('simplecite-internal'),

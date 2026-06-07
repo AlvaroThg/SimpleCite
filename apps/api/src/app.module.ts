@@ -23,6 +23,7 @@ import { WhatsappModule } from './modules/whatsapp/whatsapp.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { PatientsModule } from './modules/patients/patients.module';
 import { ReportsModule } from './modules/reports/reports.module';
+import { BillingModule } from './modules/billing/billing.module';
 
 @Module({
   imports: [
@@ -98,6 +99,7 @@ import { ReportsModule } from './modules/reports/reports.module';
     WhatsappModule,
     PaymentsModule,
     ReportsModule,
+    BillingModule,
   ],
   providers: [
     // ── Orden de ejecución de guards globales ──

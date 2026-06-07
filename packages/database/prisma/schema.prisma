@@ -108,6 +108,11 @@ model Tenant {
   ctaTitle        String? /// Título del bloque CTA final
   ctaSubtitle     String? /// Subtítulo del bloque CTA final
 
+  // ─── Suscripción / Billing (PayPal Sandbox) ───
+  paypalSubscriptionId String?   @unique /// ID de la suscripción en PayPal
+  subscriptionStatus   String    @default("TRIAL") /// TRIAL | ACTIVE | PAST_DUE | CANCELED
+  subscriptionEndDate  DateTime? /// Fin del período pagado; el SubscriptionGuard valida contra NOW()
+
   // Configuración de WhatsApp
   whatsappEnabled Boolean @default(false)
   whatsappNumber  String? /// El número vinculado al bot
