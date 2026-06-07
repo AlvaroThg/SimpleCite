@@ -12,10 +12,20 @@ export const envSchema = z.object({
   DATABASE_URL: z.string().min(1, 'DATABASE_URL es requerida'),
   DIRECT_URL: z.string().min(1, 'DIRECT_URL es requerida (para Prisma migrate)').optional(),
 
-  // ─── Supabase ───
-  SUPABASE_URL: z.string().url('SUPABASE_URL debe ser una URL válida'),
-  SUPABASE_ANON_KEY: z.string().min(1, 'SUPABASE_ANON_KEY es requerida'),
-  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1, 'SUPABASE_SERVICE_ROLE_KEY es requerida'),
+  // ─── Supabase (legacy — opcional tras migrar a R2 + Postgres propio) ───
+  SUPABASE_URL: z.string().url().optional(),
+  SUPABASE_ANON_KEY: z.string().optional(),
+  SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
+
+  // ─── Cloudflare R2 (almacenamiento de archivos) ───
+  // El endpoint puede pasarse explícito (R2_ENDPOINT) o derivarse de R2_ACCOUNT_ID.
+  R2_ACCOUNT_ID: z.string().optional(),
+  R2_ENDPOINT: z.string().url().optional(),
+  R2_ACCESS_KEY_ID: z.string().optional(),
+  R2_SECRET_ACCESS_KEY: z.string().optional(),
+  R2_BUCKET: z.string().optional(),
+  // URL pública del bucket (subdominio r2.dev o dominio propio conectado).
+  R2_PUBLIC_URL: z.string().url().optional(),
 
   // ─── JWT propio (NestJS firma) ───
   JWT_SECRET: z.string().min(32, 'JWT_SECRET debe tener al menos 32 caracteres'),

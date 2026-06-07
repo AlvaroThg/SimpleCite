@@ -1,8 +1,11 @@
 import type { NextConfig } from 'next';
+import path from 'path';
 
 const nextConfig: NextConfig = {
-  // Habilitar output standalone para Docker en producción
-  // output: 'standalone',
+  // Output standalone → imagen Docker mínima (server.js + node_modules trazados).
+  output: 'standalone',
+  // Monorepo: raíz para el tracing de dependencias del bundle standalone.
+  outputFileTracingRoot: path.join(__dirname, '../../'),
 };
 
 export default nextConfig;

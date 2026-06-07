@@ -128,9 +128,11 @@ export class TenantService implements TenantServicePort {
     imageBase64: string,
     mimeType: string,
   ): Promise<TenantConfig> {
-    const ext = mimeType.split('/')[1]?.replace('jpeg', 'jpg') ?? 'jpg';
-    const path = `${tenantId}/${type}.${ext}`;
-    const url = await this.storage.uploadFromBase64('assets', path, imageBase64, mimeType);
+    const url = await this.storage.uploadImageFromBase64(
+      `assets/${tenantId}`,
+      imageBase64,
+      mimeType,
+    );
 
     const field = type === 'logo' ? 'logoUrl' : type === 'hero' ? 'heroImageUrl' : 'staticQrUrl';
     await this.prisma.client.tenant.update({

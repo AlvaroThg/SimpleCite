@@ -118,10 +118,12 @@ export class WhatsappInternalController {
     });
     if (!appointment) return;
 
-    // Upload receipt to Supabase Storage
-    const ext = mimeType.split('/')[1]?.replace('jpeg', 'jpg') ?? 'jpg';
-    const path = `${tenantId}/${appointment.id}.${ext}`;
-    const receiptUrl = await this.storage.uploadFromBase64('receipts', path, imageBase64, mimeType);
+    // Subir el comprobante a Cloudflare R2.
+    const receiptUrl = await this.storage.uploadImageFromBase64(
+      `receipts/${tenantId}`,
+      imageBase64,
+      mimeType,
+    );
 
     await this.prisma.appointment.update({
       where: { id: appointment.id },

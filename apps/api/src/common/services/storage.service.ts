@@ -1,80 +1,89 @@
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { randomUUID } from 'crypto';
 
 /**
- * Sube archivos a Supabase Storage vía REST API (sin SDK JS).
+ * Almacenamiento de archivos en Cloudflare R2 (compatible con la API S3).
  *
- * Requiere que los buckets existan y sean públicos (configurado en el dashboard
- * de Supabase → Storage → Buckets).
+ * R2 expone un endpoint S3 (`https://<accountId>.r2.cloudflarestorage.com`).
+ * Las URLs públicas NO salen de ese endpoint: el bucket debe tener habilitado
+ * el acceso público (subdominio `*.r2.dev`) o un dominio propio conectado; esa
+ * base se configura en `R2_PUBLIC_URL`.
  *
- * Buckets usados:
- *   assets   — logos y QR estáticos del tenant
- *   receipts — comprobantes de pago enviados por WhatsApp
+ * Carpetas (prefijos) dentro del bucket:
+ *   assets/<tenantId>   — logos, QR estático, portada del tenant
+ *   receipts/<tenantId> — comprobantes de pago enviados por WhatsApp
  */
 @Injectable()
 export class StorageService {
-  private readonly supabaseUrl: string;
-  private readonly serviceRoleKey: string;
+  private readonly client: S3Client | null;
+  private readonly bucket: string;
+  private readonly publicUrl: string;
 
   constructor(config: ConfigService) {
-    this.supabaseUrl = config.get<string>('SUPABASE_URL') ?? '';
-    this.serviceRoleKey = config.get<string>('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+    const accountId = config.get<string>('R2_ACCOUNT_ID');
+    const accessKeyId = config.get<string>('R2_ACCESS_KEY_ID');
+    const secretAccessKey = config.get<string>('R2_SECRET_ACCESS_KEY');
+    // Endpoint explícito o derivado del account id.
+    const endpoint =
+      config.get<string>('R2_ENDPOINT') ??
+      (accountId ? `https://${accountId}.r2.cloudflarestorage.com` : '');
+
+    this.bucket = config.get<string>('R2_BUCKET') ?? '';
+    // Sin barra final para concatenar limpio con la key.
+    this.publicUrl = (config.get<string>('R2_PUBLIC_URL') ?? '').replace(/\/+$/, '');
+
+    this.client =
+      accessKeyId && secretAccessKey && endpoint && this.bucket
+        ? new S3Client({
+            region: 'auto', // R2 ignora la región pero el SDK la exige
+            endpoint,
+            credentials: { accessKeyId, secretAccessKey },
+          })
+        : null;
   }
 
   /**
-   * Sube un buffer a Supabase Storage y devuelve la URL pública.
-   * Usa PUT con x-upsert para crear o reemplazar.
+   * Sube una imagen a R2 con un nombre UUID dentro de `folder` y devuelve la
+   * URL pública (`R2_PUBLIC_URL/folder/<uuid>.<ext>`).
+   *
+   * @param folder   prefijo lógico, p.ej. `assets/<tenantId>` o `receipts/<tenantId>`
+   * @param buffer   contenido del archivo
+   * @param mimeType ej: image/png — define la extensión y el Content-Type
    */
-  async upload(bucket: string, path: string, buffer: Buffer, mimeType: string): Promise<string> {
-    // Config faltante: mensaje claro en vez de un 500 genérico.
-    if (!this.supabaseUrl || !this.serviceRoleKey) {
+  async uploadImage(folder: string, buffer: Buffer, mimeType: string): Promise<string> {
+    if (!this.client || !this.bucket || !this.publicUrl) {
       throw new InternalServerErrorException(
-        'Almacenamiento no configurado: faltan SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY.',
+        'Almacenamiento R2 no configurado. Revisa R2_ACCOUNT_ID/R2_ENDPOINT, ' +
+          'R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET y R2_PUBLIC_URL.',
       );
     }
 
-    const url = `${this.supabaseUrl}/storage/v1/object/${bucket}/${path}`;
+    const ext = (mimeType.split('/')[1] ?? 'bin').replace('jpeg', 'jpg');
+    const key = `${folder.replace(/^\/+|\/+$/g, '')}/${randomUUID()}.${ext}`;
 
-    let res: Response;
     try {
-      res = await fetch(url, {
-        method: 'PUT',
-        headers: {
-          Authorization: `Bearer ${this.serviceRoleKey}`,
-          'Content-Type': mimeType,
-          'x-upsert': 'true',
-        },
-        body: buffer,
-      });
-    } catch {
+      await this.client.send(
+        new PutObjectCommand({
+          Bucket: this.bucket,
+          Key: key,
+          Body: buffer,
+          ContentType: mimeType,
+        }),
+      );
+    } catch (err) {
       throw new InternalServerErrorException(
-        'No se pudo conectar con Supabase Storage. Verifica la configuración de Storage y tu conexión.',
+        `Fallo al subir el archivo a Cloudflare R2: ${(err as Error).message}. ` +
+          'Verifica las credenciales R2 y el nombre del bucket.',
       );
     }
 
-    if (!res.ok) {
-      // Lanzamos HttpException (no Error plano) para que el mensaje descriptivo
-      // llegue al cliente en vez del genérico "Internal server error" de Nest.
-      const detail =
-        res.status === 404
-          ? `el bucket "${bucket}" no existe o no es público`
-          : res.status === 401 || res.status === 403
-            ? 'credenciales inválidas (revisa SUPABASE_SERVICE_ROLE_KEY)'
-            : `error HTTP ${res.status}`;
-      throw new InternalServerErrorException(
-        `Fallo al subir el archivo: ${detail}. Verifica la configuración de Supabase Storage.`,
-      );
-    }
-
-    return `${this.supabaseUrl}/storage/v1/object/public/${bucket}/${path}`;
+    return `${this.publicUrl}/${key}`;
   }
 
-  uploadFromBase64(
-    bucket: string,
-    path: string,
-    base64: string,
-    mimeType: string,
-  ): Promise<string> {
-    return this.upload(bucket, path, Buffer.from(base64, 'base64'), mimeType);
+  /** Igual que `uploadImage` pero recibiendo el contenido en base64. */
+  uploadImageFromBase64(folder: string, base64: string, mimeType: string): Promise<string> {
+    return this.uploadImage(folder, Buffer.from(base64, 'base64'), mimeType);
   }
 }
