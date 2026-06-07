@@ -17,6 +17,7 @@ import {
 import { PanelShell } from '@/components/panel/PanelShell';
 import { ErrorBox } from '@/components/panel/ui';
 import { SkeletonCards } from '@/components/panel/Skeleton';
+import { toast } from 'sonner';
 
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
 
@@ -80,8 +81,6 @@ function Branding({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantConf
   const [name, setName] = useState(cfg.name);
   const [color, setColor] = useState(cfg.primaryColor || '#0a70f8');
   const [saving, setSaving] = useState(false);
-  const [msg, setMsg] = useState('');
-  const [err, setErr] = useState('');
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [uploadingQr, setUploadingQr] = useState(false);
   const logoInputRef = useRef<HTMLInputElement>(null);
@@ -90,17 +89,15 @@ function Branding({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantConf
   async function save() {
     if (!session) return;
     setSaving(true);
-    setMsg('');
-    setErr('');
     try {
       const updated = await updateTenantBranding(session.token, session.slug, {
         name: name.trim(),
         primaryColor: color,
       });
       onSaved(updated);
-      setMsg('Cambios guardados.');
+      toast.success('Cambios guardados.');
     } catch (e) {
-      setErr(e instanceof PanelApiError ? e.message : 'No se pudo guardar');
+      toast.error(e instanceof PanelApiError ? e.message : 'No se pudo guardar');
     } finally {
       setSaving(false);
     }
@@ -112,7 +109,6 @@ function Branding({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantConf
       const file = e.target.files?.[0];
       if (!file) return;
       setUploading(true);
-      setErr('');
       try {
         const reader = new FileReader();
         const base64 = await new Promise<string>((resolve, reject) => {
@@ -126,9 +122,13 @@ function Branding({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantConf
           mimeType: file.type,
         });
         onSaved(updated);
-        setMsg(type === 'logo' ? 'Logo actualizado.' : 'QR bancario actualizado.');
+        toast.success(type === 'logo' ? 'Logo actualizado.' : 'QR bancario actualizado.');
       } catch (e) {
-        setErr(e instanceof PanelApiError ? e.message : 'Error al subir imagen');
+        toast.error(
+          e instanceof PanelApiError
+            ? `Fallo al subir: ${e.message}`
+            : 'Fallo al subir: verifica la configuración de Supabase Storage.',
+        );
       } finally {
         setUploading(false);
         e.target.value = '';
@@ -180,10 +180,10 @@ function Branding({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantConf
           <img
             src={cfg.logoUrl}
             alt="Logo"
-            className="h-14 w-14 rounded-xl border border-gray-100 object-contain"
+            className="h-20 w-auto max-w-[200px] rounded-xl border border-gray-100 bg-white object-contain p-1"
           />
         ) : (
-          <div className="h-14 w-14 rounded-xl border-2 border-dashed border-gray-200 flex items-center justify-center text-gray-300 text-xs">
+          <div className="flex h-20 w-20 items-center justify-center rounded-xl border-2 border-dashed border-gray-200 text-xs text-gray-300">
             Logo
           </div>
         )}
@@ -220,10 +220,10 @@ function Branding({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantConf
             <img
               src={cfg.staticQrUrl}
               alt="QR bancario"
-              className="h-24 w-24 rounded-xl border border-gray-100 object-contain"
+              className="h-40 w-40 rounded-xl border border-gray-100 bg-white object-contain p-1"
             />
           ) : (
-            <div className="h-24 w-24 rounded-xl border-2 border-dashed border-gray-200 flex items-center justify-center text-gray-300 text-xs text-center leading-tight p-2">
+            <div className="flex h-40 w-40 items-center justify-center rounded-xl border-2 border-dashed border-gray-200 p-2 text-center text-xs leading-tight text-gray-300">
               Sin QR
             </div>
           )}
@@ -247,13 +247,6 @@ function Branding({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantConf
           </div>
         </div>
       </div>
-
-      {err && <ErrorBox message={err} />}
-      {msg && (
-        <div className="bg-green-50 border border-green-200 text-green-700 rounded-xl px-4 py-3 text-sm">
-          {msg}
-        </div>
-      )}
 
       <div className="flex justify-end">
         <button

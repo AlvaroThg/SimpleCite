@@ -38,7 +38,8 @@ interface State {
   selectedDoctor: DoctorWithServices | null;
   selectedService: DoctorService | null;
   selectedDate: string; // YYYY-MM-DD local
-  slots: Slot[];
+  slots: Slot[]; // slots de toda la semana visible (incluye ocupados)
+  availableDates: string[]; // fechas YYYY-MM-DD con al menos un cupo libre
   selectedSlot: Slot | null;
   patientName: string;
   patientCi: string;
@@ -86,6 +87,16 @@ function formatDate(isoStr: string, tz: string) {
   }).format(new Date(isoStr));
 }
 
+/** Fecha local (YYYY-MM-DD) de un instante ISO en la timezone del tenant. */
+function localDateStr(isoStr: string, tz: string) {
+  return new Intl.DateTimeFormat('en-CA', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    timeZone: tz,
+  }).format(new Date(isoStr));
+}
+
 // ─── Component ────────────────────────────────────────────────────────
 
 export default function BookingWizard() {
@@ -100,6 +111,7 @@ export default function BookingWizard() {
     selectedService: null,
     selectedDate: todayStr(),
     slots: [],
+    availableDates: [],
     selectedSlot: null,
     patientName: '',
     patientCi: '',
@@ -127,15 +139,17 @@ export default function BookingWizard() {
       );
   }, [slug]);
 
-  // ─── Carga de slots al cambiar doctor/servicio/fecha ──────────────
+  // ─── Disponibilidad de toda la semana al cambiar doctor/servicio ──────
+  // Traemos el rango completo (hoy..+6d) una sola vez para poder deshabilitar
+  // las FECHAS sin cupo y mostrar los horarios ocupados grisados por día.
   useEffect(() => {
-    const { selectedDoctor, selectedService, selectedDate } = state;
+    const { selectedDoctor, selectedService } = state;
     if (!selectedDoctor || !selectedService) return;
 
-    set({ loading: true, slots: [], selectedSlot: null });
+    set({ loading: true, slots: [], selectedSlot: null, availableDates: [] });
 
-    const from = new Date(selectedDate + 'T00:00:00').toISOString();
-    const to = new Date(selectedDate + 'T23:59:59').toISOString();
+    const from = new Date(todayStr() + 'T00:00:00').toISOString();
+    const to = new Date(addDays(todayStr(), 6) + 'T23:59:59').toISOString();
 
     getAvailability(slug, {
       doctorId: selectedDoctor.id,
@@ -143,9 +157,15 @@ export default function BookingWizard() {
       from,
       to,
     })
-      .then((slots) => set({ slots, loading: false }))
+      .then((slots) => {
+        const zone = state.tenant?.timezone ?? 'America/La_Paz';
+        const availableDates = Array.from(
+          new Set(slots.filter((s) => s.available).map((s) => localDateStr(s.startTime, zone))),
+        );
+        set({ slots, availableDates, loading: false });
+      })
       .catch(() => set({ error: 'No se pudo cargar la disponibilidad.', loading: false }));
-  }, [slug, state.selectedDoctor?.id, state.selectedService?.service.id, state.selectedDate]);
+  }, [slug, state.selectedDoctor?.id, state.selectedService?.service.id]);
 
   // ─── Polling del estado de pago (cada 3s mientras step === 'payment') ──
   useEffect(() => {
@@ -186,6 +206,7 @@ export default function BookingWizard() {
 
   const primary = state.tenant?.primaryColor ?? '#3B82F6';
   const tz = state.tenant?.timezone ?? 'America/La_Paz';
+  const daySlots = state.slots.filter((s) => localDateStr(s.startTime, tz) === state.selectedDate);
   const secondsLeft =
     state.paymentExpiresAt && !state.paymentExpired
       ? Math.max(0, Math.floor((new Date(state.paymentExpiresAt).getTime() - nowTick) / 1000))
@@ -306,8 +327,8 @@ export default function BookingWizard() {
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8 space-y-6">
-      {/* Stepper visual */}
-      <Stepper step={state.step} primary={primary} />
+      {/* Stepper visual — oculto en el primer paso para dar aire al hero */}
+      {state.step !== 'select-doctor' && <Stepper step={state.step} primary={primary} />}
 
       {/* Error banner */}
       {state.error && (
@@ -316,29 +337,49 @@ export default function BookingWizard() {
         </div>
       )}
 
-      {/* ── Paso 1: Elegir doctor ── */}
+      {/* ── Paso 1: Hero + Nuestros Especialistas (landing) ── */}
       {state.step === 'select-doctor' && (
-        <StepCard title="¿Con qué doctor quieres tu cita?">
-          <div className="space-y-3">
-            {state.doctors.map((doc) => (
-              <button
-                key={doc.id}
-                onClick={() =>
-                  set({ selectedDoctor: doc, selectedService: null, step: 'select-service' })
-                }
-                className="w-full text-left bg-white border border-gray-200 rounded-xl p-4 hover:border-blue-400 hover:shadow-sm transition flex items-center gap-3"
-              >
-                <Avatar name={doc.name} color={primary} />
-                <div>
-                  <p className="font-semibold text-gray-900">{doc.name}</p>
-                  {doc.doctorProfile?.specialty && (
-                    <p className="text-sm text-gray-500">{doc.doctorProfile.specialty}</p>
-                  )}
-                </div>
-              </button>
-            ))}
-          </div>
-        </StepCard>
+        <>
+          <section className="space-y-3 py-2 text-center">
+            <h1 className="text-3xl font-bold text-gray-900">
+              Reserva tu cita{state.tenant ? ` en ${state.tenant.name}` : ''}
+            </h1>
+            <p className="mx-auto max-w-md text-gray-500">
+              Agenda online en menos de un minuto. Elige a tu especialista y tu horario; te
+              confirmamos por WhatsApp.
+            </p>
+          </section>
+
+          <StepCard title="Nuestros especialistas">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {state.doctors.map((doc) => (
+                <button
+                  key={doc.id}
+                  onClick={() =>
+                    set({ selectedDoctor: doc, selectedService: null, step: 'select-service' })
+                  }
+                  className="group flex items-center gap-4 rounded-2xl border border-gray-200 bg-white p-4 text-left transition-all hover:-translate-y-0.5 hover:border-blue-400 hover:shadow-md"
+                >
+                  <Avatar name={doc.name} color={primary} />
+                  <div className="min-w-0">
+                    <p className="truncate font-semibold text-gray-900">{doc.name}</p>
+                    {doc.doctorProfile?.specialty && (
+                      <p className="truncate text-sm text-gray-500">
+                        {doc.doctorProfile.specialty}
+                      </p>
+                    )}
+                    {doc.doctorServices.length > 0 && (
+                      <p className="mt-0.5 text-xs text-gray-400">
+                        {doc.doctorServices.length} servicio
+                        {doc.doctorServices.length > 1 ? 's' : ''}
+                      </p>
+                    )}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </StepCard>
+        </>
       )}
 
       {/* ── Paso 2: Elegir servicio ── */}
@@ -376,20 +417,21 @@ export default function BookingWizard() {
                 day: 'numeric',
                 timeZone: tz,
               }).format(new Date(d + 'T12:00:00'));
+              const isSelected = state.selectedDate === d;
+              const disabled = !state.loading && !state.availableDates.includes(d);
               return (
                 <button
                   key={d}
+                  disabled={disabled}
                   onClick={() => set({ selectedDate: d })}
                   className={`flex-shrink-0 rounded-xl px-3 py-2 text-sm font-medium border transition ${
-                    state.selectedDate === d
+                    isSelected
                       ? 'text-white border-transparent'
-                      : 'bg-white border-gray-200 text-gray-700 hover:border-blue-400'
+                      : disabled
+                        ? 'cursor-not-allowed border-gray-100 bg-gray-50 text-gray-300 opacity-60'
+                        : 'bg-white border-gray-200 text-gray-700 hover:border-blue-400'
                   }`}
-                  style={
-                    state.selectedDate === d
-                      ? { backgroundColor: primary, borderColor: primary }
-                      : {}
-                  }
+                  style={isSelected ? { backgroundColor: primary, borderColor: primary } : {}}
                 >
                   {label}
                 </button>
@@ -399,20 +441,20 @@ export default function BookingWizard() {
 
           {state.loading ? (
             <p className="text-gray-400 text-center py-6 animate-pulse">Buscando horarios...</p>
-          ) : state.slots.length === 0 ? (
+          ) : daySlots.length === 0 ? (
             <p className="text-gray-500 text-center py-6">
               No hay turnos disponibles este día. Elige otro.
             </p>
           ) : (
             <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-              {state.slots.map((slot) => (
+              {daySlots.map((slot) => (
                 <button
                   key={slot.startTime}
                   disabled={!slot.available}
                   onClick={() => set({ selectedSlot: slot, step: 'patient-info' })}
                   className={`rounded-xl py-2 text-sm font-medium border transition ${
                     !slot.available
-                      ? 'bg-gray-100 text-gray-300 border-gray-100 cursor-not-allowed'
+                      ? 'cursor-not-allowed border-gray-100 bg-gray-100 text-gray-300 opacity-60'
                       : 'bg-white border-gray-200 text-gray-800 hover:border-blue-400 hover:shadow-sm'
                   }`}
                 >
@@ -679,7 +721,7 @@ function Avatar({ name, color }: { name: string; color: string }) {
     .join('');
   return (
     <div
-      className="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-sm flex-shrink-0"
+      className="w-14 h-14 rounded-full flex items-center justify-center text-white font-semibold text-lg flex-shrink-0"
       style={{ backgroundColor: color }}
     >
       {initials}

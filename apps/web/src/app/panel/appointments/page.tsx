@@ -19,6 +19,8 @@ import {
 import { PanelShell } from '@/components/panel/PanelShell';
 import { StatusBadge, fmtDateTime, ErrorBox, Spinner } from '@/components/panel/ui';
 import { SkeletonList } from '@/components/panel/Skeleton';
+import { EmptyState } from '@/components/ui/empty-state';
+import { CalendarCheck, Clock } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────
 
@@ -87,7 +89,7 @@ function AppointmentsList() {
         <h1 className="text-xl font-bold text-gray-900">Citas</h1>
         <button
           onClick={() => setShowNewAppt(true)}
-          className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition"
+          className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-all active:scale-95"
         >
           + Nueva Cita
         </button>
@@ -169,13 +171,20 @@ function PendingTab({
 }) {
   if (!items.length) {
     return (
-      <p className="text-gray-500 text-sm py-8 text-center">No hay citas pendientes de pago.</p>
+      <EmptyState
+        icon={<Clock />}
+        title="No hay pagos pendientes"
+        description="Las reservas que esperan comprobante o aprobación aparecerán aquí."
+      />
     );
   }
   return (
     <ul className="space-y-3">
       {items.map((a) => (
-        <li key={a.id} className="bg-white rounded-xl border border-amber-200 p-4 space-y-3">
+        <li
+          key={a.id}
+          className="bg-white rounded-xl border border-amber-200 p-4 space-y-3 transition-all hover:border-brand-300 hover:shadow-sm"
+        >
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <p className="font-semibold text-gray-900 truncate">{a.patient.name}</p>
@@ -190,7 +199,7 @@ function PendingTab({
             {a.receiptUrl ? (
               <button
                 onClick={() => onViewReceipt(a)}
-                className="flex-1 py-1.5 text-sm font-medium border border-blue-300 text-blue-700 rounded-lg hover:bg-blue-50 transition"
+                className="flex-1 py-1.5 text-sm font-medium border border-blue-300 text-blue-700 rounded-lg hover:bg-blue-50 transition-all active:scale-95"
               >
                 Ver Comprobante
               </button>
@@ -202,7 +211,7 @@ function PendingTab({
             {a.receiptUrl && (
               <button
                 onClick={() => onApprove(a.id)}
-                className="flex-1 py-1.5 text-sm font-medium bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
+                className="flex-1 py-1.5 text-sm font-medium bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all active:scale-95"
               >
                 Aprobar Pago
               </button>
@@ -218,12 +227,21 @@ function PendingTab({
 
 function ConfirmedTab({ items }: { items: AppointmentListItem[] }) {
   if (!items.length) {
-    return <p className="text-gray-500 text-sm py-8 text-center">No hay citas confirmadas.</p>;
+    return (
+      <EmptyState
+        icon={<CalendarCheck />}
+        title="Aún no hay citas confirmadas"
+        description="Las citas confirmadas (efectivo o QR pagado) se mostrarán aquí."
+      />
+    );
   }
   return (
     <ul className="space-y-2">
       {items.map((a) => (
-        <li key={a.id} className="bg-white rounded-xl border border-gray-100 p-4">
+        <li
+          key={a.id}
+          className="bg-white rounded-xl border border-gray-100 p-4 transition-all hover:border-brand-300 hover:shadow-sm"
+        >
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
               <p className="font-semibold text-gray-900 truncate">{a.patient.name}</p>
@@ -272,7 +290,7 @@ function ReceiptModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl">
+      <div className="bg-white rounded-2xl w-full max-w-lg shadow-xl">
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
           <div>
             <p className="font-semibold text-gray-900">Comprobante de pago</p>
@@ -290,20 +308,20 @@ function ReceiptModal({
           <img
             src={appt.receiptUrl!}
             alt="Comprobante de pago"
-            className="w-full rounded-xl border border-gray-100 object-contain max-h-72"
+            className="mx-auto w-full rounded-xl border border-gray-100 bg-gray-50 object-contain max-h-[70vh]"
           />
         </div>
         <div className="px-5 pb-5 flex gap-3">
           <button
             onClick={onClose}
-            className="flex-1 py-2 text-sm font-medium border border-gray-200 rounded-xl hover:bg-gray-50 transition"
+            className="flex-1 py-2 text-sm font-medium border border-gray-200 rounded-xl hover:bg-gray-50 transition-all active:scale-95"
           >
             Cerrar
           </button>
           <button
             onClick={handleApprove}
             disabled={approving}
-            className="flex-1 py-2 text-sm font-medium bg-green-600 text-white rounded-xl hover:bg-green-700 disabled:opacity-60 transition"
+            className="flex-1 py-2 text-sm font-medium bg-green-600 text-white rounded-xl hover:bg-green-700 disabled:opacity-60 disabled:active:scale-100 transition-all active:scale-95"
           >
             {approving ? 'Aprobando…' : 'Aprobar Pago'}
           </button>

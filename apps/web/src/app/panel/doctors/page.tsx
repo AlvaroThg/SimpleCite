@@ -11,6 +11,7 @@ import {
   getDoctorServices,
   assignServiceToDoctor,
   unassignServiceFromDoctor,
+  createService,
   PanelApiError,
   type Doctor,
   type ServiceItem,
@@ -19,6 +20,20 @@ import {
 import { PanelShell } from '@/components/panel/PanelShell';
 import { ErrorBox } from '@/components/panel/ui';
 import { SkeletonList } from '@/components/panel/Skeleton';
+import { EmptyState } from '@/components/ui/empty-state';
+import { Button } from '@/components/ui/button';
+import { Stethoscope } from 'lucide-react';
+import { toast } from 'sonner';
+
+/** Iniciales (máx. 2) a partir del nombre del doctor, para el avatar. */
+function initials(name: string): string {
+  return name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase() ?? '')
+    .join('');
+}
 
 export default function DoctorsPage() {
   return (
@@ -207,25 +222,39 @@ function Doctors() {
       {loading ? (
         <SkeletonList rows={4} />
       ) : items.length === 0 ? (
-        <p className="text-gray-500 text-sm py-8 text-center">Aún no hay doctores.</p>
+        <EmptyState
+          icon={<Stethoscope />}
+          title="Aún no hay doctores"
+          description="Agrega el primer doctor de tu clínica para empezar a recibir reservas."
+        />
       ) : (
         <ul className="space-y-2">
           {items.map((d) => (
-            <li key={d.id} className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+            <li
+              key={d.id}
+              className="bg-white rounded-xl border border-gray-100 overflow-hidden transition-all hover:border-brand-300 hover:shadow-sm"
+            >
               <div className="p-4 flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="font-semibold text-gray-900 truncate">
-                    {d.name}
-                    {!d.isActive && <span className="text-red-500 font-normal"> · archivado</span>}
-                  </p>
-                  <p className="text-sm text-gray-500 truncate">
-                    {d.specialty ?? 'Sin especialidad'} · {d.email}
-                  </p>
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-700 font-semibold">
+                    {initials(d.name) || <Stethoscope className="h-5 w-5" />}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-semibold text-gray-900 truncate">
+                      {d.name}
+                      {!d.isActive && (
+                        <span className="text-red-500 font-normal"> · archivado</span>
+                      )}
+                    </p>
+                    <p className="text-sm text-gray-500 truncate">
+                      {d.specialty ?? 'Sin especialidad'} · {d.email}
+                    </p>
+                  </div>
                 </div>
                 <div className="flex gap-2 flex-shrink-0 text-sm">
                   <button
                     onClick={() => setExpanded(expanded === d.id ? null : d.id)}
-                    className="text-gray-500 hover:text-gray-800 font-medium"
+                    className="text-gray-500 hover:text-gray-800 font-medium transition-colors"
                   >
                     Servicios
                   </button>
@@ -242,14 +271,14 @@ function Doctors() {
                         isActive: d.isActive,
                       })
                     }
-                    className="text-brand-600 hover:text-brand-800 font-medium"
+                    className="text-brand-600 hover:text-brand-800 font-medium transition-colors"
                   >
                     Editar
                   </button>
                   {d.isActive && (
                     <button
                       onClick={() => archive(d.id)}
-                      className="text-red-500 hover:text-red-700"
+                      className="text-red-500 hover:text-red-700 transition-colors"
                     >
                       Archivar
                     </button>
@@ -272,6 +301,11 @@ function DoctorServices({ doctorId }: { doctorId: string }) {
   const [catalog, setCatalog] = useState<ServiceItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState('');
+  // Formulario inline "Crear servicio nuevo".
+  const [newName, setNewName] = useState('');
+  const [newPrice, setNewPrice] = useState('');
+  const [newDuration, setNewDuration] = useState('');
+  const [creating, setCreating] = useState(false);
 
   const load = useCallback(async () => {
     if (!session) return;
@@ -312,6 +346,44 @@ function DoctorServices({ doctorId }: { doctorId: string }) {
       setErr(e instanceof PanelApiError ? e.message : 'No se pudo quitar');
     }
   }
+
+  async function createAndAssign() {
+    if (!session) return;
+    const price = Number(newPrice);
+    const duration = Number(newDuration);
+    setCreating(true);
+    setErr('');
+    try {
+      const created = await createService(session.token, session.slug, {
+        name: newName.trim(),
+        price,
+        duration,
+      });
+      await assignServiceToDoctor(session.token, session.slug, doctorId, {
+        serviceId: created.id,
+      });
+      setNewName('');
+      setNewPrice('');
+      setNewDuration('');
+      await load();
+      toast.success('Servicio creado y asignado');
+    } catch (e) {
+      const msg = e instanceof PanelApiError ? e.message : 'No se pudo crear el servicio';
+      setErr(msg);
+      toast.error(msg);
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  const canCreate =
+    newName.trim().length > 0 &&
+    Number.isFinite(Number(newPrice)) &&
+    newPrice.trim() !== '' &&
+    Number(newPrice) >= 0 &&
+    Number.isFinite(Number(newDuration)) &&
+    newDuration.trim() !== '' &&
+    Number(newDuration) > 0;
 
   const assignedIds = new Set(links.map((l) => l.serviceId));
   const available = catalog.filter((c) => !assignedIds.has(c.id));
@@ -359,7 +431,7 @@ function DoctorServices({ doctorId }: { doctorId: string }) {
                   <button
                     key={c.id}
                     onClick={() => add(c.id)}
-                    className="inline-flex items-center gap-1 border border-gray-300 text-gray-600 text-sm rounded-full px-3 py-1 hover:border-brand-400 hover:text-brand-700"
+                    className="inline-flex items-center gap-1 border border-gray-300 text-gray-600 text-sm rounded-full px-3 py-1 transition-all hover:border-brand-400 hover:text-brand-700"
                   >
                     + {c.name}
                   </button>
@@ -367,6 +439,45 @@ function DoctorServices({ doctorId }: { doctorId: string }) {
               </div>
             </div>
           )}
+          <div className="rounded-xl border border-gray-200 bg-white p-3">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+              Crear servicio nuevo
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <input
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="Nombre"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+              />
+              <input
+                type="number"
+                min={0}
+                value={newPrice}
+                onChange={(e) => setNewPrice(e.target.value)}
+                placeholder="Precio (Bs)"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+              />
+              <input
+                type="number"
+                min={1}
+                value={newDuration}
+                onChange={(e) => setNewDuration(e.target.value)}
+                placeholder="Duración (min)"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+              />
+            </div>
+            <div className="mt-2 flex justify-end">
+              <Button
+                size="sm"
+                onClick={createAndAssign}
+                disabled={creating || !canCreate}
+                className="bg-brand-600 hover:bg-brand-700"
+              >
+                {creating ? 'Creando…' : 'Crear y asignar'}
+              </Button>
+            </div>
+          </div>
         </>
       )}
     </div>

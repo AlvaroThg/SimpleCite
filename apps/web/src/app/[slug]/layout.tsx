@@ -29,7 +29,8 @@ export default async function TenantLayout({ children, params }: Props) {
   let logoUrl: string | null = null;
 
   try {
-    const tenant = await getTenantInfo(slug, { next: { revalidate: 3600 } });
+    // revalidate corto: que un cambio de logo/color en Settings se refleje pronto.
+    const tenant = await getTenantInfo(slug, { next: { revalidate: 60 } });
     primaryColor = tenant.primaryColor;
     tenantName = tenant.name;
     logoUrl = tenant.logoUrl;
@@ -45,18 +46,22 @@ export default async function TenantLayout({ children, params }: Props) {
       <div className="min-h-screen bg-gray-50 flex flex-col">
         {/* Header con branding del tenant */}
         <header className="text-white shadow-md" style={{ backgroundColor: primaryColor }}>
-          <div className="max-w-4xl mx-auto px-4 py-3 flex items-center gap-3">
-            {logoUrl && (
+          <div className="max-w-4xl mx-auto px-4 py-4 flex items-center gap-3">
+            {logoUrl ? (
               <Image
                 src={logoUrl}
                 alt={tenantName}
-                width={40}
-                height={40}
-                className="h-10 w-auto object-contain rounded"
+                width={200}
+                height={56}
+                className="h-12 w-auto max-w-[200px] rounded-lg bg-white/10 object-contain p-1"
                 unoptimized
               />
+            ) : (
+              <span className="flex h-12 w-12 items-center justify-center rounded-lg bg-white/15 text-lg font-bold">
+                {tenantName.slice(0, 1).toUpperCase()}
+              </span>
             )}
-            <span className="font-bold text-xl tracking-tight">{tenantName}</span>
+            <span className="text-2xl font-bold tracking-tight">{tenantName}</span>
           </div>
         </header>
 

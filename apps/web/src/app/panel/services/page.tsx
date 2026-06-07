@@ -13,6 +13,8 @@ import {
 import { PanelShell } from '@/components/panel/PanelShell';
 import { ErrorBox } from '@/components/panel/ui';
 import { SkeletonList } from '@/components/panel/Skeleton';
+import { EmptyState } from '@/components/ui/empty-state';
+import { ClipboardList } from 'lucide-react';
 
 export default function ServicesPage() {
   return (
@@ -140,22 +142,33 @@ function Services() {
       {loading ? (
         <SkeletonList rows={4} />
       ) : items.length === 0 ? (
-        <p className="text-gray-500 text-sm py-8 text-center">Aún no hay servicios.</p>
+        <EmptyState
+          icon={<ClipboardList />}
+          title="Aún no hay servicios"
+          description="Crea tu primer servicio (consulta, ecografía, etc.) para ofrecerlo en las reservas."
+        />
       ) : (
         <ul className="space-y-2">
           {items.map((s) => (
             <li
               key={s.id}
-              className="bg-white rounded-xl border border-gray-100 p-4 flex items-center justify-between gap-3"
+              className="bg-white rounded-xl border border-gray-100 p-4 flex items-center justify-between gap-4 transition-all hover:border-brand-300 hover:shadow-sm"
             >
               <div className="min-w-0">
                 <p className="font-semibold text-gray-900 truncate">{s.name}</p>
-                <p className="text-sm text-gray-500">
-                  Bs {Number(s.price).toFixed(0)} · {s.duration} min
-                  {!s.isActive && <span className="text-red-500"> · inactivo</span>}
+                <p className="mt-1 text-sm text-gray-600 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                  <span className="font-medium text-gray-900">Bs {Number(s.price).toFixed(0)}</span>
+                  <span className="text-gray-300">·</span>
+                  <span>{s.duration} min</span>
+                  {!s.isActive && (
+                    <>
+                      <span className="text-gray-300">·</span>
+                      <span className="text-red-500">inactivo</span>
+                    </>
+                  )}
                 </p>
               </div>
-              <div className="flex gap-2 flex-shrink-0 text-sm">
+              <div className="flex gap-3 flex-shrink-0 text-sm">
                 <button
                   onClick={() =>
                     setDraft({
@@ -166,11 +179,14 @@ function Services() {
                       duration: String(s.duration),
                     })
                   }
-                  className="text-brand-600 hover:text-brand-800 font-medium"
+                  className="text-brand-600 font-medium transition-colors hover:text-brand-800"
                 >
                   Editar
                 </button>
-                <button onClick={() => remove(s.id)} className="text-red-500 hover:text-red-700">
+                <button
+                  onClick={() => remove(s.id)}
+                  className="text-red-500 transition-colors hover:text-red-700"
+                >
                   Eliminar
                 </button>
               </div>
