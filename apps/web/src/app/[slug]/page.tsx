@@ -1,12 +1,38 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
+import {
+  Stethoscope,
+  CalendarCheck,
+  MessageCircle,
+  ShieldCheck,
+  Activity,
+  HeartPulse,
+  Baby,
+  Bone,
+  Eye,
+  Pill,
+  ArrowRight,
+  Clock,
+} from 'lucide-react';
 import { getTenantInfo, getDoctors } from '@/lib/api';
 
 interface Props {
   params: Promise<{ slug: string }>;
 }
 
-export const revalidate = 3600; // ISR: regenerar cada hora
+export const revalidate = 60; // ISR: refleja cambios de branding pronto
+
+// Íconos rotados para las tarjetas de servicio (decorativos).
+const SERVICE_ICONS = [Stethoscope, HeartPulse, Activity, Baby, Bone, Eye, Pill];
+
+function initials(name: string) {
+  return name
+    .split(' ')
+    .map((n) => n[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase();
+}
 
 export default async function TenantLandingPage({ params }: Props) {
   const { slug } = await params;
@@ -22,93 +48,241 @@ export default async function TenantLandingPage({ params }: Props) {
     notFound();
   }
 
+  const primary = tenant.primaryColor || '#3B82F6';
+  // Servicios únicos agregados desde los doctores.
+  const services = Array.from(
+    new Map(
+      doctors.flatMap((d) => d.doctorServices.map((ds) => [ds.service.name, ds.service])),
+    ).values(),
+  );
+
+  const stats = [
+    { value: `${doctors.length}`, label: doctors.length === 1 ? 'Especialista' : 'Especialistas' },
+    { value: `${services.length}`, label: services.length === 1 ? 'Servicio' : 'Servicios' },
+    { value: '24/7', label: 'Reserva online' },
+    { value: 'WhatsApp', label: 'Recordatorios' },
+  ];
+
   return (
-    <div className="max-w-4xl mx-auto px-4 py-10 space-y-12">
-      {/* Hero */}
-      <section className="text-center space-y-4">
-        <h1 className="text-4xl font-bold text-gray-900">{tenant.name}</h1>
-        <p className="text-lg text-gray-600 max-w-xl mx-auto">
-          Reserva tu cita de forma rápida y sencilla. Sin llamadas, sin esperas.
-        </p>
-        <Link
-          href={`/${slug}/booking`}
-          className="inline-block mt-2 px-8 py-3 rounded-xl text-white font-semibold text-lg shadow-md transition hover:opacity-90 active:scale-95"
-          style={{ backgroundColor: tenant.primaryColor }}
-        >
-          Reservar cita
-        </Link>
-      </section>
-
-      {/* Doctores */}
-      {doctors.length > 0 && (
-        <section>
-          <h2 className="text-2xl font-semibold text-gray-800 mb-6">Nuestros especialistas</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-            {doctors.map((doctor) => (
-              <div
-                key={doctor.id}
-                className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 space-y-3"
+    <div className="bg-white text-gray-900">
+      {/* ── Hero ── */}
+      <section
+        className="relative overflow-hidden"
+        style={{ background: `linear-gradient(135deg, ${primary}14, ${primary}05 60%, #ffffff)` }}
+      >
+        <div className="mx-auto grid max-w-6xl items-center gap-10 px-5 py-16 sm:py-24 lg:grid-cols-2">
+          <div>
+            <span
+              className="mb-5 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold"
+              style={{ backgroundColor: `${primary}1f`, color: primary }}
+            >
+              <ShieldCheck className="size-3.5" /> Atención médica de confianza
+            </span>
+            <h1 className="text-4xl font-extrabold leading-tight tracking-tight sm:text-5xl">
+              Tu salud, agendada en minutos en <span style={{ color: primary }}>{tenant.name}</span>
+            </h1>
+            <p className="mt-5 max-w-xl text-lg text-gray-600">
+              Reserva tu cita en línea con nuestros especialistas. Sin llamadas, sin esperas: elige,
+              confirma por WhatsApp y listo.
+            </p>
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <Link
+                href={`/${slug}/booking`}
+                className="inline-flex items-center justify-center gap-2 rounded-2xl px-7 py-3.5 text-lg font-bold text-white shadow-sm transition hover:opacity-90 active:scale-95"
+                style={{ backgroundColor: primary }}
               >
-                {/* Avatar placeholder */}
-                <div className="flex items-center gap-3">
-                  <div
-                    className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg flex-shrink-0"
-                    style={{ backgroundColor: tenant.primaryColor }}
-                  >
-                    {doctor.name
-                      .split(' ')
-                      .map((n) => n[0])
-                      .slice(0, 2)
-                      .join('')}
-                  </div>
-                  <div>
-                    <p className="font-semibold text-gray-900">{doctor.name}</p>
-                    {doctor.doctorProfile?.specialty && (
-                      <p className="text-sm text-gray-500">{doctor.doctorProfile.specialty}</p>
-                    )}
-                  </div>
-                </div>
+                Reservar cita <ArrowRight className="size-5" />
+              </Link>
+              <a
+                href="#especialistas"
+                className="inline-flex items-center justify-center rounded-2xl border border-gray-200 px-7 py-3.5 text-lg font-semibold text-gray-700 transition hover:bg-gray-50 active:scale-95"
+              >
+                Ver especialistas
+              </a>
+            </div>
+          </div>
 
-                {doctor.doctorProfile?.bio && (
-                  <p className="text-sm text-gray-600 leading-relaxed">
-                    {doctor.doctorProfile.bio}
-                  </p>
-                )}
-
-                {/* Servicios */}
-                {doctor.doctorServices.length > 0 && (
-                  <div className="space-y-1">
-                    <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">
-                      Servicios
-                    </p>
-                    <ul className="space-y-1">
-                      {doctor.doctorServices.map((ds) => (
-                        <li key={ds.id} className="flex justify-between text-sm text-gray-700">
-                          <span>{ds.service.name}</span>
-                          <span className="text-gray-500">
-                            Bs {Number(ds.customPrice ?? ds.service.price).toFixed(0)} ·{' '}
-                            {ds.customDuration ?? ds.service.duration} min
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
+          {/* Panel decorativo del hero */}
+          <div className="relative hidden lg:block">
+            <div
+              className="absolute -right-6 -top-6 h-40 w-40 rounded-full opacity-20 blur-2xl"
+              style={{ backgroundColor: primary }}
+            />
+            <div className="relative rounded-3xl border border-gray-100 bg-white/70 p-8 shadow-xl backdrop-blur">
+              <div
+                className="flex h-16 w-16 items-center justify-center rounded-2xl text-white"
+                style={{ backgroundColor: primary }}
+              >
+                <CalendarCheck className="size-8" />
+              </div>
+              <p className="mt-5 text-xl font-bold">Reserva 100% online</p>
+              <p className="mt-1 text-gray-500">
+                Agenda disponible en tiempo real. Recibe tu confirmación y recordatorios por
+                WhatsApp.
+              </p>
+              <div className="mt-6 space-y-3">
+                {[
+                  { icon: Clock, text: 'Disponibilidad al instante' },
+                  { icon: MessageCircle, text: 'Confirmación por WhatsApp' },
+                  { icon: ShieldCheck, text: 'Tus datos protegidos' },
+                ].map(({ icon: Icon, text }) => (
+                  <div key={text} className="flex items-center gap-3 text-sm text-gray-700">
+                    <span
+                      className="flex h-8 w-8 items-center justify-center rounded-lg"
+                      style={{ backgroundColor: `${primary}1f`, color: primary }}
+                    >
+                      <Icon className="size-4" />
+                    </span>
+                    {text}
                   </div>
-                )}
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Banda de stats */}
+        <div className="mx-auto max-w-6xl px-5 pb-12">
+          <div className="grid grid-cols-2 gap-4 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm sm:grid-cols-4">
+            {stats.map((s) => (
+              <div key={s.label} className="text-center">
+                <p className="text-2xl font-extrabold" style={{ color: primary }}>
+                  {s.value}
+                </p>
+                <p className="mt-1 text-sm text-gray-500">{s.label}</p>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Servicios ── */}
+      {services.length > 0 && (
+        <section id="servicios" className="mx-auto max-w-6xl px-5 py-16 sm:py-20">
+          <div className="text-center">
+            <h2 className="text-3xl font-bold">Nuestros servicios</h2>
+            <p className="mt-2 text-gray-500">Atención profesional para lo que necesitas.</p>
+          </div>
+          <div className="mt-12 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {services.map((svc, i) => {
+              const Icon = SERVICE_ICONS[i % SERVICE_ICONS.length];
+              return (
+                <Link
+                  key={svc.id}
+                  href={`/${slug}/booking`}
+                  className="group rounded-2xl border border-gray-100 bg-white p-6 shadow-sm transition-all hover:-translate-y-1 hover:shadow-md"
+                >
+                  <div
+                    className="flex h-12 w-12 items-center justify-center rounded-xl"
+                    style={{ backgroundColor: `${primary}1f`, color: primary }}
+                  >
+                    <Icon className="size-6" />
+                  </div>
+                  <h3 className="mt-4 text-lg font-semibold">{svc.name}</h3>
+                  {svc.description && (
+                    <p className="mt-1 line-clamp-2 text-sm text-gray-500">{svc.description}</p>
+                  )}
+                  <div className="mt-4 flex items-center justify-between">
+                    <span className="text-sm font-semibold text-gray-700">
+                      Bs {Number(svc.price).toFixed(0)} · {svc.duration} min
+                    </span>
+                    <span
+                      className="inline-flex items-center gap-1 text-sm font-medium opacity-0 transition-opacity group-hover:opacity-100"
+                      style={{ color: primary }}
+                    >
+                      Reservar <ArrowRight className="size-4" />
+                    </span>
+                  </div>
+                </Link>
+              );
+            })}
           </div>
         </section>
       )}
 
-      {/* CTA inferior */}
-      <section className="text-center py-6">
-        <Link
-          href={`/${slug}/booking`}
-          className="inline-block px-10 py-4 rounded-2xl text-white font-bold text-xl shadow-lg transition hover:opacity-90 active:scale-95"
-          style={{ backgroundColor: tenant.primaryColor }}
+      {/* ── Especialistas ── */}
+      {doctors.length > 0 && (
+        <section id="especialistas" className="bg-gray-50">
+          <div className="mx-auto max-w-6xl px-5 py-16 sm:py-20">
+            <div className="text-center">
+              <h2 className="text-3xl font-bold">Nuestros especialistas</h2>
+              <p className="mt-2 text-gray-500">Profesionales listos para atenderte.</p>
+            </div>
+            <div className="mt-12 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {doctors.map((doctor) => (
+                <div
+                  key={doctor.id}
+                  className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm transition-all hover:-translate-y-1 hover:shadow-md"
+                >
+                  <div className="flex items-center gap-4">
+                    <div
+                      className="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-full text-xl font-bold text-white"
+                      style={{ backgroundColor: primary }}
+                    >
+                      {initials(doctor.name)}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate font-semibold text-gray-900">{doctor.name}</p>
+                      {doctor.doctorProfile?.specialty && (
+                        <p className="truncate text-sm" style={{ color: primary }}>
+                          {doctor.doctorProfile.specialty}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  {doctor.doctorProfile?.bio && (
+                    <p className="mt-4 line-clamp-3 text-sm leading-relaxed text-gray-600">
+                      {doctor.doctorProfile.bio}
+                    </p>
+                  )}
+                  {doctor.doctorServices.length > 0 && (
+                    <div className="mt-4 flex flex-wrap gap-1.5">
+                      {doctor.doctorServices.slice(0, 3).map((ds) => (
+                        <span
+                          key={ds.id}
+                          className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs text-gray-600"
+                        >
+                          {ds.service.name}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  <Link
+                    href={`/${slug}/booking`}
+                    className="mt-5 inline-flex items-center gap-1 text-sm font-semibold transition hover:gap-2"
+                    style={{ color: primary }}
+                  >
+                    Agendar con {doctor.name.split(' ')[0]} <ArrowRight className="size-4" />
+                  </Link>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ── CTA final ── */}
+      <section className="mx-auto max-w-6xl px-5 py-16 sm:py-20">
+        <div
+          className="relative overflow-hidden rounded-3xl px-8 py-14 text-center text-white"
+          style={{ backgroundColor: primary }}
         >
-          Agendar mi cita
-        </Link>
+          <div className="absolute -right-10 -top-10 h-48 w-48 rounded-full bg-white/10" />
+          <div className="absolute -bottom-12 -left-8 h-40 w-40 rounded-full bg-white/10" />
+          <div className="relative">
+            <h2 className="text-3xl font-bold">¿Listo para tu cita?</h2>
+            <p className="mx-auto mt-2 max-w-md text-white/80">
+              Reserva en menos de un minuto. Te esperamos en {tenant.name}.
+            </p>
+            <Link
+              href={`/${slug}/booking`}
+              className="mt-7 inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-8 py-4 text-lg font-bold shadow-lg transition hover:bg-gray-50 active:scale-95"
+              style={{ color: primary }}
+            >
+              Agendar mi cita <ArrowRight className="size-5" />
+            </Link>
+          </div>
+        </div>
       </section>
     </div>
   );

@@ -93,4 +93,15 @@
   body {
     @apply bg-background text-foreground;
   }
+  /* Tailwind v4 resetea el cursor de los botones a `default`. Restauramos el
+   * puntero en todo elemento clickeable para que "se sientan" como botones. */
+  button:not(:disabled),
+  [role='button']:not(:disabled),
+  summary,
+  label[role='button'] {
+    cursor: pointer;
+  }
+  button:disabled {
+    cursor: not-allowed;
+  }
 }

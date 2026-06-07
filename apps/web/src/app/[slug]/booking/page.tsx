@@ -700,7 +700,7 @@ function StepCard({
         {onBack && (
           <button
             onClick={onBack}
-            className="text-gray-400 hover:text-gray-700 transition text-lg"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-lg text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-800 active:scale-95"
             aria-label="Volver"
           >
             ←

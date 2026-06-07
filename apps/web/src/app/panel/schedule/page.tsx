@@ -58,9 +58,11 @@ function Schedule() {
   const [loading, setLoading] = useState(true);
   const [savingRules, setSavingRules] = useState(false);
 
-  // Bloqueo nuevo
-  const [blkStart, setBlkStart] = useState('');
-  const [blkEnd, setBlkEnd] = useState('');
+  // Bloqueo nuevo (fecha + hora separadas para mejor UX)
+  const [blkStartDate, setBlkStartDate] = useState('');
+  const [blkStartTime, setBlkStartTime] = useState('09:00');
+  const [blkEndDate, setBlkEndDate] = useState('');
+  const [blkEndTime, setBlkEndTime] = useState('17:00');
   const [blkReason, setBlkReason] = useState('');
 
   // Cargar doctores al montar.
@@ -137,15 +139,21 @@ function Schedule() {
   }
 
   async function addBlock() {
-    if (!session || !doctorId || !blkStart || !blkEnd) return;
+    if (!session || !doctorId || !blkStartDate || !blkEndDate) return;
+    const startIso = new Date(`${blkStartDate}T${blkStartTime || '00:00'}`).toISOString();
+    const endIso = new Date(`${blkEndDate}T${blkEndTime || '23:59'}`).toISOString();
+    if (new Date(endIso) <= new Date(startIso)) {
+      toast.error('El fin del bloqueo debe ser posterior al inicio.');
+      return;
+    }
     try {
       await createBlock(session.token, session.slug, doctorId, {
-        startTime: new Date(blkStart).toISOString(),
-        endTime: new Date(blkEnd).toISOString(),
+        startTime: startIso,
+        endTime: endIso,
         reason: blkReason.trim() || undefined,
       });
-      setBlkStart('');
-      setBlkEnd('');
+      setBlkStartDate('');
+      setBlkEndDate('');
       setBlkReason('');
       await loadDoctorData();
       toast.success('Bloqueo añadido.');
@@ -304,22 +312,40 @@ function Schedule() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">
                   <Label className="text-xs text-gray-600">Desde</Label>
-                  <Input
-                    type="datetime-local"
-                    value={blkStart}
-                    onChange={(e) => setBlkStart(e.target.value)}
-                  />
+                  <div className="flex gap-2">
+                    <Input
+                      type="date"
+                      value={blkStartDate}
+                      onChange={(e) => setBlkStartDate(e.target.value)}
+                      className="flex-1"
+                    />
+                    <Input
+                      type="time"
+                      value={blkStartTime}
+                      onChange={(e) => setBlkStartTime(e.target.value)}
+                      className="w-28"
+                    />
+                  </div>
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs text-gray-600">Hasta</Label>
-                  <Input
-                    type="datetime-local"
-                    value={blkEnd}
-                    onChange={(e) => setBlkEnd(e.target.value)}
-                  />
+                  <div className="flex gap-2">
+                    <Input
+                      type="date"
+                      value={blkEndDate}
+                      onChange={(e) => setBlkEndDate(e.target.value)}
+                      className="flex-1"
+                    />
+                    <Input
+                      type="time"
+                      value={blkEndTime}
+                      onChange={(e) => setBlkEndTime(e.target.value)}
+                      className="w-28"
+                    />
+                  </div>
                 </div>
               </div>
               <div className="flex items-end gap-2">
@@ -331,7 +357,11 @@ function Schedule() {
                     placeholder="Ej: Congreso médico"
                   />
                 </div>
-                <Button onClick={addBlock} disabled={!blkStart || !blkEnd} variant="secondary">
+                <Button
+                  onClick={addBlock}
+                  disabled={!blkStartDate || !blkEndDate}
+                  variant="secondary"
+                >
                   <Plus /> Añadir
                 </Button>
               </div>

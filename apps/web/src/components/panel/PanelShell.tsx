@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
+import { LogOut } from 'lucide-react';
 import { useAuth, useRequireAuth } from '@/lib/panel-auth';
 import { BrandSpinner } from '@/components/panel/Skeleton';
 
@@ -59,28 +60,30 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Top bar */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
-        <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Link href="/panel">
+        <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <Link href="/panel" className="transition-opacity hover:opacity-80">
               <Image
                 src="/logo.png"
                 alt="SimpleCite"
                 width={2031}
                 height={774}
-                className="h-7 w-auto"
+                priority
+                className="h-10 w-auto"
               />
             </Link>
-            <span className="text-xs px-2 py-0.5 rounded-full bg-brand-50 text-brand-700 font-medium">
+            <span className="rounded-full bg-brand-50 px-2.5 py-0.5 text-xs font-semibold text-brand-700">
               {session.user.role}
             </span>
           </div>
-          <div className="flex items-center gap-3 text-sm">
-            <span className="text-gray-500 hidden sm:inline">{session.user.name}</span>
+          <div className="flex items-center gap-2 text-sm">
+            <span className="hidden font-medium text-gray-600 sm:inline">{session.user.name}</span>
             <button
               onClick={logout}
-              className="text-gray-400 hover:text-red-600 transition font-medium"
+              className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 font-medium text-gray-500 transition-colors hover:bg-red-50 hover:text-red-600 active:scale-95"
             >
-              Salir
+              <LogOut className="size-4" />
+              <span className="hidden sm:inline">Salir</span>
             </button>
           </div>
         </div>

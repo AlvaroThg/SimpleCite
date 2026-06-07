@@ -24,14 +24,14 @@ export default function LandingPage() {
 function Nav() {
   return (
     <header className="sticky top-0 z-20 bg-white/80 backdrop-blur border-b border-gray-100">
-      <div className="max-w-6xl mx-auto px-5 h-20 flex items-center justify-between">
+      <div className="max-w-6xl mx-auto px-5 h-24 flex items-center justify-between">
         <Image
           src="/logo.png"
           alt="SimpleCite"
           width={2031}
           height={774}
           priority
-          className="h-16 w-auto"
+          className="h-20 w-auto"
         />
         <nav className="flex items-center gap-3 text-sm">
           <Link href="/panel/login" className="text-gray-600 hover:text-gray-900 font-medium px-2">
@@ -410,7 +410,7 @@ function Footer() {
             alt="SimpleCite"
             width={2031}
             height={774}
-            className="h-20 w-auto brightness-0 invert"
+            className="h-28 w-auto brightness-0 invert"
           />
           <p className="mt-3 text-sm text-brand-300">
             Gestiona citas. Atiende mejor. Hazlo simple.
