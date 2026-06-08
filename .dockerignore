@@ -80,4 +80,5 @@ README.md
 LICENSE
 
 # ─── Web app (Next.js — deploy separado en Vercel) ───────────────────
-apps/web
+# apps/web ya NO se excluye: ahora se conteneriza (apps/web/Dockerfile, Dokploy).
+# Sus artefactos (.next/node_modules) ya se filtran por las reglas globales.
