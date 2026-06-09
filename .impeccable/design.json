@@ -1,0 +1,202 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-06-08T00:00:00.000Z",
+  "title": "Design System: SimpleCite",
+  "extensions": {
+    "colorMeta": {
+      "brand-500": {
+        "role": "primary",
+        "displayName": "Azul Cite",
+        "canonical": "#0a70f8",
+        "tonalRamp": [
+          "#102a5c",
+          "#0c3f8f",
+          "#084fb8",
+          "#0860dd",
+          "#0a70f8",
+          "#4d97fa",
+          "#90c0f8",
+          "#d9e8ff"
+        ]
+      },
+      "accent": {
+        "role": "secondary",
+        "displayName": "Tinte de marca",
+        "canonical": "#eef5ff",
+        "tonalRamp": [
+          "#102a5c",
+          "#0c3f8f",
+          "#084fb8",
+          "#0860dd",
+          "#4d97fa",
+          "#90c0f8",
+          "#d9e8ff",
+          "#eef5ff"
+        ]
+      },
+      "ink-900": {
+        "role": "neutral",
+        "displayName": "Navy tinta",
+        "canonical": "#182838",
+        "tonalRamp": [
+          "#182838",
+          "#1f2d3d",
+          "#2a3a4d",
+          "#475569",
+          "#64748b",
+          "#94a3b8",
+          "#cbd5e1",
+          "#f1f5f9"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Hero de landings y h1 de marca; techo ~3rem."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Texto general; 0.875rem en panel, 1rem en marketing."
+      }
+    },
+    "shadows": [
+      {
+        "name": "rest",
+        "value": "0 1px 2px 0 rgb(0 0 0 / 0.05)",
+        "purpose": "Reposo de Cards, inputs y barras (shadow-sm)."
+      },
+      {
+        "name": "hover",
+        "value": "0 4px 6px -1px rgb(0 0 0 / 0.1)",
+        "purpose": "Tarjetas clickeables al hover (shadow-md)."
+      },
+      {
+        "name": "floating",
+        "value": "0 10px 15px -3px rgb(0 0 0 / 0.1)",
+        "purpose": "Modales, toasts, CTAs sobre color (shadow-lg)."
+      }
+    ],
+    "motion": [
+      {
+        "name": "transition-default",
+        "value": "all 0.2s ease",
+        "purpose": "Cambios de estado (hover/focus)."
+      },
+      {
+        "name": "press",
+        "value": "transform 0.1s ease",
+        "purpose": "active:scale-95 al presionar botones."
+      }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "CTA principal; verbo + objeto en el label.",
+      "html": "<button class=\"ds-btn-primary\">Reservar cita</button>",
+      "css": ".ds-btn-primary{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;padding:0 16px;border:none;border-radius:8px;background:#0860dd;color:#fff;font:600 14px/1 Inter,sans-serif;box-shadow:0 1px 2px 0 rgb(0 0 0/.05);cursor:pointer;transition:background .2s,transform .1s}.ds-btn-primary:hover{background:#084fb8}.ds-btn-primary:active{transform:scale(.97)}.ds-btn-primary:focus-visible{outline:none;box-shadow:0 0 0 2px rgb(77 151 250/.5)}"
+    },
+    {
+      "name": "Outline Button",
+      "kind": "button",
+      "refersTo": "button-outline",
+      "description": "Acción secundaria sobre blanco.",
+      "html": "<button class=\"ds-btn-outline\">Ver especialistas</button>",
+      "css": ".ds-btn-outline{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;padding:0 16px;border:1px solid #e5e7eb;border-radius:8px;background:#fff;color:#182838;font:600 14px/1 Inter,sans-serif;cursor:pointer;transition:background .2s,border-color .2s,color .2s}.ds-btn-outline:hover{background:#eef5ff;color:#084fb8;border-color:#b6d2ff}"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Campo de texto; placeholder con contraste AA.",
+      "html": "<input class=\"ds-input\" placeholder=\"Tu nombre completo\" />",
+      "css": ".ds-input{height:36px;width:100%;box-sizing:border-box;padding:4px 12px;border:1px solid #e5e7eb;border-radius:8px;background:#fff;color:#182838;font:400 14px/1.5 Inter,sans-serif}.ds-input::placeholder{color:#64748b}.ds-input:focus-visible{outline:none;box-shadow:0 0 0 2px rgb(77 151 250/.5);border-color:#4d97fa}"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Contenedor plano que eleva al hover.",
+      "html": "<div class=\"ds-card\"><p style=\"font:600 18px/1.4 Inter,sans-serif;color:#182838;margin:0\">Consulta General</p><p style=\"font:400 14px/1.5 Inter,sans-serif;color:#64748b;margin:6px 0 0\">Bs 80 · 30 min</p></div>",
+      "css": ".ds-card{background:#fff;border:1px solid #f3f4f6;border-radius:12px;padding:20px;box-shadow:0 1px 2px 0 rgb(0 0 0/.05);transition:box-shadow .2s,transform .2s}.ds-card:hover{box-shadow:0 4px 6px -1px rgb(0 0 0/.1);transform:translateY(-2px)}"
+    },
+    {
+      "name": "Status Badge (success)",
+      "kind": "chip",
+      "refersTo": "badge-success",
+      "description": "Estado de pago/cita; pill tonal por hue.",
+      "html": "<span class=\"ds-badge\">QR Pagado</span>",
+      "css": ".ds-badge{display:inline-flex;align-items:center;gap:4px;border-radius:9999px;padding:2px 10px;font:500 12px/1.4 Inter,sans-serif;background:#dcfce7;color:#15803d}"
+    },
+    {
+      "name": "Empty State",
+      "kind": "custom",
+      "refersTo": "empty-state",
+      "description": "Respuesta a 'no hay datos'; nunca un espacio en blanco.",
+      "html": "<div class=\"ds-empty\"><div class=\"ds-empty-icon\"><svg width=\"28\" height=\"28\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M8 2v4M16 2v4M3 10h18\"/><rect x=\"3\" y=\"4\" width=\"18\" height=\"18\" rx=\"2\"/></svg></div><h3 style=\"font:600 16px/1.4 Inter,sans-serif;color:#182838;margin:0\">Aún no hay citas</h3><p style=\"font:400 14px/1.5 Inter,sans-serif;color:#64748b;margin:4px 0 0;max-width:24rem\">Crea la primera cita o espera tu primera reserva online.</p></div>",
+      "css": ".ds-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;border:1px dashed #e5e7eb;border-radius:16px;background:rgb(249 250 251/.6);padding:56px 24px}.ds-empty-icon{display:flex;height:56px;width:56px;align-items:center;justify-content:center;border-radius:9999px;background:#eef5ff;color:#0860dd;margin-bottom:16px}"
+    }
+  ],
+  "narrative": {
+    "northStar": "Claridad confiable",
+    "overview": "SimpleCite es una herramienta de salud, y la confianza médica se gana cuando todo se entiende a la primera, no con solemnidad ni azul corporativo. Jerarquía legible, blanco limpio y espacios respirados; el azul de marca guía la atención hacia lo accionable y la calidez vive en el copy humano y el acento, no en fondos tibios. Una sola identidad sirve a tres densidades: el panel del staff (eficiencia, denso, plano), el booking/landing del tenant (confianza del paciente, espacioso, móvil primero) y la landing de marca (persuasión). Cada clínica trae su propio color, así que el sistema debe verse impecable con cualquier hue sin caer en plantilla.",
+    "keyCharacteristics": [
+      "Fondo blanco real (#ffffff), tinta navy (#182838), un solo azul de marca como acento accionable.",
+      "Plano por defecto; profundidad solo como respuesta a estado (hover/focus).",
+      "Una familia tipográfica (Inter) en contraste de peso.",
+      "Esquinas suaves generosas (rounded-xl/2xl), toques amplios, móvil primero.",
+      "Personalizable por tenant sin romper coherencia ni contraste AA."
+    ],
+    "rules": [
+      {
+        "name": "La Regla del Único Azul",
+        "body": "El acento azul aparece solo en lo accionable y ocupa ≤ ~15% de la pantalla; su escasez lo hace legible.",
+        "section": "colors"
+      },
+      {
+        "name": "La Regla del Tenant",
+        "body": "Cada clínica inyecta su color; toda superficie de tenant debe verse bien con cualquier hue y mantener AA.",
+        "section": "colors"
+      },
+      {
+        "name": "La Regla Anti-Crema",
+        "body": "El fondo del cuerpo es blanco puro o un neutro frío; prohibido crema/sand/beige.",
+        "section": "colors"
+      },
+      {
+        "name": "La Regla de Una Familia",
+        "body": "Inter resuelve todo; más jerarquía = más peso/tamaño, no otra fuente.",
+        "section": "typography"
+      },
+      {
+        "name": "La Regla Plana-por-Defecto",
+        "body": "Superficies planas en reposo; la sombra es feedback de estado, no decoración.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do usar blanco #ffffff de fondo y navy #182838 de tinta.",
+      "Do reservar el azul para lo accionable (≤ ~15%) y verificar contraste AA (≥4.5:1), incluido placeholder.",
+      "Do verificar contraste contra el primaryColor/secondaryColor del tenant.",
+      "Do mantener plano en reposo; elevar con shadow-md solo en hover/estado.",
+      "Do diseñar booking y landing del tenant móvil primero.",
+      "Do etiquetar botones con verbo + objeto y respetar prefers-reduced-motion."
+    ],
+    "donts": [
+      "Don't caer en SaaS genérico de IA: crema, eyebrows en mayúsculas, grids de cards idénticas, gradientes de texto.",
+      "Don't verse corporativo frío / de hospital.",
+      "Don't recargar con color o animaciones que compiten con la tarea.",
+      "Don't parecer software médico anticuado de tablas grises densas.",
+      "Don't usar border-left/right > 1px como franja de color.",
+      "Don't poner gris claro como cuerpo sobre tints (baja de AA)."
+    ]
+  }
+}
