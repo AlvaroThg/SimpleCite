@@ -3,6 +3,7 @@ import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import { getTenantInfo, type TenantInfo } from '@/lib/api';
 import { TenantFooter } from '@/components/TenantFooter';
+import { readableOn } from '@/lib/tenant-color';
 
 interface Props {
   children: React.ReactNode;
@@ -35,6 +36,7 @@ export default async function TenantLayout({ children, params }: Props) {
   const primaryColor = tenant.primaryColor;
   const tenantName = tenant.name;
   const logoUrl = tenant.logoUrl;
+  const onPrimary = readableOn(primaryColor); // texto legible sobre el color del tenant (AA)
 
   return (
     <>
@@ -43,7 +45,7 @@ export default async function TenantLayout({ children, params }: Props) {
 
       <div className="min-h-screen bg-gray-50 flex flex-col">
         {/* Header con branding del tenant */}
-        <header className="text-white shadow-md" style={{ backgroundColor: primaryColor }}>
+        <header className="shadow-md" style={{ backgroundColor: primaryColor, color: onPrimary }}>
           <div className="max-w-4xl mx-auto px-4 py-4 flex items-center gap-3">
             {logoUrl ? (
               <Image

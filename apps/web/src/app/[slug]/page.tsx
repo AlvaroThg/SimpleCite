@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { ShieldCheck, CalendarCheck, MessageCircle, Clock, ArrowRight } from 'lucide-react';
 import { getTenantInfo, getDoctors } from '@/lib/api';
 import { getServiceIcon } from '@/lib/service-icons';
+import { readableOn, accentOn } from '@/lib/tenant-color';
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -35,6 +36,10 @@ export default async function TenantLandingPage({ params }: Props) {
 
   const primary = tenant.primaryColor || '#3B82F6';
   const secondary = tenant.secondaryColor || primary;
+  // Contraste por tenant (Regla del Tenant): texto legible sobre el color, y
+  // variante AA-safe del color para texto sobre fondo blanco.
+  const onPrimary = readableOn(primary);
+  const accent = accentOn(primary);
 
   // Servicios únicos agregados desde los doctores (conserva el ícono).
   const services = Array.from(
@@ -72,11 +77,11 @@ export default async function TenantLandingPage({ params }: Props) {
           <div>
             <span
               className="mb-5 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold"
-              style={{ backgroundColor: `${primary}1f`, color: primary }}
+              style={{ backgroundColor: `${primary}1f`, color: accent }}
             >
               <ShieldCheck className="size-3.5" /> Atención médica de confianza
             </span>
-            <h1 className="text-4xl font-extrabold leading-tight tracking-tight sm:text-5xl">
+            <h1 className="text-balance text-4xl font-extrabold leading-tight tracking-tight sm:text-5xl">
               {heroTitle}
             </h1>
             <p className="mt-5 max-w-xl text-lg text-gray-600">{heroSubtitle}</p>
@@ -84,7 +89,7 @@ export default async function TenantLandingPage({ params }: Props) {
               <Link
                 href={`/${slug}/booking`}
                 className="inline-flex items-center justify-center gap-2 rounded-2xl px-7 py-3.5 text-lg font-bold text-white shadow-sm transition hover:opacity-90 active:scale-95"
-                style={{ backgroundColor: primary }}
+                style={{ backgroundColor: primary, color: onPrimary }}
               >
                 Reservar cita <ArrowRight className="size-5" />
               </Link>
@@ -108,6 +113,8 @@ export default async function TenantLandingPage({ params }: Props) {
               <img
                 src={tenant.heroImageUrl}
                 alt={tenant.name}
+                width={800}
+                height={600}
                 className="relative max-h-[440px] w-full rounded-3xl object-cover shadow-xl"
               />
             </div>
@@ -120,7 +127,7 @@ export default async function TenantLandingPage({ params }: Props) {
               <div className="relative rounded-3xl border border-gray-100 bg-white/70 p-8 shadow-xl backdrop-blur">
                 <div
                   className="flex h-16 w-16 items-center justify-center rounded-2xl text-white"
-                  style={{ backgroundColor: primary }}
+                  style={{ backgroundColor: primary, color: onPrimary }}
                 >
                   <CalendarCheck className="size-8" />
                 </div>
@@ -138,7 +145,7 @@ export default async function TenantLandingPage({ params }: Props) {
                     <div key={text} className="flex items-center gap-3 text-sm text-gray-700">
                       <span
                         className="flex h-8 w-8 items-center justify-center rounded-lg"
-                        style={{ backgroundColor: `${primary}1f`, color: primary }}
+                        style={{ backgroundColor: `${primary}1f`, color: accent }}
                       >
                         <Icon className="size-4" />
                       </span>
@@ -156,7 +163,7 @@ export default async function TenantLandingPage({ params }: Props) {
           <div className="grid grid-cols-2 gap-4 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm sm:grid-cols-4">
             {stats.map((s) => (
               <div key={s.label} className="text-center">
-                <p className="text-2xl font-extrabold" style={{ color: primary }}>
+                <p className="text-2xl font-extrabold" style={{ color: accent }}>
                   {s.value}
                 </p>
                 <p className="mt-1 text-sm text-gray-500">{s.label}</p>
@@ -170,7 +177,7 @@ export default async function TenantLandingPage({ params }: Props) {
       {services.length > 0 && (
         <section id="servicios" className="mx-auto max-w-6xl px-5 py-16 sm:py-20">
           <div className="text-center">
-            <h2 className="text-3xl font-bold">{servicesTitle}</h2>
+            <h2 className="text-3xl font-bold text-balance">{servicesTitle}</h2>
             <p className="mt-2 text-gray-500">Atención profesional para lo que necesitas.</p>
           </div>
           <div className="mt-12 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
@@ -184,7 +191,7 @@ export default async function TenantLandingPage({ params }: Props) {
                 >
                   <div
                     className="flex h-12 w-12 items-center justify-center rounded-xl"
-                    style={{ backgroundColor: `${primary}1f`, color: primary }}
+                    style={{ backgroundColor: `${primary}1f`, color: accent }}
                   >
                     <Icon className="size-6" />
                   </div>
@@ -198,7 +205,7 @@ export default async function TenantLandingPage({ params }: Props) {
                     </span>
                     <span
                       className="inline-flex items-center gap-1 text-sm font-medium opacity-0 transition-opacity group-hover:opacity-100"
-                      style={{ color: primary }}
+                      style={{ color: accent }}
                     >
                       Reservar <ArrowRight className="size-4" />
                     </span>
@@ -215,7 +222,7 @@ export default async function TenantLandingPage({ params }: Props) {
         <section id="especialistas" className="bg-gray-50">
           <div className="mx-auto max-w-6xl px-5 py-16 sm:py-20">
             <div className="text-center">
-              <h2 className="text-3xl font-bold">{specialistsTitle}</h2>
+              <h2 className="text-3xl font-bold text-balance">{specialistsTitle}</h2>
               <p className="mt-2 text-gray-500">Profesionales listos para atenderte.</p>
             </div>
             <div className="mt-12 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -227,14 +234,14 @@ export default async function TenantLandingPage({ params }: Props) {
                   <div className="flex items-center gap-4">
                     <div
                       className="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-full text-xl font-bold text-white"
-                      style={{ backgroundColor: primary }}
+                      style={{ backgroundColor: primary, color: onPrimary }}
                     >
                       {initials(doctor.name)}
                     </div>
                     <div className="min-w-0">
                       <p className="truncate font-semibold text-gray-900">{doctor.name}</p>
                       {doctor.doctorProfile?.specialty && (
-                        <p className="truncate text-sm" style={{ color: primary }}>
+                        <p className="truncate text-sm" style={{ color: accent }}>
                           {doctor.doctorProfile.specialty}
                         </p>
                       )}
@@ -260,7 +267,7 @@ export default async function TenantLandingPage({ params }: Props) {
                   <Link
                     href={`/${slug}/booking`}
                     className="mt-5 inline-flex items-center gap-1 text-sm font-semibold transition hover:gap-2"
-                    style={{ color: primary }}
+                    style={{ color: accent }}
                   >
                     Agendar con {doctor.name.split(' ')[0]} <ArrowRight className="size-4" />
                   </Link>
@@ -274,18 +281,21 @@ export default async function TenantLandingPage({ params }: Props) {
       {/* ── CTA final ── */}
       <section className="mx-auto max-w-6xl px-5 py-16 sm:py-20">
         <div
-          className="relative overflow-hidden rounded-3xl px-8 py-14 text-center text-white"
-          style={{ background: `linear-gradient(135deg, ${primary}, ${secondary})` }}
+          className="relative overflow-hidden rounded-3xl px-8 py-14 text-center"
+          style={{
+            background: `linear-gradient(135deg, ${primary}, ${secondary})`,
+            color: onPrimary,
+          }}
         >
           <div className="absolute -right-10 -top-10 h-48 w-48 rounded-full bg-white/10" />
           <div className="absolute -bottom-12 -left-8 h-40 w-40 rounded-full bg-white/10" />
           <div className="relative">
-            <h2 className="text-3xl font-bold">{ctaTitle}</h2>
-            <p className="mx-auto mt-2 max-w-md text-white/80">{ctaSubtitle}</p>
+            <h2 className="text-3xl font-bold text-balance">{ctaTitle}</h2>
+            <p className="mx-auto mt-2 max-w-md opacity-80">{ctaSubtitle}</p>
             <Link
               href={`/${slug}/booking`}
               className="mt-7 inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-8 py-4 text-lg font-bold shadow-lg transition hover:bg-gray-50 active:scale-95"
-              style={{ color: primary }}
+              style={{ color: accent }}
             >
               Agendar mi cita <ArrowRight className="size-5" />
             </Link>

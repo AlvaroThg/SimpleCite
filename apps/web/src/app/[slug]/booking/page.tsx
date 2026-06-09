@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   getDoctors,
@@ -15,6 +15,7 @@ import {
   type Slot,
   type TenantInfo,
 } from '@/lib/api';
+import { readableOn } from '@/lib/tenant-color';
 
 // ─── Types ────────────────────────────────────────────────────────────
 
@@ -352,7 +353,7 @@ export default function BookingWizard() {
                   key={d}
                   disabled={disabled}
                   onClick={() => set({ selectedDate: d })}
-                  className={`flex-shrink-0 rounded-xl px-3 py-2 text-sm font-medium border transition ${
+                  className={`flex-shrink-0 min-h-11 rounded-xl px-3 py-2 text-sm font-medium border transition ${
                     isSelected
                       ? 'text-white border-transparent'
                       : disabled
@@ -380,7 +381,7 @@ export default function BookingWizard() {
                   key={slot.startTime}
                   disabled={!slot.available}
                   onClick={() => set({ selectedSlot: slot, step: 'patient-info' })}
-                  className={`rounded-xl py-2 text-sm font-medium border transition ${
+                  className={`min-h-11 rounded-xl py-2 text-sm font-medium border transition ${
                     !slot.available
                       ? 'cursor-not-allowed border-gray-100 bg-gray-100 text-gray-300 opacity-60'
                       : 'bg-white border-gray-200 text-gray-800 hover:border-blue-400 hover:shadow-sm'
@@ -585,7 +586,7 @@ function Stepper({ step, primary }: { step: Step; primary: string }) {
             className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-all"
             style={
               i <= idx
-                ? { backgroundColor: primary, borderColor: primary, color: '#fff' }
+                ? { backgroundColor: primary, borderColor: primary, color: readableOn(primary) }
                 : { backgroundColor: '#fff', borderColor: '#d1d5db', color: '#9ca3af' }
             }
           >
@@ -639,8 +640,8 @@ function Avatar({ name, color }: { name: string; color: string }) {
     .join('');
   return (
     <div
-      className="w-14 h-14 rounded-full flex items-center justify-center text-white font-semibold text-lg flex-shrink-0"
-      style={{ backgroundColor: color }}
+      className="w-14 h-14 rounded-full flex items-center justify-center font-semibold text-lg flex-shrink-0"
+      style={{ backgroundColor: color, color: readableOn(color) }}
     >
       {initials}
     </div>
@@ -666,13 +667,15 @@ function Field({
   maxLength?: number;
   required?: boolean;
 }) {
+  const id = useId();
   return (
     <div className="space-y-1">
-      <label className="text-sm font-medium text-gray-700">
+      <label htmlFor={id} className="text-sm font-medium text-gray-700">
         {label}
         {required && <span className="text-red-500 ml-1">*</span>}
       </label>
       <input
+        id={id}
         type={type}
         inputMode={inputMode}
         value={value}
@@ -702,8 +705,8 @@ function Btn({
     <button
       onClick={onClick}
       disabled={disabled || loading}
-      className="w-full py-3 rounded-xl text-white font-semibold text-base transition disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 active:scale-95"
-      style={{ backgroundColor: color }}
+      className="w-full py-3 rounded-xl font-semibold text-base transition disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 active:scale-95"
+      style={{ backgroundColor: color, color: readableOn(color) }}
     >
       {loading ? 'Procesando...' : label}
     </button>

@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { MapPin, MessageCircle, X } from 'lucide-react';
+import { accentOn } from '@/lib/tenant-color';
 
 interface Props {
   name: string;
@@ -52,7 +53,24 @@ export function TenantFooter({
   whatsappContact,
 }: Props) {
   const [mapOpen, setMapOpen] = useState(false);
+  const closeRef = useRef<HTMLButtonElement>(null);
 
+  // Modal accesible: Escape cierra, foco al abrir y restaurado al cerrar.
+  useEffect(() => {
+    if (!mapOpen) return;
+    const prev = document.activeElement as HTMLElement | null;
+    closeRef.current?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMapOpen(false);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      prev?.focus?.();
+    };
+  }, [mapOpen]);
+
+  const nameColor = accentOn(primaryColor); // AA sobre blanco
   const waLink = whatsappContact ? `https://wa.me/${whatsappContact.replace(/\D/g, '')}` : null;
   const mapsSrc = address
     ? `https://maps.google.com/maps?q=${encodeURIComponent(address)}&z=16&output=embed`
@@ -72,7 +90,7 @@ export function TenantFooter({
       <div className="mx-auto max-w-4xl px-4 py-8">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <p className="font-bold" style={{ color: primaryColor }}>
+            <p className="font-bold" style={{ color: nameColor }}>
               {name}
             </p>
             {address && (
@@ -121,6 +139,9 @@ export function TenantFooter({
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
           onClick={() => setMapOpen(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Ubicación de ${name}`}
         >
           <div
             className="w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-xl"
@@ -129,6 +150,7 @@ export function TenantFooter({
             <div className="flex items-center justify-between border-b border-gray-100 p-4">
               <p className="font-semibold text-gray-900">Ubicación · {name}</p>
               <button
+                ref={closeRef}
                 onClick={() => setMapOpen(false)}
                 aria-label="Cerrar"
                 className="text-gray-400 transition hover:text-gray-700"
