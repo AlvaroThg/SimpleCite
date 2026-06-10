@@ -18,8 +18,9 @@ import { PanelShell } from '@/components/panel/PanelShell';
 import { ErrorBox } from '@/components/panel/ui';
 import { SkeletonCards } from '@/components/panel/Skeleton';
 import { toast } from 'sonner';
+import { apiBase } from '@/lib/api-base';
 
-const BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
+const BASE = apiBase();
 
 export default function SettingsPage() {
   return (

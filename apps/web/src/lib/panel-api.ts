@@ -8,7 +8,9 @@
  * El JWT y el slug se guardan en localStorage (ver panel-auth).
  */
 
-const BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
+import { apiBase } from './api-base';
+
+const BASE = apiBase();
 
 export class PanelApiError extends Error {
   constructor(

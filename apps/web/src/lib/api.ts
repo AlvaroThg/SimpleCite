@@ -1,8 +1,8 @@
 /**
  * Cliente tipado para la API pública de SimpleCite.
  *
- * Todas las funciones usan la base URL configurada en NEXT_PUBLIC_API_URL,
- * que en dev apunta a http://localhost:3001 y en prod a https://api.simplecite.com.bo.
+ * La base URL se resuelve según contexto (servidor vs navegador) en `apiBase()`,
+ * porque el SSR corre dentro del contenedor y el navegador en el host.
  *
  * Las funciones de servidor (usadas en Server Components / route handlers) pueden
  * pasarle opciones `next` de Next.js para ISR:
@@ -11,7 +11,9 @@
  * Las funciones de cliente (wizard) no pasan `next`.
  */
 
-const BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
+import { apiBase } from './api-base';
+
+const BASE = apiBase();
 
 // ─── Tipos (mirror de shared, sin importar el paquete para no crear dep circular) ───
 
