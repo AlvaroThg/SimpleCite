@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
+import { toast } from 'sonner';
 import { useAuth } from '@/lib/panel-auth';
 import {
   getAppointments,
@@ -17,14 +18,42 @@ import {
   type PaymentMethod,
 } from '@/lib/panel-api';
 import { PanelShell } from '@/components/panel/PanelShell';
-import { StatusBadge, fmtDateTime, ErrorBox, Spinner } from '@/components/panel/ui';
+import { StatusBadge, fmtDateTime, Spinner } from '@/components/panel/ui';
 import { SkeletonList } from '@/components/panel/Skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
-import { CalendarCheck, Clock } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { CalendarCheck, Clock, X } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────
 
 type Tab = 'pendientes' | 'confirmadas';
+
+// ─── A11y helper para modales ─────────────────────────────────────────
+// Escape cierra, foco entra al diálogo al abrir y se restaura al cerrar.
+// Corre una sola vez en el montaje; usa un ref para leer el onClose vigente.
+
+function useDialogA11y(onClose: () => void) {
+  const ref = useRef<HTMLDivElement>(null);
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+  useEffect(() => {
+    const prev = document.activeElement as HTMLElement | null;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeRef.current();
+    };
+    document.addEventListener('keydown', onKey);
+    ref.current
+      ?.querySelector<HTMLElement>(
+        'button,[href],input,select,textarea,[tabindex]:not([tabindex="-1"])',
+      )
+      ?.focus();
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      prev?.focus?.();
+    };
+  }, []);
+  return ref;
+}
 
 // ─── Page ─────────────────────────────────────────────────────────────
 
@@ -44,14 +73,13 @@ function AppointmentsList() {
   const [pendingItems, setPendingItems] = useState<AppointmentListItem[]>([]);
   const [confirmedItems, setConfirmedItems] = useState<AppointmentListItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [approvingId, setApprovingId] = useState<string | null>(null);
   const [receiptAppt, setReceiptAppt] = useState<AppointmentListItem | null>(null);
   const [showNewAppt, setShowNewAppt] = useState(false);
 
   const load = useCallback(async () => {
     if (!session) return;
     setLoading(true);
-    setError('');
     try {
       const [pending, confirmed] = await Promise.all([
         getAppointments(session.token, session.slug, { status: 'PENDING_PAYMENT' }),
@@ -62,7 +90,7 @@ function AppointmentsList() {
       setPendingItems(pending);
       setConfirmedItems(confirmed);
     } catch (err) {
-      setError(err instanceof PanelApiError ? err.message : 'Error al cargar citas');
+      toast.error(err instanceof PanelApiError ? err.message : 'Error al cargar citas');
     } finally {
       setLoading(false);
     }
@@ -73,12 +101,16 @@ function AppointmentsList() {
   }, [load]);
 
   const handleApprove = async (id: string) => {
-    if (!session) return;
+    if (!session || approvingId) return;
+    setApprovingId(id);
     try {
       await approvePayment(session.token, session.slug, id);
-      void load();
+      toast.success('Pago aprobado. Cita confirmada.');
+      await load();
     } catch (err) {
-      setError(err instanceof PanelApiError ? err.message : 'Error al aprobar pago');
+      toast.error(err instanceof PanelApiError ? err.message : 'Error al aprobar pago');
+    } finally {
+      setApprovingId(null);
     }
   };
 
@@ -87,12 +119,7 @@ function AppointmentsList() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold text-gray-900">Citas</h1>
-        <button
-          onClick={() => setShowNewAppt(true)}
-          className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-all active:scale-95"
-        >
-          + Nueva Cita
-        </button>
+        <Button onClick={() => setShowNewAppt(true)}>+ Nueva Cita</Button>
       </div>
 
       {/* Tabs */}
@@ -106,7 +133,8 @@ function AppointmentsList() {
           <button
             key={key}
             onClick={() => setTab(key)}
-            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition ${
+            aria-pressed={tab === key}
+            className={`min-h-11 px-4 rounded-lg text-sm font-medium transition outline-none focus-visible:ring-2 focus-visible:ring-ring/50 ${
               tab === key ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
             }`}
           >
@@ -120,12 +148,15 @@ function AppointmentsList() {
         ))}
       </div>
 
-      {error && <ErrorBox message={error} />}
-
       {loading ? (
         <SkeletonList />
       ) : tab === 'pendientes' ? (
-        <PendingTab items={pendingItems} onViewReceipt={setReceiptAppt} onApprove={handleApprove} />
+        <PendingTab
+          items={pendingItems}
+          approvingId={approvingId}
+          onViewReceipt={setReceiptAppt}
+          onApprove={handleApprove}
+        />
       ) : (
         <ConfirmedTab items={confirmedItems} />
       )}
@@ -162,10 +193,12 @@ function AppointmentsList() {
 
 function PendingTab({
   items,
+  approvingId,
   onViewReceipt,
   onApprove,
 }: {
   items: AppointmentListItem[];
+  approvingId: string | null;
   onViewReceipt: (a: AppointmentListItem) => void;
   onApprove: (id: string) => void;
 }) {
@@ -180,45 +213,46 @@ function PendingTab({
   }
   return (
     <ul className="space-y-3">
-      {items.map((a) => (
-        <li
-          key={a.id}
-          className="bg-white rounded-xl border border-amber-200 p-4 space-y-3 transition-all hover:border-brand-300 hover:shadow-sm"
-        >
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="font-semibold text-gray-900 truncate">{a.patient.name}</p>
-              <p className="text-sm text-gray-500 truncate">
-                {a.service.name} · {a.doctor.name}
-              </p>
-              <p className="text-sm text-gray-600 mt-0.5">{fmtDateTime(a.startTime)}</p>
+      {items.map((a) => {
+        const approving = approvingId === a.id;
+        return (
+          <li
+            key={a.id}
+            className="bg-white rounded-xl border border-amber-200 p-4 space-y-3 transition-all hover:border-brand-300 hover:shadow-sm"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="font-semibold text-gray-900 truncate">{a.patient.name}</p>
+                <p className="text-sm text-gray-500 truncate">
+                  {a.service.name} · {a.doctor.name}
+                </p>
+                <p className="text-sm text-gray-600 mt-0.5">{fmtDateTime(a.startTime)}</p>
+              </div>
+              <StatusBadge status={a.status} />
             </div>
-            <StatusBadge status={a.status} />
-          </div>
-          <div className="flex gap-2">
-            {a.receiptUrl ? (
-              <button
-                onClick={() => onViewReceipt(a)}
-                className="flex-1 py-1.5 text-sm font-medium border border-blue-300 text-blue-700 rounded-lg hover:bg-blue-50 transition-all active:scale-95"
-              >
-                Ver Comprobante
-              </button>
-            ) : (
-              <span className="flex-1 py-1.5 text-sm text-center text-gray-400 border border-dashed border-gray-200 rounded-lg">
-                Esperando comprobante
-              </span>
-            )}
-            {a.receiptUrl && (
-              <button
-                onClick={() => onApprove(a.id)}
-                className="flex-1 py-1.5 text-sm font-medium bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all active:scale-95"
-              >
-                Aprobar Pago
-              </button>
-            )}
-          </div>
-        </li>
-      ))}
+            <div className="flex gap-2">
+              {a.receiptUrl ? (
+                <Button variant="outline" className="flex-1 h-11" onClick={() => onViewReceipt(a)}>
+                  Ver Comprobante
+                </Button>
+              ) : (
+                <span className="flex-1 flex items-center justify-center min-h-11 text-sm text-center text-gray-400 border border-dashed border-gray-200 rounded-lg">
+                  Esperando comprobante
+                </span>
+              )}
+              {a.receiptUrl && (
+                <Button
+                  className="flex-1 h-11 bg-green-700 hover:bg-green-800 text-white"
+                  disabled={approving}
+                  onClick={() => onApprove(a.id)}
+                >
+                  {approving ? 'Aprobando…' : 'Aprobar Pago'}
+                </Button>
+              )}
+            </div>
+          </li>
+        );
+      })}
     </ul>
   );
 }
@@ -281,6 +315,7 @@ function ReceiptModal({
   onApprove: () => Promise<void>;
 }) {
   const [approving, setApproving] = useState(false);
+  const dialogRef = useDialogA11y(onClose);
 
   const handleApprove = async () => {
     setApproving(true);
@@ -289,19 +324,26 @@ function ReceiptModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="bg-white rounded-2xl w-full max-w-lg shadow-xl">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      onClick={onClose}
+    >
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Comprobante de pago de ${appt.patient.name}`}
+        className="bg-white rounded-2xl w-full max-w-lg shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
           <div>
             <p className="font-semibold text-gray-900">Comprobante de pago</p>
             <p className="text-sm text-gray-500">{appt.patient.name}</p>
           </div>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 text-xl leading-none"
-          >
-            &times;
-          </button>
+          <Button variant="ghost" size="icon" onClick={onClose} aria-label="Cerrar">
+            <X className="size-5" />
+          </Button>
         </div>
         <div className="p-4">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -312,19 +354,16 @@ function ReceiptModal({
           />
         </div>
         <div className="px-5 pb-5 flex gap-3">
-          <button
-            onClick={onClose}
-            className="flex-1 py-2 text-sm font-medium border border-gray-200 rounded-xl hover:bg-gray-50 transition-all active:scale-95"
-          >
+          <Button variant="outline" className="flex-1 h-11" onClick={onClose}>
             Cerrar
-          </button>
-          <button
-            onClick={handleApprove}
+          </Button>
+          <Button
+            className="flex-1 h-11 bg-green-700 hover:bg-green-800 text-white"
             disabled={approving}
-            className="flex-1 py-2 text-sm font-medium bg-green-600 text-white rounded-xl hover:bg-green-700 disabled:opacity-60 disabled:active:scale-100 transition-all active:scale-95"
+            onClick={handleApprove}
           >
             {approving ? 'Aprobando…' : 'Aprobar Pago'}
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -356,7 +395,7 @@ function NewAppointmentModal({
   const [time, setTime] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('CASH');
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
+  const dialogRef = useDialogA11y(onClose);
 
   useEffect(() => {
     Promise.all([getPatients(token, slug, { limit: 200 }), getDoctorsAdmin(token, slug)])
@@ -388,13 +427,12 @@ function NewAppointmentModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!patientId || !doctorId || !serviceId || !date || !time) {
-      setError('Completa todos los campos');
+      toast.error('Completa todos los campos');
       return;
     }
     const startTime = new Date(`${date}T${time}:00`).toISOString();
     const endTime = new Date(new Date(startTime).getTime() + durationMin * 60_000).toISOString();
     setSaving(true);
-    setError('');
     try {
       await createAppointment(token, slug, {
         patientId,
@@ -404,24 +442,28 @@ function NewAppointmentModal({
         endTime,
         paymentMethod,
       });
+      toast.success('Cita creada.');
       onCreated();
     } catch (err) {
-      setError(err instanceof PanelApiError ? err.message : 'Error al crear cita');
+      toast.error(err instanceof PanelApiError ? err.message : 'Error al crear cita');
       setSaving(false);
     }
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="bg-white rounded-2xl w-full max-w-md shadow-xl max-h-[90vh] overflow-y-auto">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Nueva cita"
+        className="bg-white rounded-2xl w-full max-w-md shadow-xl max-h-[90vh] overflow-y-auto"
+      >
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 sticky top-0 bg-white">
           <p className="font-semibold text-gray-900">Nueva Cita</p>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 text-xl leading-none"
-          >
-            &times;
-          </button>
+          <Button variant="ghost" size="icon" onClick={onClose} aria-label="Cerrar">
+            <X className="size-5" />
+          </Button>
         </div>
 
         {loadingInit ? (
@@ -430,15 +472,13 @@ function NewAppointmentModal({
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="p-5 space-y-4">
-            {error && <ErrorBox message={error} />}
-
             <label className="block">
               <span className="text-sm font-medium text-gray-700">Paciente</span>
               <select
                 value={patientId}
                 onChange={(e) => setPatientId(e.target.value)}
                 required
-                className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
               >
                 <option value="">Seleccionar paciente…</option>
                 {patients.map((p) => (
@@ -455,7 +495,7 @@ function NewAppointmentModal({
                 value={doctorId}
                 onChange={(e) => setDoctorId(e.target.value)}
                 required
-                className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
               >
                 <option value="">Seleccionar doctor…</option>
                 {doctors.map((d) => (
@@ -473,14 +513,14 @@ function NewAppointmentModal({
                 onChange={(e) => setServiceId(e.target.value)}
                 required
                 disabled={!doctorId || services.length === 0}
-                className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-400"
+                className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:bg-gray-50 disabled:text-gray-400"
               >
                 <option value="">
                   {doctorId ? 'Seleccionar servicio…' : 'Selecciona un doctor primero'}
                 </option>
                 {services.map((s) => (
                   <option key={s.serviceId} value={s.serviceId}>
-                    {s.service.name} — Bs {s.customDuration ? s.service.price : s.service.price} ·{' '}
+                    {s.service.name} — Bs {s.service.price} ·{' '}
                     {s.customDuration ?? s.service.duration} min
                   </option>
                 ))}
@@ -496,7 +536,7 @@ function NewAppointmentModal({
                   onChange={(e) => setDate(e.target.value)}
                   required
                   min={new Date().toISOString().slice(0, 10)}
-                  className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                 />
               </label>
               <label className="block">
@@ -506,7 +546,7 @@ function NewAppointmentModal({
                   value={time}
                   onChange={(e) => setTime(e.target.value)}
                   required
-                  className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                 />
               </label>
             </div>
@@ -517,7 +557,7 @@ function NewAppointmentModal({
                 {(['CASH', 'STATIC_QR'] as PaymentMethod[]).map((pm) => (
                   <label
                     key={pm}
-                    className={`flex-1 flex items-center gap-2 border rounded-xl px-3 py-2.5 cursor-pointer transition ${paymentMethod === pm ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'}`}
+                    className={`flex-1 flex items-center gap-2 border rounded-xl px-3 py-2.5 cursor-pointer transition ${paymentMethod === pm ? 'border-brand-500 bg-accent' : 'border-gray-200 hover:border-gray-300'}`}
                   >
                     <input
                       type="radio"
@@ -525,7 +565,7 @@ function NewAppointmentModal({
                       value={pm}
                       checked={paymentMethod === pm}
                       onChange={() => setPaymentMethod(pm)}
-                      className="accent-blue-600"
+                      className="accent-brand-600"
                     />
                     <span className="text-sm">
                       {pm === 'CASH' ? '💵 Efectivo' : '📲 QR bancario'}
@@ -536,20 +576,12 @@ function NewAppointmentModal({
             </fieldset>
 
             <div className="flex gap-3 pt-2">
-              <button
-                type="button"
-                onClick={onClose}
-                className="flex-1 py-2.5 text-sm font-medium border border-gray-200 rounded-xl hover:bg-gray-50 transition"
-              >
+              <Button type="button" variant="outline" className="flex-1 h-11" onClick={onClose}>
                 Cancelar
-              </button>
-              <button
-                type="submit"
-                disabled={saving}
-                className="flex-1 py-2.5 text-sm font-medium bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-60 transition"
-              >
+              </Button>
+              <Button type="submit" className="flex-1 h-11" disabled={saving}>
                 {saving ? 'Guardando…' : 'Crear Cita'}
-              </button>
+              </Button>
             </div>
           </form>
         )}
