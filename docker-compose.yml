@@ -1,7 +1,9 @@
 # =====================================================================
 # docker-compose.yml — SimpleCite backend (NestJS) para dev y VPS
 # =====================================================================
-# - DB externa (Supabase): NO se levanta servicio postgres aquí.
+# - DB: servicio `db` (Postgres) dentro de la red interna; el API la alcanza
+#   por el hostname `simplecite-db`. Para usar una DB externa, comenta el
+#   servicio `db` y apunta DATABASE_URL al host externo.
 # - env_file apunta a .env.development en local; en VPS se sustituye por
 #   .env.production sin tocar el resto del archivo.
 # - Docker socket montado para que el InstanceManagerService pueda crear
@@ -15,7 +17,48 @@ networks:
     driver: bridge
     name: simplecite-internal
 
+volumes:
+  # Datos de Postgres — persisten entre reinicios del contenedor.
+  # `name` explícito (sin prefijo de proyecto) para reusar el volumen ya creado.
+  simplecite-pgdata:
+    name: simplecite-pgdata
+
 services:
+  # ─── PostgreSQL — DB interna en la red simplecite-internal ──────────
+  # El API la alcanza por `simplecite-db:5432`. Credenciales por defecto para
+  # local; sobrescribibles vía variables de entorno o el .env del compose.
+  # DATABASE_URL/DIRECT_URL deben coincidir, p.ej:
+  #   postgresql://simplecite:devpass@simplecite-db:5432/simplecite?schema=public
+  db:
+    image: postgres:16-alpine
+    container_name: simplecite-db
+    restart: unless-stopped
+
+    networks:
+      - simplecite-internal
+
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-simplecite}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-devpass}
+      POSTGRES_DB: ${POSTGRES_DB:-simplecite}
+
+    # Publicado al host solo para herramientas locales (prisma studio, psql).
+    # En un VPS quita este mapping para no exponer la DB fuera de la red.
+    ports:
+      - '${DB_PORT:-5432}:5432'
+
+    volumes:
+      - simplecite-pgdata:/var/lib/postgresql/data
+
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - 'pg_isready -U ${POSTGRES_USER:-simplecite} -d ${POSTGRES_DB:-simplecite}'
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
   api:
     build:
       context: .
@@ -28,6 +71,11 @@ services:
     image: simplecite-api:dev
     container_name: simplecite-api
     restart: unless-stopped
+
+    # Espera a que Postgres esté healthy antes de arrancar.
+    depends_on:
+      db:
+        condition: service_healthy
 
     networks:
       - simplecite-internal
