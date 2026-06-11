@@ -520,7 +520,7 @@ function NewAppointmentModal({
                 </option>
                 {services.map((s) => (
                   <option key={s.serviceId} value={s.serviceId}>
-                    {s.service.name} — Bs {s.service.price} ·{' '}
+                    {s.service.name} — Bs {s.customPrice ?? s.service.price} ·{' '}
                     {s.customDuration ?? s.service.duration} min
                   </option>
                 ))}

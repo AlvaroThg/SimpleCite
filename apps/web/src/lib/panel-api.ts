@@ -371,6 +371,7 @@ export interface DoctorServiceLink {
   id: string;
   serviceId: string;
   customDuration: number | null;
+  customPrice: string | null;
   service: ServiceItem;
 }
 export const getDoctorServices = (t: string, s: string, doctorId: string) =>
