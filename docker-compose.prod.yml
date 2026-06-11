@@ -63,10 +63,35 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    env_file:
-      - .env.production
+    # Sin env_file: las variables vienen del Environment de Dokploy (interpolación).
     environment:
       NODE_ENV: production
+      API_PORT: ${API_PORT:-3001}
+      APP_DOMAIN: ${APP_DOMAIN}
+      DATABASE_URL: ${DATABASE_URL}
+      DIRECT_URL: ${DIRECT_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRATION: ${JWT_EXPIRATION:-12h}
+      PATIENT_JWT_SECRET: ${PATIENT_JWT_SECRET}
+      PATIENT_SESSION_TTL: ${PATIENT_SESSION_TTL:-30m}
+      OTP_TTL_MINUTES: ${OTP_TTL_MINUTES:-10}
+      TENTATIVE_APPOINTMENT_TTL_MINUTES: ${TENTATIVE_APPOINTMENT_TTL_MINUTES:-15}
+      R2_ACCOUNT_ID: ${R2_ACCOUNT_ID}
+      R2_ENDPOINT: ${R2_ENDPOINT:-}
+      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID}
+      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY}
+      R2_BUCKET: ${R2_BUCKET}
+      R2_PUBLIC_URL: ${R2_PUBLIC_URL}
+      PAYPAL_API_BASE: ${PAYPAL_API_BASE:-https://api-m.paypal.com}
+      PAYPAL_CLIENT_ID: ${PAYPAL_CLIENT_ID}
+      PAYPAL_CLIENT_SECRET: ${PAYPAL_CLIENT_SECRET}
+      PAYPAL_WEBHOOK_ID: ${PAYPAL_WEBHOOK_ID}
+      WA_DOCKER_NETWORK: ${WA_DOCKER_NETWORK:-simplecite-internal}
+      WA_CALLBACK_URL: ${WA_CALLBACK_URL}
+      WA_INTERNAL_SECRET: ${WA_INTERNAL_SECRET}
+      WA_INSTANCE_IMAGE: ${WA_INSTANCE_IMAGE:-simplecite-wa-instance:latest}
+      TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:-}
+      RLS_ENFORCED: ${RLS_ENFORCED:-false}
     networks:
       - simplecite-internal
       - dokploy-network
