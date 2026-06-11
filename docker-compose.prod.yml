@@ -1,58 +1,34 @@
 # =====================================================================
-# docker-compose.prod.yml — SimpleCite self-hosted (VPS con Docker + Traefik)
+# docker-compose.prod.yml — SimpleCite en Dokploy (sin Traefik propio)
 # =====================================================================
-# Camino MANUAL (alternativa a Dokploy, que es lo recomendado —
-# ver docs/deploy-dokploy.md). Levanta el stack completo:
-#   traefik (reverse proxy + TLS) · db (Postgres) · api (NestJS) · web (Next.js)
-# Los contenedores Baileys wa-{slug} los crea el API dinámicamente vía el socket.
-# Storage en Cloudflare R2 (externo). No hay Supabase ni Vercel.
+# Dokploy provee Traefik + TLS + routing → este compose NO incluye traefik.
+# Servicios: db (Postgres) · api (NestJS) · web (Next.js). Los wa-{slug} los
+# crea el API vía el socket Docker. Storage en Cloudflare R2 (externo).
 #
-# Uso:
-#   docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build
-#
-# Requisitos en el VPS: ver docs/deploy-vps.md
+# En Dokploy:
+#   1. Crea un servicio tipo "Compose" apuntando a este archivo.
+#   2. Pega el contenido de .env.production en el Environment del Compose.
+#   3. En "Domains" agrega:
+#        - host api.${APP_DOMAIN}  → service `api`, container port 3001
+#        - host ${APP_DOMAIN}      → service `web`, container port 3000
+#      Dokploy inyecta los labels de Traefik y emite el certificado.
+# No se publican puertos al host: Traefik enruta por la dokploy-network.
 # =====================================================================
 
 networks:
+  # Red privada del stack (API ↔ db ↔ wa-{slug}); no expuesta.
   simplecite-internal:
     name: simplecite-internal
     driver: bridge
-  web:
-    name: web
-    driver: bridge
+  # Red de Dokploy: su Traefik enruta hacia api/web por aquí.
+  dokploy-network:
+    external: true
 
 volumes:
-  traefik-letsencrypt:
   simplecite-pgdata:
     name: simplecite-pgdata
 
 services:
-  # ─── Reverse proxy + TLS automático (Let's Encrypt) ────────────────
-  traefik:
-    image: traefik:v3.1
-    container_name: traefik
-    restart: unless-stopped
-    command:
-      - --providers.docker=true
-      - --providers.docker.exposedbydefault=false
-      - --entrypoints.web.address=:80
-      - --entrypoints.websecure.address=:443
-      # Redirección global HTTP→HTTPS
-      - --entrypoints.web.http.redirections.entrypoint.to=websecure
-      - --entrypoints.web.http.redirections.entrypoint.scheme=https
-      # Let's Encrypt (TLS-ALPN). Cloudflare en "Full (strict)" o DNS-only.
-      - --certificatesresolvers.le.acme.tlschallenge=true
-      - --certificatesresolvers.le.acme.email=${ACME_EMAIL}
-      - --certificatesresolvers.le.acme.storage=/letsencrypt/acme.json
-    ports:
-      - '80:80'
-      - '443:443'
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - traefik-letsencrypt:/letsencrypt
-    networks:
-      - web
-
   # ─── PostgreSQL (DB interna) ───────────────────────────────────────
   db:
     image: postgres:16-alpine
@@ -92,20 +68,13 @@ services:
     environment:
       NODE_ENV: production
     networks:
-      - web
       - simplecite-internal
+      - dokploy-network
     # Socket Docker para que el InstanceManager cree contenedores Baileys.
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     extra_hosts:
       - 'host.docker.internal:host-gateway'
-    labels:
-      - traefik.enable=true
-      - traefik.docker.network=web
-      - traefik.http.routers.api.rule=Host(`api.${APP_DOMAIN}`)
-      - traefik.http.routers.api.entrypoints=websecure
-      - traefik.http.routers.api.tls.certresolver=le
-      - traefik.http.services.api.loadbalancer.server.port=3001
     healthcheck:
       test:
         - CMD-SHELL
@@ -140,15 +109,8 @@ services:
       NODE_ENV: production
       INTERNAL_API_URL: http://simplecite-api:3001
     networks:
-      - web
       - simplecite-internal
-    labels:
-      - traefik.enable=true
-      - traefik.docker.network=web
-      - traefik.http.routers.web.rule=Host(`${APP_DOMAIN}`)
-      - traefik.http.routers.web.entrypoints=websecure
-      - traefik.http.routers.web.tls.certresolver=le
-      - traefik.http.services.web.loadbalancer.server.port=3000
+      - dokploy-network
     healthcheck:
       test:
         - CMD-SHELL
