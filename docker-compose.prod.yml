@@ -1,13 +1,14 @@
 # =====================================================================
-# docker-compose.prod.yml — SimpleCite en VPS (Hetzner/DigitalOcean)
+# docker-compose.prod.yml — SimpleCite self-hosted (VPS con Docker + Traefik)
 # =====================================================================
-# Servicios: traefik (reverse proxy + TLS), api (NestJS), y los contenedores
-# Baileys que el orquestador crea dinámicamente (no se declaran aquí).
-#
-# El frontend (Next.js) se despliega en Vercel — NO va en este compose.
+# Camino MANUAL (alternativa a Dokploy, que es lo recomendado —
+# ver docs/deploy-dokploy.md). Levanta el stack completo:
+#   traefik (reverse proxy + TLS) · db (Postgres) · api (NestJS) · web (Next.js)
+# Los contenedores Baileys wa-{slug} los crea el API dinámicamente vía el socket.
+# Storage en Cloudflare R2 (externo). No hay Supabase ni Vercel.
 #
 # Uso:
-#   docker compose -f docker-compose.prod.yml --env-file .env.production up -d
+#   docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build
 #
 # Requisitos en el VPS: ver docs/deploy-vps.md
 # =====================================================================
@@ -22,6 +23,8 @@ networks:
 
 volumes:
   traefik-letsencrypt:
+  simplecite-pgdata:
+    name: simplecite-pgdata
 
 services:
   # ─── Reverse proxy + TLS automático (Let's Encrypt) ────────────────
@@ -37,7 +40,7 @@ services:
       # Redirección global HTTP→HTTPS
       - --entrypoints.web.http.redirections.entrypoint.to=websecure
       - --entrypoints.web.http.redirections.entrypoint.scheme=https
-      # Let's Encrypt (TLS-ALPN). Cloudflare debe ir en modo "Full (strict)".
+      # Let's Encrypt (TLS-ALPN). Cloudflare en "Full (strict)" o DNS-only.
       - --certificatesresolvers.le.acme.tlschallenge=true
       - --certificatesresolvers.le.acme.email=${ACME_EMAIL}
       - --certificatesresolvers.le.acme.storage=/letsencrypt/acme.json
@@ -50,11 +53,40 @@ services:
     networks:
       - web
 
+  # ─── PostgreSQL (DB interna) ───────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    container_name: simplecite-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-simplecite}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?define POSTGRES_PASSWORD en .env.production}
+      POSTGRES_DB: ${POSTGRES_DB:-simplecite}
+    networks:
+      - simplecite-internal
+    volumes:
+      - simplecite-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - 'pg_isready -U ${POSTGRES_USER:-simplecite} -d ${POSTGRES_DB:-simplecite}'
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
   # ─── API NestJS ────────────────────────────────────────────────────
   api:
-    image: ghcr.io/${GH_REPO}/api:${IMAGE_TAG:-latest}
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runner
+    image: simplecite-api:prod
     container_name: simplecite-api
     restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
     env_file:
       - .env.production
     environment:
@@ -69,7 +101,7 @@ services:
       - 'host.docker.internal:host-gateway'
     labels:
       - traefik.enable=true
-      # API en api.simplecite.com.bo
+      - traefik.docker.network=web
       - traefik.http.routers.api.rule=Host(`api.${APP_DOMAIN}`)
       - traefik.http.routers.api.entrypoints=websecure
       - traefik.http.routers.api.tls.certresolver=le
@@ -78,6 +110,49 @@ services:
       test:
         - CMD-SHELL
         - 'wget --no-verbose --tries=1 --spider http://localhost:3001/api/health || exit 1'
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '5'
+
+  # ─── Web Next.js ───────────────────────────────────────────────────
+  # NEXT_PUBLIC_* se inlinean en build (navegador); INTERNAL_API_URL es runtime
+  # (SSR por la red interna). Ver apps/web/src/lib/api-base.ts.
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+        NEXT_PUBLIC_PAYPAL_CLIENT_ID: ${NEXT_PUBLIC_PAYPAL_CLIENT_ID}
+        NEXT_PUBLIC_PAYPAL_PLAN_ID: ${NEXT_PUBLIC_PAYPAL_PLAN_ID}
+    image: simplecite-web:prod
+    container_name: simplecite-web
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      NODE_ENV: production
+      INTERNAL_API_URL: http://simplecite-api:3001
+    networks:
+      - web
+      - simplecite-internal
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=web
+      - traefik.http.routers.web.rule=Host(`${APP_DOMAIN}`)
+      - traefik.http.routers.web.entrypoints=websecure
+      - traefik.http.routers.web.tls.certresolver=le
+      - traefik.http.services.web.loadbalancer.server.port=3000
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - 'wget --no-verbose --tries=1 --spider http://localhost:3000 || exit 1'
       interval: 30s
       timeout: 5s
       retries: 3

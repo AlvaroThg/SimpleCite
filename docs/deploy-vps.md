@@ -1,141 +1,139 @@
-# Deploy en VPS (Hetzner / DigitalOcean)
+# Deploy en VPS (manual con docker compose)
 
-Guía de provisión. Los pasos marcados **[manual]** se hacen en el proveedor o
-por SSH; el resto usa artefactos del repo (`docker-compose.prod.yml`).
+> **Recomendado: [deploy-dokploy.md](deploy-dokploy.md).** Dokploy gestiona
+> Traefik, TLS, la base de datos y los builds por ti. Esta guía es el camino
+> **manual** con `docker-compose.prod.yml` para quien prefiere control total.
+
+Pasos marcados **[manual]** se hacen en el proveedor o por SSH; el resto usa
+`docker-compose.prod.yml`.
 
 ## Arquitectura en producción
 
 ```
-                 Cloudflare (DNS wildcard + SSL strict + WAF)
+                 Cloudflare (DNS + SSL Full strict + WAF)
                               │
                   ┌───────────┴───────────┐
                   ▼                        ▼
-        *.simplecite.com.bo         api.simplecite.com.bo
-        (Vercel — Next.js)          (VPS — Traefik :443)
-                                           │
-                                    ┌──────┴───────┐
-                                    ▼              ▼
-                              simplecite-api   wa-<slug>  (Baileys,
-                              (NestJS :3001)    red interna, sin puerto
-                                    │           expuesto)
-                                    ▼
-                              Supabase (Postgres gestionado)
+        simplecite.com.bo          api.simplecite.com.bo
+                  └───────────┬───────────┘
+                              ▼
+                      Traefik (VPS :443)
+                  ┌───────────┼───────────┐
+                  ▼           ▼           ▼
+                web         api      wa-<slug> (Baileys,
+            (Next.js)    (NestJS)    red interna, sin puerto)
+                              │
+                              ▼
+                      db (Postgres, red interna)
+                Cloudflare R2 (storage de archivos, externo)
 ```
 
-- **Web**: Vercel (deploy separado, `NEXT_PUBLIC_API_URL=https://api.simplecite.com.bo`).
-- **API + orquestador WhatsApp**: un VPS con Docker. El orquestador vive dentro
-  del API (monolito modular) y crea contenedores Baileys vía el socket Docker.
-- **DB**: Supabase (no se hostea Postgres en el VPS).
+- **Web + API**: contenedores en el VPS detrás de Traefik (TLS automático).
+- **DB**: Postgres en contenedor (`simplecite-pgdata` persistente). Sin Supabase.
+- **Storage**: Cloudflare R2 (S3-compatible). Sin almacenamiento local.
 
 ## 1. Provisión del servidor **[manual]**
 
-1. Crear un VPS (Hetzner CX22 / DO 2GB+). Ubuntu 22.04 LTS. Cada instancia
-   Baileys usa ~256MB → dimensionar según nº de tenants (ej. 4GB ≈ 10 tenants).
-2. DNS en Cloudflare: `A api.simplecite.com.bo → <IP del VPS>` (proxied).
-   El wildcard `*.simplecite.com.bo` apunta a Vercel (ver `cloudflare.md`).
-3. Firewall (UFW): permitir solo 22, 80, 443.
+1. VPS Hetzner CPX31/CPX41 (8GB), Ubuntu 24.04. Cada instancia Baileys usa
+   ~256MB → dimensiona según nº de tenants.
+2. DNS en Cloudflare: `A api.simplecite.com.bo → <IP>` y `A simplecite.com.bo →
+<IP>`. Para que Traefik emita certs TLS-ALPN, deja **DNS-only** al inicio (o
+   usa Cloudflare "Full (strict)").
+3. Firewall (UFW): solo 22, 80, 443.
    ```bash
    ufw allow 22 && ufw allow 80 && ufw allow 443 && ufw enable
    ```
-4. Hardening SSH: deshabilitar login root por password, usar llaves.
+4. Hardening SSH: sin login root por password, solo llaves.
 
 ## 2. Instalar Docker **[manual]**
 
 ```bash
 curl -fsSL https://get.docker.com | sh
-# (opcional) usuario no-root en el grupo docker
-usermod -aG docker deploy
 ```
 
-## 3. Construir la imagen Baileys en el VPS **[manual, una vez]**
+## 3. Construir la imagen Baileys **[manual, una vez]**
 
-El orquestador referencia `simplecite-wa-instance:latest` localmente. En el VPS:
+El orquestador referencia `simplecite-wa-instance:latest` localmente:
 
 ```bash
-git clone <repo> simplecite && cd simplecite
+git clone <repo> /opt/simplecite && cd /opt/simplecite
 docker build -t simplecite-wa-instance:latest apps/whatsapp-instance/
 ```
 
-> Alternativa: publicar también esta imagen en GHCR y `docker pull`.
-
-## 4. Configurar variables de entorno **[manual]**
+## 4. Variables de entorno **[manual]**
 
 ```bash
 cp .env.production.example .env.production
-# Editar con secretos reales (ver runbook.md → rotación de secretos)
+# Editar con secretos reales
 ```
 
-Variables clave: `DATABASE_URL`, `DIRECT_URL`, `JWT_SECRET`, `PATIENT_JWT_SECRET`,
-`QR_SIMPLE_*`, `WA_INTERNAL_SECRET`, `TURNSTILE_SECRET_KEY`, `APP_DOMAIN`,
-`ACME_EMAIL`, `GH_REPO`, `IMAGE_TAG`, `RLS_ENFORCED` (default `false`).
-
-### 4.1 Base de datos nueva (Supabase) — orden OBLIGATORIO
-
-Para un proyecto Supabase nuevo (recomendado **región sa-east-1 / São Paulo**
-por latencia desde Bolivia):
-
-```bash
-# 1. Funciones RLS helper — ANTES de migrar (las migraciones las referencian
-#    pero no las crean; sin esto, migrate deploy falla en phase3).
-pnpm db:bootstrap
-# 2. Aplicar las migraciones
-pnpm db:migrate:deploy
-# 3. Seed (tenant demo + usuarios; omitir o adaptar en prod real)
-pnpm db:seed
-```
-
-- Connection strings desde Supabase (Connect → ORM): `DATABASE_URL` = pooler de
-  transacción (puerto **6543**, `?pgbouncer=true`); `DIRECT_URL` = directo
-  (**5432**). La extensión `btree_gist` la crea la migración (no es paso manual).
-- El API **no** usa el cliente JS de Supabase; `SUPABASE_URL`/`*_KEY` solo se
-  validan al boot. Igual ponlos del proyecto nuevo.
-- Habilitar **PITR/backups** en el dashboard de Supabase.
+Claves: `APP_DOMAIN`, `ACME_EMAIL`, `DATABASE_URL`/`DIRECT_URL` (apuntan al
+servicio `db`: `postgresql://USER:PASS@simplecite-db:5432/simplecite?schema=public`),
+`POSTGRES_USER`/`POSTGRES_PASSWORD`/`POSTGRES_DB`, `JWT_SECRET`,
+`PATIENT_JWT_SECRET`, `R2_*`, `PAYPAL_*`, `WA_INTERNAL_SECRET`,
+`NEXT_PUBLIC_API_URL` (= `https://api.${APP_DOMAIN}`), `NEXT_PUBLIC_PAYPAL_*`,
+`TURNSTILE_SECRET_KEY`, `RLS_ENFORCED` (default `false`).
 
 ## 5. Levantar
 
 ```bash
-docker compose -f docker-compose.prod.yml --env-file .env.production pull
-docker compose -f docker-compose.prod.yml --env-file .env.production up -d
+docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build
 ```
 
-Traefik obtiene el certificado de Let's Encrypt automáticamente para
-`api.${APP_DOMAIN}`. Verificar:
+### 5.1 Base de datos nueva — orden OBLIGATORIO
+
+Una DB fresca no tiene las funciones RLS helper (`current_tenant_id()`, etc.) que
+las migraciones referencian pero no crean. Corre el bootstrap **antes** de migrar,
+**dentro del contenedor API** (los scripts `db:*` usan `dotenv -e ../../.env`, que
+no existe en la imagen; la `DATABASE_URL` ya viene del `env_file`):
 
 ```bash
-curl https://api.simplecite.com.bo/api/health   # {status:ok, database:ok}
+docker compose -f docker-compose.prod.yml exec api sh -c \
+  "cd /app/packages/database && ./node_modules/.bin/prisma db execute --schema prisma/schema.prisma --file scripts/bootstrap-rls-functions.sql"
+docker compose -f docker-compose.prod.yml exec api sh -c \
+  "cd /app/packages/database && ./node_modules/.bin/prisma migrate deploy"
+# Onboarding del primer tenant (en vez del seed de prueba):
+docker compose -f docker-compose.prod.yml exec api sh -c \
+  "cd /app/apps/api && node dist/cli/create-tenant.js --name='Clínica X' --slug='clinica-x' --adminEmail='admin@clinica-x.com' --password='secreto123' --adminPhone='59170000000'"
 ```
 
-## 6. Healthchecks, logs y backups
-
-- **Health**: el contenedor `api` tiene healthcheck (`/api/health`). Traefik solo
-  rutea a contenedores sanos.
-- **Logs**: `json-file` con rotación (10MB ×5). Para centralizar: enviar a Loki o
-  al stack de logs del proveedor. `docker compose logs -f api`.
-- **Backups**: la DB está en Supabase → habilitar **PITR / backups diarios** en
-  el dashboard de Supabase (no en el VPS). Para las sesiones de WhatsApp
-  (volúmenes `wa-session-<slug>`): `docker run --rm -v wa-session-<slug>:/s -v
-$PWD:/b alpine tar czf /b/wa-<slug>.tgz /s` en un cron, subir a object storage.
-
-## 7. Actualizaciones (deploy de nueva versión)
-
-CI publica `ghcr.io/<repo>/api:sha-<commit>` y `:latest`. Para actualizar:
+Verificar:
 
 ```bash
-export IMAGE_TAG=sha-<commit>   # o latest
-docker compose -f docker-compose.prod.yml --env-file .env.production pull api
-docker compose -f docker-compose.prod.yml --env-file .env.production up -d api
+curl https://api.simplecite.com.bo/api/health   # {status:ok}
 ```
 
-Migraciones de DB: se aplican de forma controlada **antes** de subir la nueva
-imagen (ver runbook → "migrations step controlado"):
+## 6. Webhook de PayPal
+
+Apunta el webhook en el dashboard de PayPal a
+`https://api.simplecite.com.bo/api/webhooks/paypal` y copia el Webhook ID a
+`PAYPAL_WEBHOOK_ID`.
+
+## 7. Healthchecks, logs y backups
+
+- **Health**: `api` y `web` tienen healthcheck; Traefik solo rutea a sanos.
+- **Logs**: `json-file` con rotación (10MB ×5). `docker compose -f
+docker-compose.prod.yml logs -f api`.
+- **Backups DB**: dump del volumen `simplecite-pgdata` por cron:
+  ```bash
+  docker compose -f docker-compose.prod.yml exec -T db \
+    pg_dump -U simplecite simplecite | gzip > backup-$(date +%F).sql.gz
+  ```
+  Subir a object storage (R2). Sesiones WhatsApp: respaldar volúmenes
+  `wa-session-<slug>`.
+
+## 8. Actualizaciones
 
 ```bash
-pnpm db:migrate:deploy   # desde un entorno con DIRECT_URL, no en caliente
+cd /opt/simplecite && git pull
+docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build
+# Migraciones nuevas (el bootstrap solo se corre una vez en la DB fresca):
+docker compose -f docker-compose.prod.yml exec api sh -c \
+  "cd /app/packages/database && ./node_modules/.bin/prisma migrate deploy"
 ```
 
-## 8. Recuperación de instancias WhatsApp
+## 9. Recuperación de instancias WhatsApp
 
-Si el VPS reinicia, los contenedores Baileys con `restart: unless-stopped`
-vuelven solos y reusan su volumen de sesión (no re-piden QR). Si una instancia
-queda en ERROR, recrearla desde el panel admin (`POST /admin/whatsapp/instances`).
-Ver runbook → "recuperación de instancias WhatsApp".
+Con `restart: unless-stopped`, los `wa-<slug>` vuelven solos tras un reinicio y
+reusan su volumen de sesión (no re-piden QR). Si una queda en ERROR, recrearla
+desde el panel admin (Configuración → WhatsApp) o `POST /admin/whatsapp/instances`.
