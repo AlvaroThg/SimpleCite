@@ -12,6 +12,7 @@ import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../../../../common/database/prisma.service';
 import { TurnstileService } from '../../../../common/services/turnstile.service';
 import { WhatsAppService } from '../../../../common/services/whatsapp.service';
+import { normalizePhone } from '../../../../common/utils/phone';
 
 const OTP_BCRYPT_ROUNDS = 10;
 const MAX_OTP_ATTEMPTS = 5;
@@ -43,7 +44,10 @@ export class PublicOtpService {
     turnstileToken: string | undefined;
     remoteIp: string | undefined;
   }): Promise<{ success: true; expiresInSeconds: number }> {
-    const { tenantId, phone, turnstileToken, remoteIp } = params;
+    const { tenantId, turnstileToken, remoteIp } = params;
+    // Normalizar a E.164 (igual que findOrCreate del paciente) para que el phone
+    // del token coincida luego con appointment.patient.phone al confirmar.
+    const phone = normalizePhone(params.phone);
 
     // 1. Bot check (no-op si TURNSTILE_SECRET_KEY no está seteada)
     const ok = await this.turnstile.verify(turnstileToken, remoteIp);
@@ -139,7 +143,9 @@ export class PublicOtpService {
     phone: string;
     code: string;
   }): Promise<{ sessionToken: string }> {
-    const { tenantId, phone, code } = params;
+    const { tenantId, code } = params;
+    // Misma normalización que en request(): el OTP se guardó por phone E.164.
+    const phone = normalizePhone(params.phone);
 
     const otp = await this.prisma.client.patientOtp.findFirst({
       where: {

@@ -398,7 +398,7 @@ function NewAppointmentModal({
   const dialogRef = useDialogA11y(onClose);
 
   useEffect(() => {
-    Promise.all([getPatients(token, slug, { limit: 200 }), getDoctorsAdmin(token, slug)])
+    Promise.all([getPatients(token, slug, { limit: 100 }), getDoctorsAdmin(token, slug)])
       .then(([p, d]) => {
         setPatients(p.items);
         setDoctors(d.filter((doc) => doc.isActive));
