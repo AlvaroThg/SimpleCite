@@ -1,7 +1,7 @@
 # =====================================================================
-# docker-compose.prod.yml — SimpleCite en Dokploy (sin Traefik propio)
+# docker-compose.prod.yml — SimpleCite en Dokploy
 # =====================================================================
-# Dokploy provee Traefik + TLS + routing → este compose NO incluye traefik.
+# Dokploy gestiona TLS + routing automáticamente (vía los Domains de la UI).
 # Servicios: db (Postgres) · api (NestJS) · web (Next.js). Los wa-{slug} los
 # crea el API vía el socket Docker. Storage en Cloudflare R2 (externo).
 #
@@ -11,8 +11,8 @@
 #   3. En "Domains" agrega:
 #        - host api.${APP_DOMAIN}  → service `api`, container port 3001
 #        - host ${APP_DOMAIN}      → service `web`, container port 3000
-#      Dokploy inyecta los labels de Traefik y emite el certificado.
-# No se publican puertos al host: Traefik enruta por la dokploy-network.
+#      Dokploy se encarga del routing y el certificado.
+# No se publican puertos al host: Dokploy enruta por la dokploy-network.
 # =====================================================================
 
 networks:
@@ -20,7 +20,7 @@ networks:
   simplecite-internal:
     name: simplecite-internal
     driver: bridge
-  # Red de Dokploy: su Traefik enruta hacia api/web por aquí.
+  # Red de Dokploy: enruta hacia api/web por aquí.
   dokploy-network:
     external: true
 
