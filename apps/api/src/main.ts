@@ -17,10 +17,13 @@ async function bootstrap() {
   // whitelist: true + forbidNonWhitelisted: true rechaza payloads válidos porque
   // los DTOs de Zod no tienen decoradores de class-validator.
 
+  // En prod: el apex y cualquier subdominio del APP_DOMAIN sobre http/https.
+  // OJO: el paquete `cors` NO interpreta `*` en un string; hay que usar RegExp.
+  const appDomain = (process.env.APP_DOMAIN ?? 'simplecite.com.bo').replace(/[.]/g, '\\.');
   app.enableCors({
     origin:
       process.env.NODE_ENV === 'production'
-        ? [`https://*.${process.env.APP_DOMAIN}`]
+        ? [new RegExp(`^https?://([a-z0-9-]+\\.)*${appDomain}$`)]
         : ['http://localhost:3000'],
     credentials: true,
   });

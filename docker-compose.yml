@@ -116,3 +116,47 @@ services:
       timeout: 5s
       retries: 3
       start_period: 15s
+
+  # ─── Web (Next.js) ──────────────────────────────────────────────────
+  # Doble base de API por el split SSR/navegador (ver lib/api-base.ts):
+  #   - build  NEXT_PUBLIC_API_URL → la usa el NAVEGADOR (se inlinea en build).
+  #     En local DEBE ser http://localhost:3001 (lo que alcanza el host).
+  #   - runtime INTERNAL_API_URL  → la usa el SSR dentro del contenedor:
+  #     http://simplecite-api:3001 (red interna).
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        NODE_VERSION: 20-alpine
+        PNPM_VERSION: 10.33.2
+        TURBO_VERSION: 2.5.4
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001}
+        NEXT_PUBLIC_PAYPAL_CLIENT_ID: ${NEXT_PUBLIC_PAYPAL_CLIENT_ID:-sb-xxxx}
+        NEXT_PUBLIC_PAYPAL_PLAN_ID: ${NEXT_PUBLIC_PAYPAL_PLAN_ID:-P-xxxx}
+    image: simplecite-web:dev
+    container_name: simplecite-web
+    restart: unless-stopped
+
+    depends_on:
+      - api
+
+    networks:
+      - simplecite-internal
+
+    ports:
+      - '${WEB_PORT:-3000}:3000'
+
+    environment:
+      NODE_ENV: production
+      # SSR → API por la red interna (no sale al host).
+      INTERNAL_API_URL: http://simplecite-api:3001
+
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - 'wget --no-verbose --tries=1 --spider http://localhost:3000 || exit 1'
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s

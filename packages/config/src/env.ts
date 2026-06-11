@@ -110,13 +110,16 @@ export type Env = z.infer<typeof envSchema>;
 function assertProductionInvariants(env: Env): void {
   if (env.NODE_ENV !== 'production') return;
 
+  // QR Simple quedó obsoleto (pagos híbridos: QR estático + comprobante por
+  // WhatsApp), así que ya no se exige. Storage usa Cloudflare R2.
   const requiredInProd: Array<keyof Env> = [
     'DIRECT_URL',
-    'QR_SIMPLE_API_URL',
-    'QR_SIMPLE_API_KEY',
-    'QR_SIMPLE_WEBHOOK_SECRET',
     'TURNSTILE_SECRET_KEY',
     'WA_INTERNAL_SECRET',
+    'R2_ACCESS_KEY_ID',
+    'R2_SECRET_ACCESS_KEY',
+    'R2_BUCKET',
+    'R2_PUBLIC_URL',
   ];
 
   const missing = requiredInProd.filter((k) => !env[k]);
