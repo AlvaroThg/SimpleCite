@@ -95,6 +95,15 @@ services:
     networks:
       - simplecite-internal
       - dokploy-network
+    # Routing/TLS por el Traefik de Dokploy. traefik.docker.network es clave
+    # porque el contenedor está en 2 redes (Traefik debe usar dokploy-network).
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=dokploy-network
+      - traefik.http.routers.simplecite-api.rule=Host(`api.${APP_DOMAIN}`)
+      - traefik.http.routers.simplecite-api.entrypoints=websecure
+      - traefik.http.routers.simplecite-api.tls.certresolver=letsencrypt
+      - traefik.http.services.simplecite-api.loadbalancer.server.port=3001
     # Socket Docker para que el InstanceManager cree contenedores Baileys.
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
@@ -136,6 +145,13 @@ services:
     networks:
       - simplecite-internal
       - dokploy-network
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=dokploy-network
+      - traefik.http.routers.simplecite-web.rule=Host(`${APP_DOMAIN}`)
+      - traefik.http.routers.simplecite-web.entrypoints=websecure
+      - traefik.http.routers.simplecite-web.tls.certresolver=letsencrypt
+      - traefik.http.services.simplecite-web.loadbalancer.server.port=3000
     healthcheck:
       test:
         - CMD-SHELL
