@@ -1,0 +1,34 @@
+# =============================================================================
+# SimpleCite Observability — Reglas de alerta (Prometheus)
+# =============================================================================
+# No hay Alertmanager en el stack, así que estas alertas se ven en la UI de
+# Prometheus (Status → Rules / Alerts) pero NO notifican por email/Slack.
+# Para notificaciones, agrega un servicio `alertmanager` y la sección `alerting:`.
+#
+# La API de SimpleCite no expone /metrics, así que las alertas son de
+# infraestructura del propio stack de observabilidad.
+# =============================================================================
+
+groups:
+  - name: simplecite-infra
+    rules:
+      # Cualquier target monitoreado (loki/promtail/prometheus) caído 2m.
+      - alert: TargetDown
+        expr: up == 0
+        for: 2m
+        labels:
+          severity: critical
+          category: infrastructure
+        annotations:
+          summary: 'Target {{ $labels.job }} caído'
+          description: 'El target {{ $labels.instance }} (job {{ $labels.job }}) no responde hace más de 2 minutos.'
+
+      - alert: PrometheusHighMemoryUsage
+        expr: process_resident_memory_bytes{job="prometheus"} > 1e9
+        for: 5m
+        labels:
+          severity: warning
+          category: infrastructure
+        annotations:
+          summary: 'Prometheus usando mucha memoria'
+          description: 'Prometheus está usando {{ $value | humanize1024 }}B de RAM.'

@@ -1,0 +1,76 @@
+# =============================================================================
+# SimpleCite Observability — Promtail (scraping de logs de Docker)
+# =============================================================================
+# Lee los logs de los contenedores de SimpleCite vía el socket de Docker,
+# parsea el JSON de pino (NestJS/nestjs-pino) y los envía a Loki.
+#
+# Filtro: contenedores cuyo nombre contiene "simplecite" (simplecite-api,
+# simplecite-web, simplecite-db). Ajusta el regex si cambias el naming.
+# =============================================================================
+
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+  log_level: info
+
+positions:
+  # Volumen nombrado: evita re-leer todo el historial al reiniciar (que Loki
+  # rechazaría como "timestamp too old").
+  filename: /var/lib/promtail/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  - job_name: simplecite-container-logs
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 15s
+
+    relabel_configs:
+      # Solo contenedores de SimpleCite.
+      - source_labels: [__meta_docker_container_name]
+        regex: '.*simplecite.*'
+        action: keep
+
+      - source_labels: [__meta_docker_container_name]
+        target_label: container_name
+      - source_labels: [__meta_docker_container_image]
+        target_label: container_image
+      - source_labels: [__meta_docker_container_label_com_docker_compose_service]
+        target_label: compose_service
+      - source_labels: [__meta_docker_container_label_com_docker_compose_project]
+        target_label: compose_project
+
+    pipeline_stages:
+      # 1. Parsear el JSON de pino. Campos anidados via JMESPath (req.*, res.*).
+      - json:
+          expressions:
+            level: level
+            message: msg
+            context: context
+            method: req.method
+            path: req.url
+            status_code: res.statusCode
+            duration_ms: responseTime
+
+      # 2. pino emite el level numérico (30=info, 40=warn, 50=error...).
+      #    Lo mapeamos a nombre para que las queries del dashboard sean legibles.
+      - template:
+          source: level
+          template: >-
+            {{ if eq .Value "10" }}trace{{ else if eq .Value "20" }}debug{{ else if eq .Value "30" }}info{{ else if eq .Value "40" }}warn{{ else if eq .Value "50" }}error{{ else if eq .Value "60" }}fatal{{ else }}{{ ToLower .Value }}{{ end }}
+
+      # 3. Descartar trace/debug para reducir volumen.
+      - drop:
+          source: level
+          expression: '^(trace|debug)$'
+          drop_counter_reason: low_level_logs
+
+      # 4. Indexar por labels de baja cardinalidad.
+      #    request_id/path NO se indexan (alta cardinalidad) — quedan
+      #    consultables con `| json`.
+      - labels:
+          level:
+          container_name:
+          compose_service:

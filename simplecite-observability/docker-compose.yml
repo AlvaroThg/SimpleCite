@@ -1,0 +1,87 @@
+services:
+  loki:
+    image: grafana/loki:3.4.0
+    command: ['-config.file=/etc/loki/loki-config.yml']
+    ports: ['3100']
+    volumes:
+      - ./loki/loki-config.yml:/etc/loki/loki-config.yml:ro
+      - loki-data:/loki
+    env_file: [.env]
+    restart: unless-stopped
+    networks: [simplecite-internal]
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://localhost:3100/ready || exit 1']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  promtail:
+    image: grafana/promtail:3.4.0
+    command: ['-config.file=/etc/promtail/config.yml']
+    volumes:
+      - ./promtail/config.yml:/etc/promtail/config.yml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - promtail-positions:/var/lib/promtail
+    env_file: [.env]
+    restart: unless-stopped
+    networks: [simplecite-internal]
+
+  prometheus:
+    image: prom/prometheus:v3.3.0
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.enable-lifecycle
+    ports: ['9090']
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus-data:/prometheus
+    env_file: [.env]
+    restart: unless-stopped
+    networks: [simplecite-internal]
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://localhost:9090/-/ready || exit 1']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  grafana:
+    image: grafana/grafana:11.5.0
+    ports: ['3000']
+    volumes:
+      - ./grafana/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
+      - ./grafana/dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml:ro
+      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards/definitions:ro
+      - grafana-data:/var/lib/grafana
+    env_file: [.env]
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-changeme}
+      GF_SERVER_ROOT_URL: ${GRAFANA_ROOT_URL:-http://localhost:3000}
+    restart: unless-stopped
+    networks: [simplecite-internal]
+    depends_on:
+      loki:
+        condition: service_healthy
+      prometheus:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://localhost:3000/api/health || exit 1']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 45s
+
+volumes:
+  loki-data:
+  prometheus-data:
+  grafana-data:
+  promtail-positions:
+
+networks:
+  simplecite-internal:
+    external: true

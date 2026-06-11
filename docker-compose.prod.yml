@@ -27,6 +27,11 @@ networks:
 volumes:
   simplecite-pgdata:
     name: simplecite-pgdata
+  # ── Observabilidad ──
+  loki-data:
+  prometheus-data:
+  grafana-data:
+  promtail-positions:
 
 services:
   # ─── PostgreSQL (DB interna) ───────────────────────────────────────
@@ -165,3 +170,120 @@ services:
       options:
         max-size: '10m'
         max-file: '5'
+
+  # ═══════════════════════════════════════════════════════════════════
+  # Observabilidad (Loki · Promtail · Prometheus · Grafana)
+  # Configs en ./simplecite-observability/*. Solo Grafana se expone (Dokploy
+  # Domains → service grafana, port 3000). El resto es interno.
+  # ═══════════════════════════════════════════════════════════════════
+
+  # ─── Loki (almacén de logs) ────────────────────────────────────────
+  loki:
+    image: grafana/loki:3.4.0
+    container_name: simplecite-loki
+    restart: unless-stopped
+    command: ['-config.file=/etc/loki/loki-config.yml']
+    volumes:
+      - ./simplecite-observability/loki/loki-config.yml:/etc/loki/loki-config.yml:ro
+      - loki-data:/loki
+    networks:
+      - simplecite-internal
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:3100/ready || exit 1']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '3'
+
+  # ─── Promtail (recolector de logs de Docker) ───────────────────────
+  promtail:
+    image: grafana/promtail:3.4.0
+    container_name: simplecite-promtail
+    restart: unless-stopped
+    command: ['-config.file=/etc/promtail/config.yml']
+    depends_on:
+      - loki
+    volumes:
+      - ./simplecite-observability/promtail/config.yml:/etc/promtail/config.yml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - promtail-positions:/var/lib/promtail
+    networks:
+      - simplecite-internal
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '3'
+
+  # ─── Prometheus (métricas del stack; la API no expone /metrics) ────
+  prometheus:
+    image: prom/prometheus:v3.3.0
+    container_name: simplecite-prometheus
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.enable-lifecycle
+    volumes:
+      - ./simplecite-observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./simplecite-observability/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus-data:/prometheus
+    networks:
+      - simplecite-internal
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:9090/-/ready || exit 1']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '3'
+
+  # ─── Grafana (UI; expuesta vía Dokploy/Traefik) ────────────────────
+  grafana:
+    image: grafana/grafana:11.5.0
+    container_name: simplecite-grafana
+    restart: unless-stopped
+    depends_on:
+      loki:
+        condition: service_healthy
+      prometheus:
+        condition: service_healthy
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?define GRAFANA_ADMIN_PASSWORD}
+      GF_SERVER_ROOT_URL: ${GRAFANA_ROOT_URL:-}
+      # Sirve detrás del proxy de Dokploy en un subpath/host dedicado.
+      GF_SERVER_SERVE_FROM_SUB_PATH: 'false'
+    volumes:
+      - ./simplecite-observability/grafana/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
+      - ./simplecite-observability/grafana/dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml:ro
+      - ./simplecite-observability/grafana/dashboards:/etc/grafana/provisioning/dashboards/definitions:ro
+      - grafana-data:/var/lib/grafana
+    networks:
+      - simplecite-internal
+      - dokploy-network
+    # Routing/TLS por Dokploy (Domains → service grafana, port 3000).
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=dokploy-network
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:3000/api/health || exit 1']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 45s
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '3'

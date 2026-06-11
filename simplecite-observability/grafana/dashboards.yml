@@ -1,0 +1,17 @@
+# =============================================================================
+# SimpleCite Observability — Grafana Dashboard Provisioning
+# =============================================================================
+# Auto-provisiona los dashboards definidos en el directorio ./dashboards/
+# =============================================================================
+
+apiVersion: 1
+
+providers:
+  - name: SimpleCite
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards/definitions
+      foldersFromFilesStructure: false

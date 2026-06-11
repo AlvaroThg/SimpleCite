@@ -1,0 +1,44 @@
+# =============================================================================
+# Axon Observability — Grafana Datasources (auto-provisioned)
+# =============================================================================
+# Grafana carga estas fuentes de datos automáticamente al iniciar.
+# No es necesario configurarlas manualmente desde la UI.
+# =============================================================================
+
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: true
+    uid: prometheus
+    jsonData:
+      httpMethod: POST
+      manageAlerts: true
+      prometheusType: Prometheus
+      prometheusVersion: 3.3.0
+      cacheLevel: High
+      incrementalQuerying: true
+      incrementalQueryOverlapWindow: 10m
+
+  - name: Loki
+    type: loki
+    access: proxy
+    url: http://loki:3100
+    isDefault: false
+    editable: true
+    uid: loki
+    jsonData:
+      maxLines: 1000
+      derivedFields:
+        - name: traceID
+          type: json
+          url: ''
+          jsonPath: $.trace_id
+        - name: spanID
+          type: json
+          url: ''
+          jsonPath: $.span_id
