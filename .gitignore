@@ -39,3 +39,9 @@ coverage/
 *.log
 npm-debug.log*
 pnpm-debug.log*
+
+# Tooling de Claude Code / skills (personal, no fuente del proyecto)
+.claude/
+.github/skills/
+# Outputs generados por el skill impeccable — mantener solo design.json
+.impeccable/critique/
