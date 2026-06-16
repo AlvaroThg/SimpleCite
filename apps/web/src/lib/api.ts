@@ -194,6 +194,29 @@ export async function confirmBooking(
   );
 }
 
+// ─── Public Cancellation (magic link) ───────────────────────────────
+
+export interface CancelAppointmentResult {
+  status: 'CANCELLED';
+  /** true si la cita ya estaba cancelada (link abierto dos veces). */
+  alreadyCancelled: boolean;
+  startTime: string;
+  tenantName: string;
+  doctorName: string;
+  serviceName: string;
+}
+
+/**
+ * Cancela una cita con su token de magic link. No requiere auth ni slug:
+ * el token identifica la cita. POST /api/public/appointments/cancel/:token
+ */
+export async function cancelAppointment(token: string): Promise<CancelAppointmentResult> {
+  return apiPost<CancelAppointmentResult>(
+    `/api/public/appointments/cancel/${encodeURIComponent(token)}`,
+    {},
+  );
+}
+
 // ─── Payments API ────────────────────────────────────────────────────
 
 export async function createPayment(

@@ -180,6 +180,22 @@ export async function createAppointment(
 export const approvePayment = (token: string, slug: string, id: string) =>
   transitionAppointment(token, slug, id, 'CONFIRMED');
 
+/** Reprograma una cita (drag&drop / resize del calendario del panel). */
+export async function rescheduleAppointment(
+  token: string,
+  slug: string,
+  id: string,
+  start: Date,
+  end: Date,
+): Promise<void> {
+  const res = await fetch(`${BASE}/api/appointments/${id}/reschedule`, {
+    method: 'PATCH',
+    headers: authHeaders(token, slug),
+    body: JSON.stringify({ startTime: start.toISOString(), endTime: end.toISOString() }),
+  });
+  await handle(res);
+}
+
 // ─── Patients + EHR ──────────────────────────────────────────────────
 
 export async function getPatients(
@@ -224,6 +240,113 @@ export async function createNote(
   });
   const json = await handle<{ data: ClinicalNote }>(res);
   return json.data;
+}
+
+// ─── Medical Records + Prescriptions (Consulta en curso) ────────────
+
+export interface MedicationItem {
+  name: string;
+  dose: string;
+  frequency: string;
+  duration: string;
+}
+
+export interface PrescriptionItem {
+  id: string;
+  medications: MedicationItem[];
+  instructions: string | null;
+  createdAt: string;
+}
+
+export interface MedicalRecord {
+  id: string;
+  symptoms: string | null;
+  diagnosis: string | null;
+  treatment: string | null;
+  privateNotes: string | null;
+  createdAt: string;
+  updatedAt: string;
+  doctor: { id: string; name: string };
+  prescriptions: PrescriptionItem[];
+}
+
+export interface MedicalRecordInput {
+  symptoms?: string | null;
+  diagnosis?: string | null;
+  treatment?: string | null;
+  privateNotes?: string | null;
+}
+
+/** Historia clínica de una cita (null si aún no se creó). */
+export async function getMedicalRecord(
+  token: string,
+  slug: string,
+  appointmentId: string,
+): Promise<MedicalRecord | null> {
+  const res = await fetch(`${BASE}/api/appointments/${appointmentId}/medical-record`, {
+    headers: authHeaders(token, slug),
+  });
+  const json = await handle<{ data: MedicalRecord | null }>(res);
+  return json.data;
+}
+
+/** Crea o actualiza la historia clínica de la cita (upsert). */
+export async function saveMedicalRecord(
+  token: string,
+  slug: string,
+  appointmentId: string,
+  body: MedicalRecordInput,
+): Promise<MedicalRecord> {
+  const res = await fetch(`${BASE}/api/appointments/${appointmentId}/medical-record`, {
+    method: 'PUT',
+    headers: authHeaders(token, slug),
+    body: JSON.stringify(body),
+  });
+  const json = await handle<{ data: MedicalRecord }>(res);
+  return json.data;
+}
+
+/** Crea una receta dentro de una historia clínica. */
+export async function createPrescription(
+  token: string,
+  slug: string,
+  recordId: string,
+  body: { medications: MedicationItem[]; instructions?: string },
+): Promise<PrescriptionItem> {
+  const res = await fetch(`${BASE}/api/medical-records/${recordId}/prescriptions`, {
+    method: 'POST',
+    headers: authHeaders(token, slug),
+    body: JSON.stringify(body),
+  });
+  const json = await handle<{ data: PrescriptionItem }>(res);
+  return json.data;
+}
+
+/** Descarga el PDF de una receta (autenticado) y dispara la descarga. */
+export async function downloadPrescriptionPdf(
+  token: string,
+  slug: string,
+  prescriptionId: string,
+): Promise<void> {
+  const res = await fetch(`${BASE}/api/prescriptions/${prescriptionId}/pdf`, {
+    headers: { Authorization: `Bearer ${token}`, 'x-tenant-slug': slug },
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new PanelApiError(
+      res.status,
+      (body as { message?: string }).message ?? 'No se pudo generar el PDF',
+    );
+  }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `receta-${prescriptionId.slice(0, 8)}.pdf`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
 }
 
 // ─── Helpers genéricos (CRUD del dashboard) ──────────────────────────

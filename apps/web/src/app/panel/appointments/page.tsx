@@ -1,12 +1,14 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { useAuth } from '@/lib/panel-auth';
 import {
   getAppointments,
   createAppointment,
   approvePayment,
+  rescheduleAppointment,
   getPatients,
   getDoctorsAdmin,
   getDoctorServices,
@@ -22,7 +24,8 @@ import { StatusBadge, fmtDateTime, Spinner } from '@/components/panel/ui';
 import { SkeletonList } from '@/components/panel/Skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Button } from '@/components/ui/button';
-import { CalendarCheck, Clock, X } from 'lucide-react';
+import { CalendarCheck, Clock, X, Banknote, QrCode, List, CalendarDays } from 'lucide-react';
+import { AdminCalendar, type AdminEvent } from '@/components/calendar/AdminCalendar';
 
 // ─── Types ────────────────────────────────────────────────────────────
 
@@ -69,9 +72,12 @@ export default function AppointmentsPage() {
 
 function AppointmentsList() {
   const { session } = useAuth();
+  const router = useRouter();
+  const [view, setView] = useState<'list' | 'calendar'>('list');
   const [tab, setTab] = useState<Tab>('pendientes');
   const [pendingItems, setPendingItems] = useState<AppointmentListItem[]>([]);
   const [confirmedItems, setConfirmedItems] = useState<AppointmentListItem[]>([]);
+  const [calendarItems, setCalendarItems] = useState<AppointmentListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [approvingId, setApprovingId] = useState<string | null>(null);
   const [receiptAppt, setReceiptAppt] = useState<AppointmentListItem | null>(null);
@@ -100,6 +106,48 @@ function AppointmentsList() {
     void load();
   }, [load]);
 
+  // Carga todas las citas (cualquier estado) para la vista de calendario.
+  const loadCalendar = useCallback(async () => {
+    if (!session) return;
+    try {
+      setCalendarItems(await getAppointments(session.token, session.slug, {}));
+    } catch (err) {
+      toast.error(err instanceof PanelApiError ? err.message : 'Error al cargar el calendario');
+    }
+  }, [session]);
+
+  useEffect(() => {
+    if (view === 'calendar') void loadCalendar();
+  }, [view, loadCalendar]);
+
+  const calendarEvents: AdminEvent[] = calendarItems.map((a) => ({
+    id: a.id,
+    title: a.patient.name,
+    start: new Date(a.startTime),
+    end: new Date(a.endTime),
+    status: a.status,
+    doctorName: a.doctor.name,
+    serviceName: a.service.name,
+  }));
+
+  // Reprogramación con actualización optimista (revierte si el backend falla).
+  const handleReschedule = async ({ id, start, end }: { id: string; start: Date; end: Date }) => {
+    if (!session) return;
+    const prev = calendarItems;
+    setCalendarItems((items) =>
+      items.map((a) =>
+        a.id === id ? { ...a, startTime: start.toISOString(), endTime: end.toISOString() } : a,
+      ),
+    );
+    try {
+      await rescheduleAppointment(session.token, session.slug, id, start, end);
+      toast.success('Cita reprogramada');
+    } catch (err) {
+      setCalendarItems(prev);
+      toast.error(err instanceof PanelApiError ? err.message : 'No se pudo reprogramar');
+    }
+  };
+
   const handleApprove = async (id: string) => {
     if (!session || approvingId) return;
     setApprovingId(id);
@@ -117,48 +165,85 @@ function AppointmentsList() {
   return (
     <div className="space-y-5">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-bold text-gray-900">Citas</h1>
-        <Button onClick={() => setShowNewAppt(true)}>+ Nueva Cita</Button>
+        <div className="flex items-center gap-2">
+          {/* Toggle Lista / Calendario */}
+          <div className="flex gap-1 rounded-lg bg-gray-100 p-1">
+            {(
+              [
+                ['list', 'Lista', List],
+                ['calendar', 'Calendario', CalendarDays],
+              ] as [typeof view, string, typeof List][]
+            ).map(([key, label, Icon]) => (
+              <button
+                key={key}
+                onClick={() => setView(key)}
+                aria-pressed={view === key}
+                className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition ${
+                  view === key
+                    ? 'bg-white text-brand-700 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <Icon className="size-4" />
+                <span className="hidden sm:inline">{label}</span>
+              </button>
+            ))}
+          </div>
+          <Button onClick={() => setShowNewAppt(true)}>+ Nueva Cita</Button>
+        </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit">
-        {(
-          [
-            ['pendientes', 'Pendientes de Pago'],
-            ['confirmadas', 'Confirmadas'],
-          ] as [Tab, string][]
-        ).map(([key, label]) => (
-          <button
-            key={key}
-            onClick={() => setTab(key)}
-            aria-pressed={tab === key}
-            className={`min-h-11 px-4 rounded-lg text-sm font-medium transition outline-none focus-visible:ring-2 focus-visible:ring-ring/50 ${
-              tab === key ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            {label}
-            {key === 'pendientes' && pendingItems.length > 0 && (
-              <span className="ml-1.5 bg-amber-500 text-white text-xs px-1.5 py-0.5 rounded-full">
-                {pendingItems.length}
-              </span>
-            )}
-          </button>
-        ))}
-      </div>
-
-      {loading ? (
-        <SkeletonList />
-      ) : tab === 'pendientes' ? (
-        <PendingTab
-          items={pendingItems}
-          approvingId={approvingId}
-          onViewReceipt={setReceiptAppt}
-          onApprove={handleApprove}
+      {view === 'calendar' ? (
+        <AdminCalendar
+          events={calendarEvents}
+          onSelectEvent={(e) => router.push(`/panel/appointments/${e.id}`)}
+          onReschedule={handleReschedule}
         />
       ) : (
-        <ConfirmedTab items={confirmedItems} />
+        <>
+          {/* Tabs */}
+          <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit">
+            {(
+              [
+                ['pendientes', 'Pendientes de Pago'],
+                ['confirmadas', 'Confirmadas'],
+              ] as [Tab, string][]
+            ).map(([key, label]) => (
+              <button
+                key={key}
+                onClick={() => setTab(key)}
+                aria-pressed={tab === key}
+                className={`min-h-11 px-4 rounded-lg text-sm font-medium transition outline-none focus-visible:ring-2 focus-visible:ring-ring/50 ${
+                  tab === key
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                {label}
+                {key === 'pendientes' && pendingItems.length > 0 && (
+                  <span className="ml-1.5 bg-amber-500 text-white text-xs px-1.5 py-0.5 rounded-full">
+                    {pendingItems.length}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+
+          {loading ? (
+            <SkeletonList />
+          ) : tab === 'pendientes' ? (
+            <PendingTab
+              items={pendingItems}
+              approvingId={approvingId}
+              onViewReceipt={setReceiptAppt}
+              onApprove={handleApprove}
+            />
+          ) : (
+            <ConfirmedTab items={confirmedItems} />
+          )}
+        </>
       )}
 
       {/* Receipt modal */}
@@ -567,8 +652,16 @@ function NewAppointmentModal({
                       onChange={() => setPaymentMethod(pm)}
                       className="accent-brand-600"
                     />
-                    <span className="text-sm">
-                      {pm === 'CASH' ? '💵 Efectivo' : '📲 QR bancario'}
+                    <span className="inline-flex items-center gap-1.5 text-sm">
+                      {pm === 'CASH' ? (
+                        <>
+                          <Banknote className="size-4 text-gray-400" /> Efectivo
+                        </>
+                      ) : (
+                        <>
+                          <QrCode className="size-4 text-gray-400" /> QR bancario
+                        </>
+                      )}
                     </span>
                   </label>
                 ))}

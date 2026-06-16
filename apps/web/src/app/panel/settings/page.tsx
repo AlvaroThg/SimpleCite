@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
+import { CheckCircle2 } from 'lucide-react';
 import { useAuth } from '@/lib/panel-auth';
 import {
   getTenantConfig,
@@ -740,7 +741,9 @@ function QrPanel({ instanceId, onConnected }: { instanceId: string; onConnected:
   return (
     <div className="bg-gray-50 rounded-xl p-4 flex flex-col items-center text-center">
       {state === 'connected' ? (
-        <p className="text-sm text-green-700 font-medium">✅ WhatsApp conectado.</p>
+        <p className="inline-flex items-center gap-1.5 text-sm text-green-700 font-medium">
+          <CheckCircle2 className="size-4" /> WhatsApp conectado.
+        </p>
       ) : state === 'error' ? (
         <p className="text-sm text-red-600">
           No se pudo obtener el QR. Intenta reiniciar la instancia.

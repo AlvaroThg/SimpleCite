@@ -1,0 +1,103 @@
+/* Overrides de react-big-calendar con la identidad SimpleCite (claro + azul).
+   Se importa junto al CSS base en cada componente de calendario. */
+
+.sc-calendar {
+  font-family: inherit;
+  font-size: 0.875rem;
+  color: #1f2d3d; /* ink-800 */
+}
+
+/* Bordes y cabeceras más suaves */
+.sc-calendar .rbc-month-view,
+.sc-calendar .rbc-time-view,
+.sc-calendar .rbc-time-header-content,
+.sc-calendar .rbc-header,
+.sc-calendar .rbc-day-bg + .rbc-day-bg,
+.sc-calendar .rbc-month-row + .rbc-month-row,
+.sc-calendar .rbc-time-content,
+.sc-calendar .rbc-time-content > * + * > * {
+  border-color: #e5e7eb; /* gray-200 */
+}
+
+.sc-calendar .rbc-header {
+  padding: 0.5rem 0;
+  font-weight: 600;
+  color: #6b7280; /* gray-500 */
+  text-transform: capitalize;
+}
+
+/* Día de hoy */
+.sc-calendar .rbc-today {
+  background-color: #eef5ff; /* brand-50 */
+}
+
+/* Eventos: por defecto azul de marca */
+.sc-calendar .rbc-event,
+.sc-calendar .rbc-day-slot .rbc-event {
+  background-color: #0860dd; /* brand-600 */
+  border: none;
+  border-radius: 6px;
+  padding: 1px 6px;
+  font-size: 0.75rem;
+  box-shadow: none;
+}
+.sc-calendar .rbc-event.rbc-selected {
+  background-color: #084fb8; /* brand-700 */
+}
+.sc-calendar .rbc-event:focus {
+  outline: 2px solid #4d97fa; /* brand-400 */
+  outline-offset: 1px;
+}
+
+/* Bloque "Ocupado" del calendario público (sin nombres) */
+.sc-calendar .rbc-event.sc-busy {
+  background-color: #cbd5e1; /* slate-300 */
+  color: #475569;
+  cursor: not-allowed;
+}
+
+/* Estados de cita (AdminCalendar) */
+.sc-calendar .rbc-event.sc-status-PENDING_PAYMENT { background-color: #d97706; } /* amber-600 */
+.sc-calendar .rbc-event.sc-status-CONFIRMED      { background-color: #0860dd; } /* brand-600 */
+.sc-calendar .rbc-event.sc-status-COMPLETED      { background-color: #16a34a; } /* green-600 */
+.sc-calendar .rbc-event.sc-status-CANCELLED      { background-color: #dc2626; } /* red-600 */
+.sc-calendar .rbc-event.sc-status-NO_SHOW        { background-color: #ea580c; } /* orange-600 */
+.sc-calendar .rbc-event.sc-status-TENTATIVE      { background-color: #94a3b8; } /* slate-400 */
+
+/* Toolbar */
+.sc-calendar .rbc-toolbar {
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.sc-calendar .rbc-toolbar .rbc-toolbar-label {
+  font-weight: 700;
+  color: #182838; /* ink-900 */
+  text-transform: capitalize;
+}
+.sc-calendar .rbc-btn-group button {
+  color: #374151;
+  border-color: #e5e7eb;
+  font-weight: 500;
+}
+.sc-calendar .rbc-btn-group button:hover {
+  background-color: #f3f4f6; /* gray-100 */
+}
+.sc-calendar .rbc-btn-group button.rbc-active {
+  background-color: #0860dd; /* brand-600 */
+  border-color: #0860dd;
+  color: #fff;
+}
+.sc-calendar .rbc-btn-group button.rbc-active:hover {
+  background-color: #084fb8;
+}
+
+/* Slot seleccionable (hover en hueco vacío) del calendario público */
+.sc-calendar.sc-selectable .rbc-day-slot .rbc-time-slot:hover {
+  background-color: #f0f7ff;
+}
+
+/* Indicador de hora actual */
+.sc-calendar .rbc-current-time-indicator {
+  background-color: #0a70f8; /* brand-500 */
+}

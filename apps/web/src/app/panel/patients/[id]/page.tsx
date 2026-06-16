@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { Lock } from 'lucide-react';
 import { useAuth } from '@/lib/panel-auth';
 import { getPatientHistory, createNote, PanelApiError, type PatientHistory } from '@/lib/panel-api';
 import { PanelShell } from '@/components/panel/PanelShell';
@@ -69,8 +70,9 @@ function PatientHistoryView() {
       <section>
         <h2 className="text-sm font-semibold text-gray-700 mb-3">Notas clínicas</h2>
         {!data.clinicalAccess ? (
-          <div className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-6 text-center text-sm text-gray-500">
-            🔒 No tienes acceso al contenido clínico de este paciente.
+          <div className="flex items-center justify-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-4 py-6 text-center text-sm text-gray-500">
+            <Lock className="size-4 flex-shrink-0" /> No tienes acceso al contenido clínico de este
+            paciente.
           </div>
         ) : data.notes.length === 0 ? (
           <p className="text-gray-400 text-sm">Aún no hay notas clínicas.</p>

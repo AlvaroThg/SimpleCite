@@ -4,6 +4,7 @@ import { ShieldCheck, CalendarCheck, MessageCircle, Clock, ArrowRight } from 'lu
 import { getTenantInfo, getDoctors } from '@/lib/api';
 import { getServiceIcon } from '@/lib/service-icons';
 import { readableOn, accentOn } from '@/lib/tenant-color';
+import { InstagramFeed } from '@/components/InstagramFeed';
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -216,6 +217,13 @@ export default async function TenantLandingPage({ params }: Props) {
           </div>
         </section>
       )}
+
+      {/* ── Instagram (confianza social, debajo de Servicios) ── */}
+      <InstagramFeed
+        title={`Conocé a ${tenant.name}`}
+        profileUrl={tenant.instagramUrl}
+        lightWidgetId={process.env.NEXT_PUBLIC_LIGHTWIDGET_ID}
+      />
 
       {/* ── Especialistas ── */}
       {doctors.length > 0 && (

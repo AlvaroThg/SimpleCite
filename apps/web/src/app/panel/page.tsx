@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
+import { CalendarDays, Wallet, TrendingDown, type LucideIcon } from 'lucide-react';
 import { useAuth } from '@/lib/panel-auth';
 import { getReportsSummary, PanelApiError, type ReportsSummary } from '@/lib/panel-api';
 import { PanelShell } from '@/components/panel/PanelShell';
@@ -53,16 +54,16 @@ function Home() {
       ) : data ? (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <Metric label="Citas de hoy" value={String(data.citasHoy)} icon="📅" />
+            <Metric label="Citas de hoy" value={String(data.citasHoy)} icon={CalendarDays} />
             <Metric
               label="Ingresos del mes"
               value={`Bs ${data.ingresosMes.toFixed(0)}`}
-              icon="💰"
+              icon={Wallet}
             />
             <Metric
               label="Inasistencia (30d)"
               value={`${data.tasaInasistencia}%`}
-              icon="📉"
+              icon={TrendingDown}
               warn={data.tasaInasistencia > 20}
             />
           </div>
@@ -105,19 +106,25 @@ function Home() {
 function Metric({
   label,
   value,
-  icon,
+  icon: Icon,
   warn,
 }: {
   label: string;
   value: string;
-  icon: string;
+  icon: LucideIcon;
   warn?: boolean;
 }) {
   return (
     <div className="bg-white rounded-2xl border border-gray-100 p-5">
       <div className="flex items-center justify-between">
         <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">{label}</p>
-        <span className="text-lg">{icon}</span>
+        <span
+          className={`flex size-9 items-center justify-center rounded-lg ${
+            warn ? 'bg-red-50 text-red-600' : 'bg-brand-50 text-brand-600'
+          }`}
+        >
+          <Icon className="size-[18px]" />
+        </span>
       </div>
       <p className={`mt-2 text-3xl font-extrabold ${warn ? 'text-red-600' : 'text-gray-900'}`}>
         {value}

@@ -103,16 +103,25 @@ function AppointmentDetailView() {
           <Info label="Servicio" value={appt.service.name} />
           <Info label="Doctor" value={appt.doctor.name} />
           <Info label="Precio" value={`Bs ${Number(appt.service.price).toFixed(2)}`} />
-          <Info label="Pago" value={appt.isPaid ? '✅ Pagado' : 'Pendiente'} />
+          <Info label="Pago" value={appt.isPaid ? 'Pagado' : 'Pendiente'} />
         </dl>
 
-        <div className="border-t border-gray-100 pt-4">
+        <div className="flex flex-wrap items-center gap-4 border-t border-gray-100 pt-4">
           <Link
             href={`/panel/patients/${appt.patient.id}`}
             className="inline-flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-800"
           >
             Ver historial clínico del paciente →
           </Link>
+          {session?.user.role !== 'STAFF' &&
+            (appt.status === 'CONFIRMED' || appt.status === 'COMPLETED') && (
+              <Link
+                href={`/panel/appointments/${appt.id}/consulta`}
+                className="inline-flex items-center gap-1 text-sm font-semibold text-blue-600 hover:text-blue-800"
+              >
+                {appt.status === 'COMPLETED' ? 'Ver consulta' : 'Iniciar consulta'} →
+              </Link>
+            )}
         </div>
       </div>
 

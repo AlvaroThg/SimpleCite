@@ -16,6 +16,7 @@ import {
   type TenantInfo,
 } from '@/lib/api';
 import { readableOn } from '@/lib/tenant-color';
+import { BookingCalendar } from '@/components/calendar/BookingCalendar';
 
 // ─── Types ────────────────────────────────────────────────────────────
 
@@ -119,6 +120,9 @@ export default function BookingWizard() {
   });
 
   const set = (patch: Partial<State>) => setState((prev) => ({ ...prev, ...patch, error: '' }));
+
+  // Vista del paso de horario: lista de turnos o calendario interactivo.
+  const [slotView, setSlotView] = useState<'list' | 'calendar'>('list');
 
   // ─── Carga inicial ─────────────────────────────────────────────────
   useEffect(() => {
@@ -338,59 +342,100 @@ export default function BookingWizard() {
       {/* ── Paso 3: Elegir fecha y slot ── */}
       {state.step === 'select-slot' && state.selectedService && (
         <StepCard title="¿Cuándo quieres tu cita?" onBack={() => set({ step: 'select-service' })}>
-          {/* Date picker simple: botones ±7 días */}
-          <div className="flex items-center gap-2 mb-5 overflow-x-auto pb-1">
-            {Array.from({ length: 7 }, (_, i) => addDays(todayStr(), i)).map((d) => {
-              const label = new Intl.DateTimeFormat('es-BO', {
-                weekday: 'short',
-                day: 'numeric',
-                timeZone: tz,
-              }).format(new Date(d + 'T12:00:00'));
-              const isSelected = state.selectedDate === d;
-              const disabled = !state.loading && !state.availableDates.includes(d);
-              return (
-                <button
-                  key={d}
-                  disabled={disabled}
-                  onClick={() => set({ selectedDate: d })}
-                  className={`flex-shrink-0 min-h-11 rounded-xl px-3 py-2 text-sm font-medium border transition ${
-                    isSelected
-                      ? 'text-white border-transparent'
-                      : disabled
-                        ? 'cursor-not-allowed border-gray-100 bg-gray-50 text-gray-300 opacity-60'
-                        : 'bg-white border-gray-200 text-gray-700 hover:border-blue-400'
-                  }`}
-                  style={isSelected ? { backgroundColor: primary, borderColor: primary } : {}}
-                >
-                  {label}
-                </button>
-              );
-            })}
+          {/* Toggle Lista / Calendario */}
+          <div className="mb-4 flex w-fit gap-1 rounded-lg bg-gray-100 p-1">
+            {(
+              [
+                ['list', 'Lista'],
+                ['calendar', 'Calendario'],
+              ] as ['list' | 'calendar', string][]
+            ).map(([k, l]) => (
+              <button
+                key={k}
+                onClick={() => setSlotView(k)}
+                aria-pressed={slotView === k}
+                className={`min-h-9 rounded-md px-3 py-1.5 text-sm font-medium transition ${
+                  slotView === k
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                {l}
+              </button>
+            ))}
           </div>
 
-          {state.loading ? (
-            <p className="text-gray-400 text-center py-6 animate-pulse">Buscando horarios...</p>
-          ) : daySlots.length === 0 ? (
-            <p className="text-gray-500 text-center py-6">
-              No hay turnos disponibles este día. Elige otro.
-            </p>
+          {slotView === 'calendar' ? (
+            <BookingCalendar
+              busy={state.slots
+                .filter((s) => !s.available)
+                .map((s) => ({ start: new Date(s.startTime), end: new Date(s.endTime) }))}
+              onPickSlot={({ start }) => {
+                // Snap: encuentra el turno disponible que contiene el clic.
+                const slot = state.slots.find(
+                  (s) =>
+                    s.available && new Date(s.startTime) <= start && start < new Date(s.endTime),
+                );
+                if (slot) set({ selectedSlot: slot, step: 'patient-info' });
+              }}
+            />
           ) : (
-            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-              {daySlots.map((slot) => (
-                <button
-                  key={slot.startTime}
-                  disabled={!slot.available}
-                  onClick={() => set({ selectedSlot: slot, step: 'patient-info' })}
-                  className={`min-h-11 rounded-xl py-2 text-sm font-medium border transition ${
-                    !slot.available
-                      ? 'cursor-not-allowed border-gray-100 bg-gray-100 text-gray-300 opacity-60'
-                      : 'bg-white border-gray-200 text-gray-800 hover:border-blue-400 hover:shadow-sm'
-                  }`}
-                >
-                  {formatTime(slot.startTime, tz)}
-                </button>
-              ))}
-            </div>
+            <>
+              {/* Date picker simple: botones ±7 días */}
+              <div className="flex items-center gap-2 mb-5 overflow-x-auto pb-1">
+                {Array.from({ length: 7 }, (_, i) => addDays(todayStr(), i)).map((d) => {
+                  const label = new Intl.DateTimeFormat('es-BO', {
+                    weekday: 'short',
+                    day: 'numeric',
+                    timeZone: tz,
+                  }).format(new Date(d + 'T12:00:00'));
+                  const isSelected = state.selectedDate === d;
+                  const disabled = !state.loading && !state.availableDates.includes(d);
+                  return (
+                    <button
+                      key={d}
+                      disabled={disabled}
+                      onClick={() => set({ selectedDate: d })}
+                      className={`flex-shrink-0 min-h-11 rounded-xl px-3 py-2 text-sm font-medium border transition ${
+                        isSelected
+                          ? 'text-white border-transparent'
+                          : disabled
+                            ? 'cursor-not-allowed border-gray-100 bg-gray-50 text-gray-300 opacity-60'
+                            : 'bg-white border-gray-200 text-gray-700 hover:border-blue-400'
+                      }`}
+                      style={isSelected ? { backgroundColor: primary, borderColor: primary } : {}}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {state.loading ? (
+                <p className="text-gray-400 text-center py-6 animate-pulse">Buscando horarios...</p>
+              ) : daySlots.length === 0 ? (
+                <p className="text-gray-500 text-center py-6">
+                  No hay turnos disponibles este día. Elige otro.
+                </p>
+              ) : (
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                  {daySlots.map((slot) => (
+                    <button
+                      key={slot.startTime}
+                      disabled={!slot.available}
+                      onClick={() => set({ selectedSlot: slot, step: 'patient-info' })}
+                      className={`min-h-11 rounded-xl py-2 text-sm font-medium border transition ${
+                        !slot.available
+                          ? 'cursor-not-allowed border-gray-100 bg-gray-100 text-gray-300 opacity-60'
+                          : 'bg-white border-gray-200 text-gray-800 hover:border-blue-400 hover:shadow-sm'
+                      }`}
+                    >
+                      {formatTime(slot.startTime, tz)}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </StepCard>
       )}
