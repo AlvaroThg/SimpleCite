@@ -1,11 +1,25 @@
+import { randomBytes } from 'node:crypto';
 import {
   Injectable,
   NotFoundException,
   ConflictException,
   BadRequestException,
 } from '@nestjs/common';
+import { Logger } from 'nestjs-pino';
 import type { CreateAppointmentDto, AppointmentStatus } from '@simplecite/shared';
 import { PrismaService } from '../../../../common/database/prisma.service';
+import { WhatsappCloudService } from '../../../whatsapp-cloud/application/services/whatsapp-cloud.service';
+
+/**
+ * Genera un token de cancelación opaco (32 bytes → 64 hex chars).
+ * Suficiente entropía para usarse como secreto en un magic link público.
+ */
+export function generateCancellationToken(): string {
+  return randomBytes(32).toString('hex');
+}
+
+/** Estados desde los que una cita activa puede cancelarse (libera el slot). */
+const CANCELLABLE_STATUSES: AppointmentStatus[] = ['TENTATIVE', 'PENDING_PAYMENT', 'CONFIRMED'];
 
 /**
  * Transiciones permitidas en el ciclo de vida de una cita.
@@ -24,7 +38,11 @@ const ALLOWED_TRANSITIONS: Record<AppointmentStatus, AppointmentStatus[]> = {
 
 @Injectable()
 export class AppointmentsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly waCloud: WhatsappCloudService,
+    private readonly logger: Logger,
+  ) {}
 
   async create(tenantId: string, dto: CreateAppointmentDto) {
     // Validar relaciones (pertenecen al tenant + doctor ofrece el servicio)
@@ -58,7 +76,7 @@ export class AppointmentsService {
     const status = paymentMethod === 'STATIC_QR' ? 'PENDING_PAYMENT' : 'CONFIRMED';
 
     try {
-      return await this.prisma.client.appointment.create({
+      const appointment = await this.prisma.client.appointment.create({
         data: {
           tenantId,
           patientId: dto.patientId,
@@ -68,8 +86,34 @@ export class AppointmentsService {
           endTime: end,
           paymentMethod,
           status,
+          cancellationToken: generateCancellationToken(),
+        },
+        include: {
+          patient: { select: { phone: true } },
+          doctor: { select: { name: true } },
         },
       });
+
+      // Confirmación por WhatsApp (best-effort, no bloqueante): solo para citas
+      // ya CONFIRMED (CASH). Las STATIC_QR quedan PENDING_PAYMENT y se confirman
+      // luego, no aquí. Un fallo de WhatsApp nunca rompe la creación de la cita.
+      if (appointment.status === 'CONFIRMED' && appointment.cancellationToken) {
+        void this.waCloud
+          .sendAppointmentConfirmation(
+            appointment.patient.phone,
+            appointment.doctor.name,
+            appointment.startTime,
+            appointment.cancellationToken,
+          )
+          .catch((err) =>
+            this.logger.error(
+              { event: 'appointment.confirm-wa.failed', err: (err as Error).message },
+              'AppointmentsService',
+            ),
+          );
+      }
+
+      return appointment;
     } catch (e: unknown) {
       // El exclusion constraint en Postgres devuelve 23P01 (SQLSTATE).
       // Prisma lo expone como P2010 con meta.code = "23P01".
@@ -146,6 +190,100 @@ export class AppointmentsService {
         ...(nextStatus === 'CONFIRMED' && { isPaid: true }),
       },
     });
+  }
+
+  /**
+   * Cancela una cita a partir de su token de magic link (flujo público, sin auth).
+   * El token es el secreto: identifica unívocamente la cita en cualquier tenant.
+   *
+   * - Idempotente: si la cita ya está CANCELLED, devuelve OK sin error (el paciente
+   *   puede abrir el link dos veces).
+   * - Estados terminales (COMPLETED / NO_SHOW) no se pueden cancelar.
+   * - Al pasar a CANCELLED el slot se libera solo (el exclusion constraint solo
+   *   bloquea TENTATIVE/PENDING_PAYMENT/CONFIRMED).
+   */
+  async cancelByToken(token: string) {
+    const appointment = await this.prisma.client.appointment.findUnique({
+      where: { cancellationToken: token },
+      select: {
+        id: true,
+        status: true,
+        startTime: true,
+        tenant: { select: { name: true } },
+        doctor: { select: { name: true } },
+        service: { select: { name: true } },
+      },
+    });
+    if (!appointment) throw new NotFoundException('Enlace de cancelación inválido o expirado');
+
+    const summary = {
+      startTime: appointment.startTime,
+      tenantName: appointment.tenant.name,
+      doctorName: appointment.doctor.name,
+      serviceName: appointment.service.name,
+    };
+
+    if (appointment.status === 'CANCELLED') {
+      return { ...summary, status: 'CANCELLED' as const, alreadyCancelled: true };
+    }
+    if (!CANCELLABLE_STATUSES.includes(appointment.status)) {
+      throw new BadRequestException(
+        'Esta cita ya no se puede cancelar (ya fue atendida o cerrada). Contacta a la clínica.',
+      );
+    }
+
+    await this.prisma.client.appointment.update({
+      where: { id: appointment.id },
+      // expiresAt:null por si era TENTATIVE; el slot queda libre por el constraint.
+      data: { status: 'CANCELLED', expiresAt: null },
+    });
+
+    return { ...summary, status: 'CANCELLED' as const, alreadyCancelled: false };
+  }
+
+  /**
+   * Reprograma una cita (cambia start/end) — drag&drop / resize del calendario.
+   * Solo para citas activas (no terminales). El solape con otra cita del mismo
+   * doctor lo bloquea el exclusion constraint de Postgres → 409.
+   */
+  async reschedule(
+    tenantId: string,
+    id: string,
+    dto: { startTime: string; endTime: string },
+    requester?: { userId: string; role: string },
+  ) {
+    const start = new Date(dto.startTime);
+    const end = new Date(dto.endTime);
+    if (start < new Date()) {
+      throw new BadRequestException('No se puede reprogramar una cita al pasado');
+    }
+
+    const current = await this.prisma.client.appointment.findFirst({
+      where: { id, tenantId },
+      select: { id: true, status: true, doctorId: true },
+    });
+    if (!current) throw new NotFoundException('Cita no encontrada');
+
+    // Un DOCTOR solo reprograma sus propias citas (defensa en profundidad).
+    if (requester?.role === 'DOCTOR' && current.doctorId !== requester.userId) {
+      throw new BadRequestException('No puedes reprogramar citas de otro doctor');
+    }
+
+    if (!CANCELLABLE_STATUSES.includes(current.status)) {
+      throw new BadRequestException(`No se puede reprogramar una cita en estado ${current.status}`);
+    }
+
+    try {
+      return await this.prisma.client.appointment.update({
+        where: { id },
+        data: { startTime: start, endTime: end },
+      });
+    } catch (e: unknown) {
+      if (this.isExclusionViolation(e)) {
+        throw new ConflictException('El doctor ya tiene una cita en ese horario. Elige otro.');
+      }
+      throw e;
+    }
   }
 
   private isExclusionViolation(e: unknown): boolean {

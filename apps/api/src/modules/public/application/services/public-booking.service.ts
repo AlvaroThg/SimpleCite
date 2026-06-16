@@ -11,6 +11,7 @@ import type { CreatePublicAppointmentDto, PaymentMethod } from '@simplecite/shar
 import { PrismaService } from '../../../../common/database/prisma.service';
 import { PatientsService } from '../../../patients/application/services/patients.service';
 import { WaMessageService } from '../../../whatsapp/application/services/wa-message.service';
+import { generateCancellationToken } from '../../../appointments/application/services/appointments.service';
 
 /**
  * Reserva pública de citas vía OTP.
@@ -98,6 +99,7 @@ export class PublicBookingService {
           endTime,
           status: 'TENTATIVE',
           expiresAt,
+          cancellationToken: generateCancellationToken(),
         },
         select: { id: true, expiresAt: true },
       });

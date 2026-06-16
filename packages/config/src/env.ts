@@ -80,6 +80,23 @@ export const envSchema = z.object({
   WHATSAPP_ORCHESTRATOR_URL: z.string().url().optional(),
   WHATSAPP_ORCHESTRATOR_TOKEN: z.string().optional(),
 
+  // ─── WhatsApp Cloud API (Meta — bot centralizado oficial) ───
+  // Modelo "bot centralizado": un único número oficial de la plataforma.
+  // Base de la Graph API (versionada). Cambiar la versión aquí, no en el código.
+  META_WA_BASE_URL: z.string().url().default('https://graph.facebook.com/v19.0'),
+  // Phone Number ID del número de WhatsApp Business (NO el número en sí).
+  META_WA_PHONE_NUMBER_ID: z.string().optional(),
+  // Token de acceso permanente (System User) para llamar a la Graph API.
+  META_WA_ACCESS_TOKEN: z.string().optional(),
+  // Token propio que Meta repite en la verificación GET del webhook.
+  META_WA_VERIFY_TOKEN: z.string().optional(),
+  // App Secret de la app de Meta — verifica la firma X-Hub-Signature-256 de
+  // los webhooks entrantes. Si está vacío, la firma NO se verifica (solo dev).
+  META_WA_APP_SECRET: z.string().optional(),
+  // URL pública del frontend (web) para construir enlaces dirigidos al paciente,
+  // p.ej. el magic link de cancelación. Sin slash final.
+  WEB_PUBLIC_URL: z.string().url().default('http://localhost:3000'),
+
   // ─── Cloudflare (tunneling / DNS de subdominios) ───
   CLOUDFLARE_API_TOKEN: z.string().optional(),
   CLOUDFLARE_ZONE_ID: z.string().optional(),

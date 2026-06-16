@@ -20,10 +20,12 @@ import { AppointmentsModule } from './modules/appointments/appointments.module';
 import { SlotsModule } from './modules/slots/slots.module';
 import { PublicModule } from './modules/public/public.module';
 import { WhatsappModule } from './modules/whatsapp/whatsapp.module';
+import { WhatsappCloudModule } from './modules/whatsapp-cloud/whatsapp-cloud.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { PatientsModule } from './modules/patients/patients.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { BillingModule } from './modules/billing/billing.module';
+import { MedicalRecordsModule } from './modules/medical-records/medical-records.module';
 
 @Module({
   imports: [
@@ -97,9 +99,11 @@ import { BillingModule } from './modules/billing/billing.module';
     PatientsModule,
     PublicModule,
     WhatsappModule,
+    WhatsappCloudModule,
     PaymentsModule,
     ReportsModule,
     BillingModule,
+    MedicalRecordsModule,
   ],
   providers: [
     // ── Orden de ejecución de guards globales ──

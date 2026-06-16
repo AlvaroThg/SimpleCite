@@ -49,13 +49,13 @@ enum TenantStatus {
 }
 
 enum WaInstanceStatus {
-  CREATING     /// Registro creado en DB, contenedor no existe aún
-  STARTING     /// Contenedor creado y arrancado, Baileys inicializando
-  PAIRING      /// Esperando que el usuario escanee el QR
-  CONNECTED    /// Sesión WhatsApp activa
+  CREATING /// Registro creado en DB, contenedor no existe aún
+  STARTING /// Contenedor creado y arrancado, Baileys inicializando
+  PAIRING /// Esperando que el usuario escanee el QR
+  CONNECTED /// Sesión WhatsApp activa
   DISCONNECTED /// Desconectado (reconectando automáticamente)
-  ERROR        /// Error no recuperable (container crashed, imagen faltante, etc.)
-  STOPPED      /// Detenido manualmente por admin
+  ERROR /// Error no recuperable (container crashed, imagen faltante, etc.)
+  STOPPED /// Detenido manualmente por admin
 }
 
 enum WaMessageStatus {
@@ -66,8 +66,8 @@ enum WaMessageStatus {
 
 enum PaymentStatus {
   PENDING /// Intent creado, esperando confirmación de pago
-  PAID    /// Pago confirmado vía webhook
-  FAILED  /// Pago rechazado/fallido
+  PAID /// Pago confirmado vía webhook
+  FAILED /// Pago rechazado/fallido
   EXPIRED /// Intent expiró sin pagarse (lo marca el cron de conciliación)
 }
 
@@ -76,8 +76,8 @@ enum NoteVisibility {
 }
 
 enum PaymentMethod {
-  CASH       /// Efectivo en la clínica
-  STATIC_QR  /// QR bancario estático — paciente envía comprobante por WhatsApp
+  CASH /// Efectivo en la clínica
+  STATIC_QR /// QR bancario estático — paciente envía comprobante por WhatsApp
 }
 
 // ─────────────────────────────────────
@@ -96,17 +96,17 @@ model Tenant {
   timezone     String           @default("America/La_Paz") /// Timezone Bolivia
 
   // Pagos: QR estático bancario de la clínica
-  staticQrUrl     String? /// URL de la imagen del QR bancario estático
+  staticQrUrl String? /// URL de la imagen del QR bancario estático
 
   // ─── Personalización de la landing pública (editable por el admin) ───
-  secondaryColor  String? /// Color secundario de la paleta (hex). Acentos/gradientes.
-  heroImageUrl    String? /// Imagen de portada (hero) de la landing del tenant
-  heroTitle       String? /// Título del hero (si null, se usa uno por defecto)
-  heroSubtitle    String? /// Subtítulo del hero
-  servicesTitle   String? /// Título de la sección de servicios
+  secondaryColor   String? /// Color secundario de la paleta (hex). Acentos/gradientes.
+  heroImageUrl     String? /// Imagen de portada (hero) de la landing del tenant
+  heroTitle        String? /// Título del hero (si null, se usa uno por defecto)
+  heroSubtitle     String? /// Subtítulo del hero
+  servicesTitle    String? /// Título de la sección de servicios
   specialistsTitle String? /// Título de la sección de especialistas
-  ctaTitle        String? /// Título del bloque CTA final
-  ctaSubtitle     String? /// Subtítulo del bloque CTA final
+  ctaTitle         String? /// Título del bloque CTA final
+  ctaSubtitle      String? /// Subtítulo del bloque CTA final
 
   // ─── Suscripción / Billing (PayPal Sandbox) ───
   paypalSubscriptionId String?   @unique /// ID de la suscripción en PayPal
@@ -124,11 +124,13 @@ model Tenant {
   whatsappNumber  String? /// El número vinculado al bot
 
   // Relaciones
-  users                User[]
-  patients             Patient[]
-  services             Service[]
-  appointments         Appointment[]
-  whatsappInstances    WhatsappInstance[]
+  users             User[]
+  patients          Patient[]
+  services          Service[]
+  appointments      Appointment[]
+  whatsappInstances WhatsappInstance[]
+  medicalRecords    MedicalRecord[]
+  prescriptions     Prescription[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -152,8 +154,10 @@ model User {
   tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   // Relaciones Médicas
-  appointments Appointment[] /// Citas asignadas a este doctor
-  medicalNotes MedicalNote[] /// Notas creadas por este doctor
+  appointments   Appointment[] /// Citas asignadas a este doctor
+  medicalNotes   MedicalNote[] /// Notas creadas por este doctor
+  medicalRecords MedicalRecord[] /// Historias clínicas redactadas por este doctor
+  prescriptions  Prescription[] /// Recetas emitidas por este doctor
 
   // Profiles 1:1 — solo uno aplica según role
   doctorProfile DoctorProfile?
@@ -176,7 +180,7 @@ model User {
 /// Perfil extendido para usuarios con role DOCTOR.
 model DoctorProfile {
   id            String  @id @default(uuid())
-  specialty     String  /// Ej: "Medicina General", "Cardiología"
+  specialty     String /// Ej: "Medicina General", "Cardiología"
   licenseNumber String? /// Matrícula profesional
   bio           String? @db.Text
 
@@ -194,7 +198,7 @@ model DoctorProfile {
 /// Perfil extendido para usuarios con role STAFF (recepción, administración).
 model StaffProfile {
   id       String  @id @default(uuid())
-  position String  /// Ej: "Recepcionista", "Administrador de caja"
+  position String /// Ej: "Recepcionista", "Administrador de caja"
   notes    String?
 
   userId   String @unique
@@ -213,15 +217,17 @@ model StaffProfile {
 model Patient {
   id    String  @id @default(uuid())
   name  String
-  phone String  /// E.164 sin '+' (ej: 59170000000) — normalizado al persistir
+  phone String /// E.164 sin '+' (ej: 59170000000) — normalizado al persistir
   ci    String? /// Cédula de Identidad para validación médica/pagos
 
   // Un paciente "pertenece" a una clínica por privacidad
   tenantId String
   tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
-  appointments Appointment[]
-  medicalNotes MedicalNote[]
+  appointments   Appointment[]
+  medicalNotes   MedicalNote[]
+  medicalRecords MedicalRecord[]
+  prescriptions  Prescription[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -241,7 +247,7 @@ model Service {
   name        String
   description String?
   price       Decimal @db.Decimal(10, 2) /// Precio en Bolivianos (Bs)
-  duration    Int     /// Duración en minutos
+  duration    Int /// Duración en minutos
   isActive    Boolean @default(true)
   /// Clave de ícono para la landing (mirror de ServiceIcon en @simplecite/shared).
   icon        String?
@@ -249,8 +255,8 @@ model Service {
   tenantId String
   tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
-  appointments    Appointment[]
-  doctorServices  DoctorService[] /// Doctores que ofrecen este servicio
+  appointments   Appointment[]
+  doctorServices DoctorService[] /// Doctores que ofrecen este servicio
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -276,7 +282,7 @@ model Appointment {
   patient   Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
 
   doctorId String
-  doctor   User @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  doctor   User   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
 
   serviceId String
   service   Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
@@ -285,12 +291,19 @@ model Appointment {
   /// URL del comprobante de pago enviado por el paciente vía WhatsApp.
   receiptUrl    String?
 
+  /// Token criptográfico para cancelación por magic link enviado por WhatsApp.
+  /// Se genera al crear la cita (crypto.randomBytes). Único; null en citas
+  /// legacy o cuando no aplica cancelación self-service.
+  cancellationToken String? @unique
+
   // Campos legacy de QR Simple dinámico (sin uso en MVP estático, preservados para migración futura)
   qrPayload String?
   isPaid    Boolean @default(false)
 
   paymentIntents PaymentIntent[]
   medicalNotes   MedicalNote[]
+  /// Historia clínica estructurada de esta cita (1-1, creada en la consulta).
+  medicalRecord  MedicalRecord?
 
   /// TTL para citas TENTATIVE (flujo público de reserva).
   /// Si NOW() > expiresAt y status=TENTATIVE, un job/cleanup la marca CANCELLED.
@@ -321,7 +334,7 @@ model MedicalNote {
 
   /// Autor de la nota (doctor o admin que la escribió).
   doctorId String
-  doctor   User @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  doctor   User   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
 
   /// Cita asociada (opcional — una nota puede no estar atada a una cita puntual).
   appointmentId String?
@@ -342,6 +355,77 @@ model MedicalNote {
   @@map("medical_notes")
 }
 
+/// Historia clínica estructurada de una consulta. Relación 1-1 con Appointment:
+/// se crea/edita al atender al paciente (módulo "Consulta en Curso").
+/// Dato sensible — mismo modelo de acceso que MedicalNote (tenant + rol).
+model MedicalRecord {
+  id String @id @default(uuid())
+
+  /// Cita atendida — 1-1. Una cita tiene como máximo una historia clínica.
+  appointmentId String      @unique
+  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+
+  patientId String
+  patient   Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  /// Doctor que redactó la historia.
+  doctorId String
+  doctor   User   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  /// Aislamiento por tenant (filtro app-layer / scope RLS).
+  tenantId String
+
+  symptoms     String? @db.Text /// Motivo de consulta / síntomas referidos
+  diagnosis    String? @db.Text /// Diagnóstico
+  treatment    String? @db.Text /// Plan de tratamiento / indicaciones
+  privateNotes String? @db.Text /// Notas privadas del doctor (no se imprimen al paciente)
+
+  /// Receta(s) generadas en esta consulta.
+  prescriptions Prescription[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([tenantId, patientId])
+  @@index([tenantId, doctorId])
+  @@map("medical_records")
+}
+
+/// Receta digital emitida en una consulta. Vinculada a la historia clínica
+/// (que a su vez referencia la cita). El campo `medications` es JSON: una lista
+/// de items { name, dose, frequency, duration }. Genera un PDF descargable.
+model Prescription {
+  id String @id @default(uuid())
+
+  medicalRecordId String
+  medicalRecord   MedicalRecord @relation(fields: [medicalRecordId], references: [id], onDelete: Cascade)
+
+  patientId String
+  patient   Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  /// Doctor que emite la receta.
+  doctorId String
+  doctor   User   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  tenantId String
+
+  /// Lista de medicamentos: [{ name, dose, frequency, duration }, ...]
+  medications  Json
+  /// Indicaciones generales (texto libre) para el paciente.
+  instructions String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([tenantId, patientId])
+  @@index([medicalRecordId])
+  @@map("prescriptions")
+}
+
 /// Catálogo de servicios que ofrece un doctor específico.
 /// Permite override de duración/precio default del Service catálogo.
 model DoctorService {
@@ -358,7 +442,7 @@ model DoctorService {
   /// Si está presente, sobreescribe Service.duration (minutos)
   customDuration Int?
   /// Si está presente, sobreescribe Service.price (Bs)
-  customPrice Decimal? @db.Decimal(10, 2)
+  customPrice    Decimal? @db.Decimal(10, 2)
 
   isActive Boolean @default(true)
 
@@ -423,10 +507,10 @@ model DoctorScheduleBlock {
 /// El código se almacena hasheado con bcrypt; nunca en texto plano.
 /// Cada (tenant, phone) puede tener varios; se usa el más reciente no consumido.
 model PatientOtp {
-  id        String  @id @default(uuid())
-  tenantId  String /// Scope RLS — derivado del slug del tenant en la URL pública
-  phone     String /// Formato E.164 sin '+', ej: 59170000000
-  codeHash  String /// bcrypt(otp_de_6_dígitos)
+  id       String @id @default(uuid())
+  tenantId String /// Scope RLS — derivado del slug del tenant en la URL pública
+  phone    String /// Formato E.164 sin '+', ej: 59170000000
+  codeHash String /// bcrypt(otp_de_6_dígitos)
 
   expiresAt  DateTime /// now + 10 min al crearse
   attempts   Int       @default(0) /// Verificaciones fallidas — se invalida al pasar 5
@@ -447,23 +531,23 @@ model PatientOtp {
 /// El orquestador (NestJS InstanceManagerService) crea/destruye contenedores
 /// usando el Docker socket y mantiene esta tabla como source of truth.
 model WhatsappInstance {
-  id            String           @id @default(uuid())
-  tenantId      String
-  tenant        Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  id       String @id @default(uuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   /// Nombre del contenedor Docker: `wa-{tenant.slug}`
-  containerName String           @unique
+  containerName String  @unique
   /// ID del contenedor (sha256 corto). Null si está en estado CREATING/ERROR.
   containerId   String?
   /// Puerto interno del contenedor en la red Docker (siempre 4000).
   /// Guardado para referencia; el acceso es por nombre de contenedor en red interna.
-  internalPort  Int              @default(4000)
+  internalPort  Int     @default(4000)
 
-  status        WaInstanceStatus @default(CREATING)
+  status       WaInstanceStatus @default(CREATING)
   /// Número de teléfono vinculado (E.164 sin '+') tras QR exitoso.
-  phone         String?
-  lastSeen      DateTime?
-  restartCount  Int              @default(0)
+  phone        String?
+  lastSeen     DateTime?
+  restartCount Int              @default(0)
 
   messages      WhatsappMessage[]
   conversations WaConversation[]
@@ -479,21 +563,21 @@ model WhatsappInstance {
 /// Mensaje enviado por WhatsApp (OTP u otros). Idempotencia por messageKey.
 /// El orquestador reintenta hasta MAX_ATTEMPTS veces; el estado final es SENT o FAILED.
 model WhatsappMessage {
-  id         String          @id @default(uuid())
+  id         String           @id @default(uuid())
   tenantId   String
   instanceId String
   instance   WhatsappInstance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
 
   /// Clave de idempotencia: el caller la genera y el servicio la respeta.
   /// Si ya existe un registro con esta key, NO se reenvía.
-  messageKey String          @unique
+  messageKey String @unique
   phone      String
   text       String
 
-  status     WaMessageStatus @default(PENDING)
-  attempts   Int             @default(0)
-  error      String?
-  sentAt     DateTime?
+  status   WaMessageStatus @default(PENDING)
+  attempts Int             @default(0)
+  error    String?
+  sentAt   DateTime?
 
   createdAt DateTime @default(now())
 
@@ -518,15 +602,15 @@ enum WaConversationState {
 /// Estado conversacional de un paciente interactuando con el bot por WhatsApp.
 /// Una conversación por (tenant, phone). Expira tras 30 min de inactividad.
 model WaConversation {
-  id         String              @id @default(uuid())
+  id         String           @id @default(uuid())
   tenantId   String
   instanceId String
-  instance   WhatsappInstance    @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+  instance   WhatsappInstance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
 
-  phone     String
-  state     WaConversationState @default(IDLE)
+  phone   String
+  state   WaConversationState @default(IDLE)
   /// Contexto JSON: doctor seleccionado, servicio, fecha, slot, etc.
-  context   Json                @default("{}")
+  context Json                @default("{}")
 
   lastMessageAt DateTime @default(now())
   /// La conversación expira si no hay actividad en 30 min.
@@ -546,7 +630,7 @@ model WaConversation {
 /// preserva el historial (los anteriores quedan EXPIRED/FAILED). Solo uno
 /// debería estar PENDING a la vez por cita.
 model PaymentIntent {
-  id            String   @id @default(uuid())
+  id            String      @id @default(uuid())
   tenantId      String
   appointmentId String
   appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
@@ -561,7 +645,7 @@ model PaymentIntent {
   /// ID del cobro en el proveedor (QR Simple). Único para conciliación.
   providerPaymentId String? @unique
   /// Payload del QR (texto EMV o URL) para renderizar la imagen en el cliente.
-  qrPayload String? @db.Text
+  qrPayload         String? @db.Text
 
   expiresAt DateTime
   paidAt    DateTime?
@@ -581,7 +665,7 @@ model PaymentIntent {
 /// Evento de webhook del proveedor de pagos. Guarda el payload crudo para
 /// auditoría y deduplica por `eventId` (idempotencia de webhooks).
 model PaymentEvent {
-  id              String  @id @default(uuid())
+  id              String         @id @default(uuid())
   /// Puede ser null si el webhook llega antes de poder asociar el intent.
   tenantId        String?
   paymentIntentId String?
@@ -590,7 +674,7 @@ model PaymentEvent {
   /// ID del evento en el proveedor — clave de deduplicación.
   eventId    String @unique
   eventType  String /// ej: "payment.succeeded", "payment.failed"
-  rawPayload Json   /// Payload completo recibido, para auditoría
+  rawPayload Json /// Payload completo recibido, para auditoría
 
   processedAt DateTime? /// null = recibido pero aún no procesado
 

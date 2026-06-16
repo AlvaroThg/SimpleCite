@@ -1,6 +1,10 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { AppointmentsService } from './appointments.service';
 
+// Stubs de dependencias no usadas por transitionStatus.
+const waCloud = { sendAppointmentConfirmation: jest.fn() } as never;
+const logger = { error: jest.fn(), warn: jest.fn(), log: jest.fn() } as never;
+
 function makePrisma(current: { id: string; status: string } | null) {
   const update = jest.fn().mockImplementation(({ data }) => Promise.resolve({ id: 'a1', ...data }));
   const client = {
@@ -15,7 +19,7 @@ function makePrisma(current: { id: string; status: string } | null) {
 describe('AppointmentsService.transitionStatus (máquina de estados)', () => {
   it('permite PENDING_PAYMENT → CONFIRMED y marca isPaid', async () => {
     const { prisma, update } = makePrisma({ id: 'a1', status: 'PENDING_PAYMENT' });
-    const svc = new AppointmentsService(prisma);
+    const svc = new AppointmentsService(prisma, waCloud, logger);
     await svc.transitionStatus('t1', 'a1', 'CONFIRMED' as never);
     expect(update).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -26,14 +30,14 @@ describe('AppointmentsService.transitionStatus (máquina de estados)', () => {
 
   it('permite TENTATIVE → PENDING_PAYMENT', async () => {
     const { prisma, update } = makePrisma({ id: 'a1', status: 'TENTATIVE' });
-    const svc = new AppointmentsService(prisma);
+    const svc = new AppointmentsService(prisma, waCloud, logger);
     await svc.transitionStatus('t1', 'a1', 'PENDING_PAYMENT' as never);
     expect(update).toHaveBeenCalled();
   });
 
   it('rechaza transición inválida PENDING_PAYMENT → COMPLETED', async () => {
     const { prisma } = makePrisma({ id: 'a1', status: 'PENDING_PAYMENT' });
-    const svc = new AppointmentsService(prisma);
+    const svc = new AppointmentsService(prisma, waCloud, logger);
     await expect(svc.transitionStatus('t1', 'a1', 'COMPLETED' as never)).rejects.toBeInstanceOf(
       BadRequestException,
     );
@@ -41,7 +45,7 @@ describe('AppointmentsService.transitionStatus (máquina de estados)', () => {
 
   it('rechaza transición desde estado terminal (CANCELLED)', async () => {
     const { prisma } = makePrisma({ id: 'a1', status: 'CANCELLED' });
-    const svc = new AppointmentsService(prisma);
+    const svc = new AppointmentsService(prisma, waCloud, logger);
     await expect(svc.transitionStatus('t1', 'a1', 'CONFIRMED' as never)).rejects.toBeInstanceOf(
       BadRequestException,
     );
@@ -49,7 +53,7 @@ describe('AppointmentsService.transitionStatus (máquina de estados)', () => {
 
   it('lanza NotFound si la cita no existe (aislamiento por tenant)', async () => {
     const { prisma } = makePrisma(null);
-    const svc = new AppointmentsService(prisma);
+    const svc = new AppointmentsService(prisma, waCloud, logger);
     await expect(
       svc.transitionStatus('t1', 'missing', 'CONFIRMED' as never),
     ).rejects.toBeInstanceOf(NotFoundException);

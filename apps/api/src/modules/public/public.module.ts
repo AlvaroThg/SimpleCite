@@ -6,6 +6,7 @@ import { SlotsModule } from '../slots/slots.module';
 import { WhatsappModule } from '../whatsapp/whatsapp.module';
 import { PatientsModule } from '../patients/patients.module';
 import { BillingModule } from '../billing/billing.module';
+import { AppointmentsModule } from '../appointments/appointments.module';
 
 import { PublicTenantService } from './application/services/public-tenant.service';
 import { PublicOtpService } from './application/services/public-otp.service';
@@ -14,6 +15,7 @@ import { PublicBookingService } from './application/services/public-booking.serv
 import { PublicTenantController } from './infrastructure/adapters/public-tenant.controller';
 import { PublicOtpController } from './infrastructure/adapters/public-otp.controller';
 import { PublicBookingController } from './infrastructure/adapters/public-booking.controller';
+import { PublicCancellationController } from './infrastructure/adapters/public-cancellation.controller';
 
 import { PatientJwtStrategy } from './infrastructure/strategies/patient-jwt.strategy';
 
@@ -35,6 +37,7 @@ import { WhatsAppService } from '../../common/services/whatsapp.service';
     WhatsappModule,
     PatientsModule,
     BillingModule,
+    AppointmentsModule,
     PassportModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -48,7 +51,12 @@ import { WhatsAppService } from '../../common/services/whatsapp.service';
       }),
     }),
   ],
-  controllers: [PublicTenantController, PublicOtpController, PublicBookingController],
+  controllers: [
+    PublicTenantController,
+    PublicOtpController,
+    PublicBookingController,
+    PublicCancellationController,
+  ],
   providers: [
     PublicTenantService,
     PublicOtpService,

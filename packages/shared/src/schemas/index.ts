@@ -221,6 +221,27 @@ export const UpdateAppointmentStatusSchema = z.object({
 });
 export type UpdateAppointmentStatusDto = z.infer<typeof UpdateAppointmentStatusSchema>;
 
+/** Reprogramación de una cita (drag&drop / resize en el calendario del panel). */
+export const RescheduleAppointmentSchema = z
+  .object({
+    startTime: z.string().datetime(),
+    endTime: z.string().datetime(),
+  })
+  .refine((d) => new Date(d.endTime) > new Date(d.startTime), {
+    message: 'endTime debe ser posterior a startTime',
+    path: ['endTime'],
+  });
+export type RescheduleAppointmentDto = z.infer<typeof RescheduleAppointmentSchema>;
+
+/**
+ * Token de cancelación (magic link). 32 bytes aleatorios en hex = 64 chars.
+ * Se valida tanto al construir el link como al recibir la petición pública.
+ */
+export const CancellationTokenSchema = z
+  .string()
+  .regex(/^[a-f0-9]{64}$/, 'Token de cancelación inválido');
+export type CancellationToken = z.infer<typeof CancellationTokenSchema>;
+
 // ─── Slots Engine Schemas ───
 
 export const SlotsQuerySchema = z.object({
@@ -271,6 +292,43 @@ export const PatientListQuerySchema = z.object({
   limit: z.coerce.number().int().positive().max(100).optional(),
 });
 export type PatientListQueryDto = z.infer<typeof PatientListQuerySchema>;
+
+// ─── Medical Record (historia clínica estructurada por consulta) ───
+
+/**
+ * Upsert de la historia clínica de una cita. El appointmentId va en el path.
+ * Todos los campos son opcionales: la consulta se llena progresivamente.
+ */
+export const UpsertMedicalRecordSchema = z
+  .object({
+    symptoms: z.string().max(5000).nullable().optional(),
+    diagnosis: z.string().max(5000).nullable().optional(),
+    treatment: z.string().max(5000).nullable().optional(),
+    privateNotes: z.string().max(5000).nullable().optional(),
+  })
+  .refine((v) => Object.keys(v).length > 0, { message: 'Nada que guardar' });
+export type UpsertMedicalRecordDto = z.infer<typeof UpsertMedicalRecordSchema>;
+
+// ─── Prescription (receta digital) ───
+
+/** Un item de medicación dentro de la receta. */
+export const MedicationItemSchema = z.object({
+  name: z.string().min(1, 'Nombre del medicamento requerido').max(200),
+  dose: z.string().min(1, 'Dosis requerida').max(100), // ej: "500 mg"
+  frequency: z.string().min(1, 'Frecuencia requerida').max(100), // ej: "cada 8 horas"
+  duration: z.string().min(1, 'Duración requerida').max(100), // ej: "7 días"
+});
+export type MedicationItem = z.infer<typeof MedicationItemSchema>;
+
+/** Crear una receta. El medicalRecordId va en el path. */
+export const CreatePrescriptionSchema = z.object({
+  medications: z
+    .array(MedicationItemSchema)
+    .min(1, 'Agrega al menos un medicamento')
+    .max(30, 'Máximo 30 medicamentos'),
+  instructions: z.string().max(5000).optional(),
+});
+export type CreatePrescriptionDto = z.infer<typeof CreatePrescriptionSchema>;
 
 // ─── Public API: helpers compartidos ───
 

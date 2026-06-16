@@ -2,9 +2,11 @@ import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards } from '@ne
 import {
   CreateAppointmentSchema,
   UpdateAppointmentStatusSchema,
+  RescheduleAppointmentSchema,
   AppointmentStatus,
   type CreateAppointmentDto,
   type UpdateAppointmentStatusDto,
+  type RescheduleAppointmentDto,
 } from '@simplecite/shared';
 import { Roles } from '../../../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../../../common/decorators/current-user.decorator';
@@ -75,6 +77,21 @@ export class AppointmentsController {
     @Body(new ZodValidationPipe(UpdateAppointmentStatusSchema)) dto: UpdateAppointmentStatusDto,
   ) {
     const appointment = await this.appointmentsService.transitionStatus(tenantId, id, dto.status);
+    return { success: true, data: appointment };
+  }
+
+  @Roles('ADMIN', 'STAFF', 'DOCTOR')
+  @Patch(':id/reschedule')
+  async reschedule(
+    @CurrentUser('tenantId') tenantId: string,
+    @CurrentUser() user: { sub: string; role: string },
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(RescheduleAppointmentSchema)) dto: RescheduleAppointmentDto,
+  ) {
+    const appointment = await this.appointmentsService.reschedule(tenantId, id, dto, {
+      userId: user.sub,
+      role: user.role,
+    });
     return { success: true, data: appointment };
   }
 }
