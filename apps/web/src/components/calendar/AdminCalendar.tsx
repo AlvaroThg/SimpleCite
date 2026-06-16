@@ -27,6 +27,8 @@ interface AdminCalendarProps {
   onReschedule: (args: { id: string; start: Date; end: Date }) => void;
   /** Clic en una cita → abrir su detalle. */
   onSelectEvent?: (event: AdminEvent) => void;
+  /** Clic/arrastre sobre un hueco vacío → crear cita a esa hora (Google Calendar). */
+  onSelectSlot?: (slot: { start: Date; end: Date }) => void;
   defaultView?: View;
   minHour?: number;
   maxHour?: number;
@@ -47,6 +49,7 @@ export function AdminCalendar({
   events,
   onReschedule,
   onSelectEvent,
+  onSelectSlot,
   defaultView = Views.WEEK,
   minHour = 7,
   maxHour = 20,
@@ -70,7 +73,7 @@ export function AdminCalendar({
   };
 
   return (
-    <div className="sc-calendar h-[640px] rounded-2xl border border-gray-100 bg-white p-3">
+    <div className="sc-calendar sc-selectable h-[640px] rounded-2xl border border-gray-100 bg-white p-3">
       <DnDCalendar
         localizer={localizer}
         culture="es"
@@ -88,6 +91,10 @@ export function AdminCalendar({
         timeslots={2}
         popup
         resizable
+        selectable
+        onSelectSlot={(slot) =>
+          onSelectSlot?.({ start: toDate(slot.start), end: toDate(slot.end) })
+        }
         onEventDrop={handleChange}
         onEventResize={handleChange}
         onSelectEvent={(e) => onSelectEvent?.(e as AdminEvent)}

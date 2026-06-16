@@ -367,14 +367,14 @@ export default function BookingWizard() {
 
           {slotView === 'calendar' ? (
             <BookingCalendar
-              busy={state.slots
-                .filter((s) => !s.available)
-                .map((s) => ({ start: new Date(s.startTime), end: new Date(s.endTime) }))}
-              onPickSlot={({ start }) => {
-                // Snap: encuentra el turno disponible que contiene el clic.
+              slots={state.slots.map((s) => ({
+                start: new Date(s.startTime),
+                end: new Date(s.endTime),
+                available: s.available,
+              }))}
+              onPick={({ start }) => {
                 const slot = state.slots.find(
-                  (s) =>
-                    s.available && new Date(s.startTime) <= start && start < new Date(s.endTime),
+                  (s) => new Date(s.startTime).getTime() === start.getTime(),
                 );
                 if (slot) set({ selectedSlot: slot, step: 'patient-info' });
               }}

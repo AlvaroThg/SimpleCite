@@ -51,9 +51,24 @@
 
 /* Bloque "Ocupado" del calendario público (sin nombres) */
 .sc-calendar .rbc-event.sc-busy {
-  background-color: #cbd5e1; /* slate-300 */
-  color: #475569;
+  background-color: #e2e8f0; /* slate-200 */
+  color: #64748b; /* slate-500 */
   cursor: not-allowed;
+  font-weight: 500;
+}
+
+/* Turno DISPONIBLE del calendario público: verde, clicable */
+.sc-calendar .rbc-event.sc-slot-free {
+  background-color: #16a34a; /* green-600 */
+  color: #fff;
+  cursor: pointer;
+  font-weight: 600;
+  transition:
+    background-color 0.12s ease,
+    transform 0.12s ease;
+}
+.sc-calendar .rbc-event.sc-slot-free:hover {
+  background-color: #15803d; /* green-700 */
 }
 
 /* Estados de cita (AdminCalendar) */

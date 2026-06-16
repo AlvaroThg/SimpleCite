@@ -1,38 +1,38 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import { Calendar, Views, type View, type SlotInfo } from 'react-big-calendar';
+import { useEffect, useMemo, useState } from 'react';
+import { Calendar, Views, type View } from 'react-big-calendar';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import './calendar.css';
 import { localizer, messagesEs, formatsEs } from './localizer';
 
-/** Bloque ocupado tal como lo ve el paciente: sin datos del paciente real. */
-export interface BusyBlock {
+/** Turno tal como lo ve el paciente: con su estado de disponibilidad (sin datos de quién reservó). */
+export interface CalendarSlot {
   start: Date;
   end: Date;
+  available: boolean;
 }
 
 interface BookingCalendarProps {
-  /** Franjas ya ocupadas (anonimizadas). Vienen del backend público de slots. */
-  busy: BusyBlock[];
-  /** Se dispara al hacer clic en un hueco libre → abre el flujo de reserva. */
-  onPickSlot: (slot: { start: Date; end: Date }) => void;
-  /** Vista inicial. Por defecto, semana. */
+  /** Todos los turnos de la franja visible (disponibles y ocupados). */
+  slots: CalendarSlot[];
+  /** Se dispara al tocar un turno DISPONIBLE → continúa la reserva. */
+  onPick: (slot: { start: Date; end: Date }) => void;
   defaultView?: View;
-  /** Horas visibles del día (por defecto 7:00–20:00). */
   minHour?: number;
   maxHour?: number;
 }
 
-type CalEvent = BusyBlock & { title: string };
+type CalEvent = { start: Date; end: Date; title: string; available: boolean };
 
 /**
- * Calendario público de reservas. Los pacientes ven solo bloques "Ocupado"
- * (sin nombres) y pueden tocar un espacio vacío para iniciar una reserva.
+ * Calendario público de reservas (estilo Google Calendar). El paciente ve los
+ * turnos DISPONIBLES como bloques verdes clicables y los OCUPADOS en gris (sin
+ * nombres). Tocar un bloque verde inicia la reserva de ese horario.
  */
 export function BookingCalendar({
-  busy,
-  onPickSlot,
+  slots,
+  onPick,
   defaultView = Views.WEEK,
   minHour = 7,
   maxHour = 20,
@@ -40,7 +40,22 @@ export function BookingCalendar({
   const [view, setView] = useState<View>(defaultView);
   const [date, setDate] = useState<Date>(new Date());
 
-  const events = useMemo<CalEvent[]>(() => busy.map((b) => ({ ...b, title: 'Ocupado' })), [busy]);
+  const events = useMemo<CalEvent[]>(
+    () =>
+      slots.map((s) => ({
+        start: s.start,
+        end: s.end,
+        available: s.available,
+        title: s.available ? 'Disponible' : 'Ocupado',
+      })),
+    [slots],
+  );
+
+  // Aterrizar en el primer día con cupo (no en una semana vacía).
+  const firstAvailable = useMemo(() => slots.find((s) => s.available)?.start, [slots]);
+  useEffect(() => {
+    if (firstAvailable) setDate(firstAvailable);
+  }, [firstAvailable]);
 
   const min = useMemo(() => {
     const d = new Date();
@@ -53,38 +68,45 @@ export function BookingCalendar({
     return d;
   }, [maxHour]);
 
-  function handleSelectSlot(slot: SlotInfo) {
-    // Ignorar selecciones que se solapan con un bloque ocupado.
-    const overlaps = busy.some((b) => slot.start < b.end && slot.end > b.start);
-    if (overlaps) return;
-    onPickSlot({ start: slot.start, end: slot.end });
-  }
-
   return (
-    <div className="sc-calendar sc-selectable h-[600px] rounded-2xl border border-gray-100 bg-white p-3">
-      <Calendar<CalEvent>
-        localizer={localizer}
-        culture="es"
-        messages={messagesEs}
-        formats={formatsEs}
-        events={events}
-        view={view}
-        onView={setView}
-        date={date}
-        onNavigate={setDate}
-        views={[Views.MONTH, Views.WEEK, Views.DAY]}
-        selectable
-        onSelectSlot={handleSelectSlot}
-        // El paciente no puede interactuar con un bloque ocupado.
-        onSelectEvent={() => undefined}
-        min={min}
-        max={max}
-        step={30}
-        timeslots={2}
-        popup
-        eventPropGetter={() => ({ className: 'sc-busy' })}
-        dayLayoutAlgorithm="no-overlap"
-      />
+    <div>
+      {/* Leyenda */}
+      <div className="mb-2 flex items-center gap-4 text-xs text-gray-500">
+        <span className="inline-flex items-center gap-1.5">
+          <span className="size-3 rounded bg-green-600" /> Disponible (tocá para reservar)
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="size-3 rounded bg-slate-200" /> Ocupado
+        </span>
+      </div>
+
+      <div className="sc-calendar h-[560px] rounded-2xl border border-gray-100 bg-white p-3">
+        <Calendar<CalEvent>
+          localizer={localizer}
+          culture="es"
+          messages={messagesEs}
+          formats={formatsEs}
+          events={events}
+          view={view}
+          onView={setView}
+          date={date}
+          onNavigate={setDate}
+          views={[Views.WEEK, Views.DAY]}
+          // Solo los turnos disponibles son accionables.
+          onSelectEvent={(e) => {
+            if (e.available) onPick({ start: e.start, end: e.end });
+          }}
+          min={min}
+          max={max}
+          step={30}
+          timeslots={2}
+          popup
+          eventPropGetter={(e) => ({
+            className: e.available ? 'sc-slot-free' : 'sc-busy',
+          })}
+          dayLayoutAlgorithm="no-overlap"
+        />
+      </div>
     </div>
   );
 }

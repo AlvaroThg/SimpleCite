@@ -82,6 +82,8 @@ function AppointmentsList() {
   const [approvingId, setApprovingId] = useState<string | null>(null);
   const [receiptAppt, setReceiptAppt] = useState<AppointmentListItem | null>(null);
   const [showNewAppt, setShowNewAppt] = useState(false);
+  // Hora pre-seleccionada al hacer clic en un hueco del calendario (Nueva Cita).
+  const [newApptStart, setNewApptStart] = useState<Date | null>(null);
 
   const load = useCallback(async () => {
     if (!session) return;
@@ -120,15 +122,27 @@ function AppointmentsList() {
     if (view === 'calendar') void loadCalendar();
   }, [view, loadCalendar]);
 
-  const calendarEvents: AdminEvent[] = calendarItems.map((a) => ({
-    id: a.id,
-    title: a.patient.name,
-    start: new Date(a.startTime),
-    end: new Date(a.endTime),
-    status: a.status,
-    doctorName: a.doctor.name,
-    serviceName: a.service.name,
-  }));
+  // Las canceladas no se muestran: el horario queda libre como si no existieran.
+  const calendarEvents: AdminEvent[] = calendarItems
+    .filter((a) => a.status !== 'CANCELLED')
+    .map((a) => ({
+      id: a.id,
+      title: a.patient.name,
+      start: new Date(a.startTime),
+      end: new Date(a.endTime),
+      status: a.status,
+      doctorName: a.doctor.name,
+      serviceName: a.service.name,
+    }));
+
+  function openNewAppt(start?: Date) {
+    setNewApptStart(start ?? null);
+    setShowNewAppt(true);
+  }
+  function closeNewAppt() {
+    setShowNewAppt(false);
+    setNewApptStart(null);
+  }
 
   // Reprogramación con actualización optimista (revierte si el backend falla).
   const handleReschedule = async ({ id, start, end }: { id: string; start: Date; end: Date }) => {
@@ -191,16 +205,22 @@ function AppointmentsList() {
               </button>
             ))}
           </div>
-          <Button onClick={() => setShowNewAppt(true)}>+ Nueva Cita</Button>
+          <Button onClick={() => openNewAppt()}>+ Nueva Cita</Button>
         </div>
       </div>
 
       {view === 'calendar' ? (
-        <AdminCalendar
-          events={calendarEvents}
-          onSelectEvent={(e) => router.push(`/panel/appointments/${e.id}`)}
-          onReschedule={handleReschedule}
-        />
+        <>
+          <p className="text-xs text-gray-400">
+            Tocá un hueco libre para crear una cita, o arrastrá una cita para reprogramarla.
+          </p>
+          <AdminCalendar
+            events={calendarEvents}
+            onSelectEvent={(e) => router.push(`/panel/appointments/${e.id}`)}
+            onSelectSlot={(s) => openNewAppt(s.start)}
+            onReschedule={handleReschedule}
+          />
+        </>
       ) : (
         <>
           {/* Tabs */}
@@ -263,10 +283,12 @@ function AppointmentsList() {
         <NewAppointmentModal
           token={session.token}
           slug={session.slug}
-          onClose={() => setShowNewAppt(false)}
+          initialStart={newApptStart ?? undefined}
+          onClose={closeNewAppt}
           onCreated={() => {
-            setShowNewAppt(false);
+            closeNewAppt();
             void load();
+            void loadCalendar();
           }}
         />
       )}
@@ -457,14 +479,26 @@ function ReceiptModal({
 
 // ─── Nueva Cita modal ─────────────────────────────────────────────────
 
+function pad2(n: number): string {
+  return String(n).padStart(2, '0');
+}
+function toDateInput(d: Date): string {
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+}
+function toTimeInput(d: Date): string {
+  return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+}
+
 function NewAppointmentModal({
   token,
   slug,
+  initialStart,
   onClose,
   onCreated,
 }: {
   token: string;
   slug: string;
+  initialStart?: Date;
   onClose: () => void;
   onCreated: () => void;
 }) {
@@ -476,8 +510,8 @@ function NewAppointmentModal({
   const [patientId, setPatientId] = useState('');
   const [doctorId, setDoctorId] = useState('');
   const [serviceId, setServiceId] = useState('');
-  const [date, setDate] = useState('');
-  const [time, setTime] = useState('');
+  const [date, setDate] = useState(initialStart ? toDateInput(initialStart) : '');
+  const [time, setTime] = useState(initialStart ? toTimeInput(initialStart) : '');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('CASH');
   const [saving, setSaving] = useState(false);
   const dialogRef = useDialogA11y(onClose);
