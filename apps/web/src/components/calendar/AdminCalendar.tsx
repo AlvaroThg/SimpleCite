@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Calendar, Views, type View } from 'react-big-calendar';
 import withDragAndDrop, {
   type withDragAndDropProps,
@@ -57,6 +57,13 @@ export function AdminCalendar({
   const [view, setView] = useState<View>(defaultView);
   const [date, setDate] = useState<Date>(new Date());
 
+  // Responsive: en pantallas chicas, vista Día (como Google Calendar móvil).
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.matchMedia('(max-width: 640px)').matches) {
+      setView(Views.DAY);
+    }
+  }, []);
+
   const min = useMemo(() => {
     const d = new Date();
     d.setHours(minHour, 0, 0, 0);
@@ -67,13 +74,18 @@ export function AdminCalendar({
     d.setHours(maxHour, 0, 0, 0);
     return d;
   }, [maxHour]);
+  const scrollToTime = useMemo(() => {
+    const d = new Date();
+    d.setHours(minHour, 0, 0, 0);
+    return d;
+  }, [minHour]);
 
   const handleChange: withDragAndDropProps<AdminEvent>['onEventDrop'] = ({ event, start, end }) => {
     onReschedule({ id: event.id, start: toDate(start), end: toDate(end) });
   };
 
   return (
-    <div className="sc-calendar sc-selectable h-[640px] rounded-2xl border border-gray-100 bg-white p-3">
+    <div className="sc-calendar sc-selectable h-[640px] rounded-2xl border border-gray-100 bg-white p-2 sm:h-[720px] sm:p-3">
       <DnDCalendar
         localizer={localizer}
         culture="es"
@@ -88,7 +100,8 @@ export function AdminCalendar({
         min={min}
         max={max}
         step={30}
-        timeslots={2}
+        timeslots={1}
+        scrollToTime={scrollToTime}
         popup
         resizable
         selectable

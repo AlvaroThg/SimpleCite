@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Calendar, Views, type View } from 'react-big-calendar';
+import { format } from 'date-fns';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import './calendar.css';
 import { localizer, messagesEs, formatsEs } from './localizer';
@@ -25,10 +26,19 @@ interface BookingCalendarProps {
 
 type CalEvent = { start: Date; end: Date; title: string; available: boolean };
 
+/** Contenido compacto del bloque: la hora de inicio (legible, sin truncar). */
+function SlotEvent({ event }: { event: CalEvent }) {
+  return (
+    <div className="truncate text-[11px] font-semibold leading-tight">
+      {event.available ? format(event.start, 'HH:mm') : 'Ocupado'}
+    </div>
+  );
+}
+
 /**
  * Calendario público de reservas (estilo Google Calendar). El paciente ve los
  * turnos DISPONIBLES como bloques verdes clicables y los OCUPADOS en gris (sin
- * nombres). Tocar un bloque verde inicia la reserva de ese horario.
+ * nombres). En móvil arranca en vista Día; en escritorio, Semana.
  */
 export function BookingCalendar({
   slots,
@@ -39,6 +49,13 @@ export function BookingCalendar({
 }: BookingCalendarProps) {
   const [view, setView] = useState<View>(defaultView);
   const [date, setDate] = useState<Date>(new Date());
+
+  // Responsive: en pantallas chicas, vista Día (como Google Calendar móvil).
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.matchMedia('(max-width: 640px)').matches) {
+      setView(Views.DAY);
+    }
+  }, []);
 
   const events = useMemo<CalEvent[]>(
     () =>
@@ -67,6 +84,12 @@ export function BookingCalendar({
     d.setHours(maxHour, 0, 0, 0);
     return d;
   }, [maxHour]);
+  // Scroll inicial a la primera hora con cupo (o al inicio de la franja).
+  const scrollToTime = useMemo(() => {
+    const d = new Date();
+    d.setHours(firstAvailable ? firstAvailable.getHours() : minHour, 0, 0, 0);
+    return d;
+  }, [firstAvailable, minHour]);
 
   return (
     <div>
@@ -80,12 +103,13 @@ export function BookingCalendar({
         </span>
       </div>
 
-      <div className="sc-calendar h-[560px] rounded-2xl border border-gray-100 bg-white p-3">
+      <div className="sc-calendar h-[600px] rounded-2xl border border-gray-100 bg-white p-2 sm:h-[720px] sm:p-3">
         <Calendar<CalEvent>
           localizer={localizer}
           culture="es"
           messages={messagesEs}
           formats={formatsEs}
+          components={{ event: SlotEvent }}
           events={events}
           view={view}
           onView={setView}
@@ -99,7 +123,8 @@ export function BookingCalendar({
           min={min}
           max={max}
           step={30}
-          timeslots={2}
+          timeslots={1}
+          scrollToTime={scrollToTime}
           popup
           eventPropGetter={(e) => ({
             className: e.available ? 'sc-slot-free' : 'sc-busy',

@@ -115,4 +115,64 @@
 /* Indicador de hora actual */
 .sc-calendar .rbc-current-time-indicator {
   background-color: #0a70f8; /* brand-500 */
+  height: 2px;
+}
+
+/* ── Tamaño / legibilidad (look Google Calendar) ── */
+
+/* Filas más altas → bloques grandes y legibles */
+.sc-calendar .rbc-timeslot-group {
+  min-height: 56px;
+}
+/* Solo una línea divisoria por grupo (más limpio) */
+.sc-calendar .rbc-time-slot {
+  border-top: none;
+}
+/* Columna de horas: legible y alineada al borde superior */
+.sc-calendar .rbc-time-gutter .rbc-timeslot-group {
+  font-size: 0.78rem;
+  color: #6b7280;
+}
+.sc-calendar .rbc-time-gutter .rbc-label {
+  padding: 0 8px;
+}
+/* Cabecera de días: más aire, capitalizada */
+.sc-calendar .rbc-time-header-cell .rbc-header,
+.sc-calendar .rbc-month-header .rbc-header {
+  padding: 10px 0;
+  font-weight: 600;
+}
+/* Eventos: un poco más de cuerpo y esquinas suaves */
+.sc-calendar .rbc-event {
+  border-radius: 7px;
+  padding: 2px 6px;
+}
+/* La etiqueta de hora propia de RBC dentro del evento se oculta:
+   usamos un contenido propio (más limpio, sin truncar). */
+.sc-calendar .rbc-event-label {
+  display: none;
+}
+
+/* ── Responsive (móvil: vista Día) ── */
+@media (max-width: 640px) {
+  .sc-calendar .rbc-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.4rem;
+  }
+  .sc-calendar .rbc-toolbar .rbc-toolbar-label {
+    order: -1;
+    text-align: center;
+    font-size: 1rem;
+  }
+  .sc-calendar .rbc-btn-group {
+    display: flex;
+    justify-content: center;
+  }
+  .sc-calendar .rbc-timeslot-group {
+    min-height: 52px;
+  }
+  .sc-calendar .rbc-time-gutter .rbc-timeslot-group {
+    font-size: 0.7rem;
+  }
 }
