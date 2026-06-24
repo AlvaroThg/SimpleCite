@@ -13,6 +13,7 @@ import {
   CalendarClock,
   CreditCard,
   Settings,
+  Package,
   LogOut,
   type LucideIcon,
 } from 'lucide-react';
@@ -43,6 +44,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     label: 'Gestión',
     items: [
       { href: '/panel/services', label: 'Servicios', icon: ClipboardList, roles: ['ADMIN'] },
+      { href: '/panel/products', label: 'Productos', icon: Package, roles: ['ADMIN'] },
       { href: '/panel/doctors', label: 'Doctores', icon: Stethoscope, roles: ['ADMIN'] },
       {
         href: '/panel/schedule',

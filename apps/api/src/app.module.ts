@@ -26,6 +26,7 @@ import { PatientsModule } from './modules/patients/patients.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { BillingModule } from './modules/billing/billing.module';
 import { MedicalRecordsModule } from './modules/medical-records/medical-records.module';
+import { ProductsModule } from './modules/products/products.module';
 
 @Module({
   imports: [
@@ -104,6 +105,7 @@ import { MedicalRecordsModule } from './modules/medical-records/medical-records.
     ReportsModule,
     BillingModule,
     MedicalRecordsModule,
+    ProductsModule,
   ],
   providers: [
     // ── Orden de ejecución de guards globales ──
