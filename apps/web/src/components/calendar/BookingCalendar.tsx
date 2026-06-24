@@ -19,6 +19,8 @@ interface BookingCalendarProps {
   slots: CalendarSlot[];
   /** Se dispara al tocar un turno DISPONIBLE → continúa la reserva. */
   onPick: (slot: { start: Date; end: Date }) => void;
+  /** Al navegar a otra semana/día → cargar la disponibilidad de ese rango. */
+  onRangeChange?: (from: Date, to: Date) => void;
   defaultView?: View;
   minHour?: number;
   maxHour?: number;
@@ -43,6 +45,7 @@ function SlotEvent({ event }: { event: CalEvent }) {
 export function BookingCalendar({
   slots,
   onPick,
+  onRangeChange,
   defaultView = Views.WEEK,
   minHour = 7,
   maxHour = 20,
@@ -119,6 +122,18 @@ export function BookingCalendar({
           // Solo los turnos disponibles son accionables.
           onSelectEvent={(e) => {
             if (e.available) onPick({ start: e.start, end: e.end });
+          }}
+          onRangeChange={(range) => {
+            if (!onRangeChange) return;
+            const dates = Array.isArray(range)
+              ? (range as Date[])
+              : [(range as { start: Date }).start, (range as { end: Date }).end];
+            if (!dates.length) return;
+            const from = new Date(dates[0]);
+            from.setHours(0, 0, 0, 0);
+            const to = new Date(dates[dates.length - 1]);
+            to.setHours(23, 59, 59, 0);
+            onRangeChange(from, to);
           }}
           min={min}
           max={max}

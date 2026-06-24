@@ -138,6 +138,12 @@ export const CreateServiceSchema = z.object({
     .min(5, 'Duración mínima: 5 minutos')
     .max(480, 'Duración máxima: 8 horas'),
   icon: ServiceIcon.nullable().optional(),
+  /// Color hex (#RRGGBB) para las citas del servicio en el calendario del panel.
+  color: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/, 'Color hexadecimal inválido (ej: #0EA5A4)')
+    .nullable()
+    .optional(),
 });
 export type CreateServiceDto = z.infer<typeof CreateServiceSchema>;
 
@@ -317,6 +323,8 @@ export const MedicationItemSchema = z.object({
   dose: z.string().min(1, 'Dosis requerida').max(100), // ej: "500 mg"
   frequency: z.string().min(1, 'Frecuencia requerida').max(100), // ej: "cada 8 horas"
   duration: z.string().min(1, 'Duración requerida').max(100), // ej: "7 días"
+  /// Link opcional a un Product del inventario (autocomplete).
+  productId: z.string().uuid().optional(),
 });
 export type MedicationItem = z.infer<typeof MedicationItemSchema>;
 
@@ -329,6 +337,34 @@ export const CreatePrescriptionSchema = z.object({
   instructions: z.string().max(5000).optional(),
 });
 export type CreatePrescriptionDto = z.infer<typeof CreatePrescriptionSchema>;
+
+// ─── Productos / Inventario ───
+
+export const ProductCategory = z.enum(['MEDICATION', 'SUPPLY', 'OTHER']);
+export type ProductCategory = z.infer<typeof ProductCategory>;
+
+export const CreateProductSchema = z.object({
+  name: z.string().min(2, 'Nombre muy corto').max(120),
+  sku: z.string().max(60).nullable().optional(),
+  category: ProductCategory.default('MEDICATION'),
+  unit: z.string().min(1).max(30).default('unidad'),
+  price: z.number().nonnegative('El precio no puede ser negativo').default(0),
+  stock: z.number().int().min(0, 'El stock no puede ser negativo').default(0),
+  lowStockThreshold: z.number().int().min(0).nullable().optional(),
+});
+export type CreateProductDto = z.infer<typeof CreateProductSchema>;
+
+export const UpdateProductSchema = CreateProductSchema.partial().extend({
+  isActive: z.boolean().optional(),
+});
+export type UpdateProductDto = z.infer<typeof UpdateProductSchema>;
+
+/** Ajuste de stock (+/-). delta entero; reason opcional para auditoría/log. */
+export const AdjustStockSchema = z.object({
+  delta: z.number().int(),
+  reason: z.string().max(200).optional(),
+});
+export type AdjustStockDto = z.infer<typeof AdjustStockSchema>;
 
 // ─── Public API: helpers compartidos ───
 

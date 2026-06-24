@@ -10,6 +10,7 @@ import {
   approvePayment,
   rescheduleAppointment,
   getPatients,
+  createPatient,
   getDoctorsAdmin,
   getDoctorServices,
   PanelApiError,
@@ -133,6 +134,7 @@ function AppointmentsList() {
       status: a.status,
       doctorName: a.doctor.name,
       serviceName: a.service.name,
+      color: a.service.color ?? null,
     }));
 
   function openNewAppt(start?: Date) {
@@ -508,6 +510,8 @@ function NewAppointmentModal({
   const [loadingInit, setLoadingInit] = useState(true);
 
   const [patientId, setPatientId] = useState('');
+  const [patientMode, setPatientMode] = useState<'existing' | 'new'>('existing');
+  const [newPatient, setNewPatient] = useState({ name: '', phone: '', ci: '' });
   const [doctorId, setDoctorId] = useState('');
   const [serviceId, setServiceId] = useState('');
   const [date, setDate] = useState(initialStart ? toDateInput(initialStart) : '');
@@ -545,16 +549,34 @@ function NewAppointmentModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!patientId || !doctorId || !serviceId || !date || !time) {
+    if (!doctorId || !serviceId || !date || !time) {
       toast.error('Completa todos los campos');
+      return;
+    }
+    if (patientMode === 'existing' && !patientId) {
+      toast.error('Selecciona un paciente');
+      return;
+    }
+    if (patientMode === 'new' && (!newPatient.name.trim() || !newPatient.phone.trim())) {
+      toast.error('Nombre y teléfono del nuevo paciente son obligatorios');
       return;
     }
     const startTime = new Date(`${date}T${time}:00`).toISOString();
     const endTime = new Date(new Date(startTime).getTime() + durationMin * 60_000).toISOString();
     setSaving(true);
     try {
+      // Walk-in: registra el paciente primero (dedup por phone/ci en el backend).
+      let pid = patientId;
+      if (patientMode === 'new') {
+        const created = await createPatient(token, slug, {
+          name: newPatient.name.trim(),
+          phone: newPatient.phone.trim(),
+          ci: newPatient.ci.trim() || undefined,
+        });
+        pid = created.id;
+      }
       await createAppointment(token, slug, {
-        patientId,
+        patientId: pid,
         doctorId,
         serviceId,
         startTime,
@@ -591,22 +613,72 @@ function NewAppointmentModal({
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="p-5 space-y-4">
-            <label className="block">
-              <span className="text-sm font-medium text-gray-700">Paciente</span>
-              <select
-                value={patientId}
-                onChange={(e) => setPatientId(e.target.value)}
-                required
-                className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-              >
-                <option value="">Seleccionar paciente…</option>
-                {patients.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name} — {p.phone}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <div className="block">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-gray-700">Paciente</span>
+                {/* Toggle Existente / Nuevo (walk-in) */}
+                <div className="flex gap-1 rounded-lg bg-gray-100 p-0.5 text-xs">
+                  {(
+                    [
+                      ['existing', 'Existente'],
+                      ['new', 'Nuevo'],
+                    ] as ['existing' | 'new', string][]
+                  ).map(([k, l]) => (
+                    <button
+                      key={k}
+                      type="button"
+                      onClick={() => setPatientMode(k)}
+                      aria-pressed={patientMode === k}
+                      className={`rounded-md px-2.5 py-1 font-medium transition ${
+                        patientMode === k ? 'bg-white text-brand-700 shadow-sm' : 'text-gray-500'
+                      }`}
+                    >
+                      {l}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {patientMode === 'existing' ? (
+                <select
+                  value={patientId}
+                  onChange={(e) => setPatientId(e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                >
+                  <option value="">Seleccionar paciente…</option>
+                  {patients.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} — {p.phone}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <div className="mt-1 space-y-2 rounded-lg border border-gray-200 bg-gray-50 p-3">
+                  <input
+                    value={newPatient.name}
+                    onChange={(e) => setNewPatient({ ...newPatient, name: e.target.value })}
+                    placeholder="Nombre completo"
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  />
+                  <input
+                    value={newPatient.phone}
+                    onChange={(e) => setNewPatient({ ...newPatient, phone: e.target.value })}
+                    placeholder="Teléfono (ej: 59170000000)"
+                    inputMode="numeric"
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  />
+                  <input
+                    value={newPatient.ci}
+                    onChange={(e) => setNewPatient({ ...newPatient, ci: e.target.value })}
+                    placeholder="CI (opcional)"
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  />
+                  <p className="text-xs text-gray-400">
+                    Si el teléfono o CI ya existe, se usará ese paciente (no se duplica).
+                  </p>
+                </div>
+              )}
+            </div>
 
             <label className="block">
               <span className="text-sm font-medium text-gray-700">Doctor</span>

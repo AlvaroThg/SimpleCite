@@ -107,9 +107,23 @@
   background-color: #084fb8;
 }
 
-/* Slot seleccionable (hover en hueco vacío) del calendario público */
+/* Hover sobre un hueco libre (calendario seleccionable del panel): el recuadro
+   se tiñe de azul y aparece un ícono "+" centrado, invitando a crear la cita. */
+.sc-calendar.sc-selectable .rbc-day-slot .rbc-time-slot {
+  position: relative;
+}
 .sc-calendar.sc-selectable .rbc-day-slot .rbc-time-slot:hover {
-  background-color: #f0f7ff;
+  background-color: #eef5ff; /* brand-50 */
+  cursor: pointer;
+}
+.sc-calendar.sc-selectable .rbc-day-slot .rbc-time-slot:hover::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 24 24' fill='none' stroke='%230860dd' stroke-width='2.5' stroke-linecap='round'%3E%3Cpath d='M12 5v14M5 12h14'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
+  pointer-events: none;
 }
 
 /* Indicador de hora actual */
@@ -146,6 +160,13 @@
 .sc-calendar .rbc-event {
   border-radius: 7px;
   padding: 2px 6px;
+}
+/* Separación entre bloques contiguos (que no se vean "pegados"/unidos) */
+.sc-calendar .rbc-day-slot .rbc-event {
+  border: 1px solid #fff;
+}
+.sc-calendar .rbc-day-slot .rbc-events-container {
+  margin-right: 4px;
 }
 /* La etiqueta de hora propia de RBC dentro del evento se oculta:
    usamos un contenido propio (más limpio, sin truncar). */

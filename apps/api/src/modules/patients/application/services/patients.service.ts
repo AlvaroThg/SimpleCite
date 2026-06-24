@@ -1,5 +1,9 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import type { PatientListQueryDto, PatientHistoryQueryDto } from '@simplecite/shared';
+import type {
+  PatientListQueryDto,
+  PatientHistoryQueryDto,
+  CreatePatientDto,
+} from '@simplecite/shared';
 import { PrismaService } from '../../../../common/database/prisma.service';
 import { normalizePhone, normalizeCi } from '../../../../common/utils/phone';
 import { clampLimit, cursorArgs, buildPage } from '../../../../common/utils/pagination';
@@ -147,6 +151,31 @@ export class PatientsService {
       select: { id: true },
     });
     return { canRead: true, onlyOwn: !appt };
+  }
+
+  /**
+   * Alta de paciente desde el panel (recepción registra un walk-in). Reusa
+   * findOrCreate para deduplicar por phone/ci, así no se crean duplicados si el
+   * paciente ya existía. Devuelve el paciente con la forma del listado.
+   */
+  async createFromPanel(tenantId: string, dto: CreatePatientDto) {
+    const { id } = await this.findOrCreate({
+      tenantId,
+      phone: dto.phone,
+      name: dto.name,
+      ci: dto.ci,
+    });
+    return this.prisma.client.patient.findUniqueOrThrow({
+      where: { id },
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        ci: true,
+        createdAt: true,
+        _count: { select: { appointments: true } },
+      },
+    });
   }
 
   /**

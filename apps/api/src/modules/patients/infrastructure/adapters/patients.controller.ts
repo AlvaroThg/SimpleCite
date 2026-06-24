@@ -1,9 +1,11 @@
 import { Controller, Get, Post, Body, Param, Query } from '@nestjs/common';
 import {
   CreateClinicalNoteSchema,
+  CreatePatientSchema,
   PatientHistoryQuerySchema,
   PatientListQuerySchema,
   type CreateClinicalNoteDto,
+  type CreatePatientDto,
   type PatientHistoryQueryDto,
   type PatientListQueryDto,
 } from '@simplecite/shared';
@@ -44,6 +46,16 @@ export class PatientsController {
   ) {
     const page = await this.patients.list(tenantId, query);
     return { success: true, ...page };
+  }
+
+  @Post()
+  @Roles('ADMIN', 'DOCTOR', 'STAFF')
+  async create(
+    @CurrentUser('tenantId') tenantId: string,
+    @Body(new ZodValidationPipe(CreatePatientSchema)) dto: CreatePatientDto,
+  ) {
+    const patient = await this.patients.createFromPanel(tenantId, dto);
+    return { success: true, data: patient };
   }
 
   @Get(':id/history')

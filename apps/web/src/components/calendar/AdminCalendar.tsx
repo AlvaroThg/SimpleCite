@@ -1,16 +1,17 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { Calendar, Views, type View } from 'react-big-calendar';
 import withDragAndDrop, {
   type withDragAndDropProps,
 } from 'react-big-calendar/lib/addons/dragAndDrop';
+import { format } from 'date-fns';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import 'react-big-calendar/lib/addons/dragAndDrop/styles.css';
 import './calendar.css';
 import { localizer, messagesEs, formatsEs } from './localizer';
 
-/** Cita tal como la ve el doctor: con nombre del paciente y estado. */
+/** Cita tal como la ve el doctor: con nombre del paciente, estado y servicio. */
 export interface AdminEvent {
   id: string;
   title: string; // nombre del paciente
@@ -19,6 +20,39 @@ export interface AdminEvent {
   status: string;
   doctorName?: string;
   serviceName?: string;
+  /** Color hex del servicio (pinta las citas no terminadas). */
+  color?: string | null;
+}
+
+const BRAND = '#0860dd';
+const isHex = (c?: string | null): c is string => !!c && /^#[0-9a-fA-F]{6}$/.test(c);
+
+/**
+ * Estilo del evento según estado:
+ *   - COMPLETED → verde (terminal, "listo").
+ *   - NO_SHOW   → gris (no asistió).
+ *   - resto (TENTATIVE/PENDING_PAYMENT/CONFIRMED) → color del servicio.
+ * (CANCELLED no se muestra: el horario queda libre.)
+ */
+function eventStyle(e: AdminEvent): { className?: string; style?: CSSProperties } {
+  if (e.status === 'COMPLETED') return { className: 'sc-status-COMPLETED' };
+  if (e.status === 'NO_SHOW') return { className: 'sc-status-NO_SHOW' };
+  const bg = isHex(e.color) ? e.color : BRAND;
+  return { style: { backgroundColor: bg, borderColor: bg } };
+}
+
+/** Contenido del bloque en el panel: hora + paciente + servicio. */
+function AdminEventCell({ event }: { event: AdminEvent }) {
+  return (
+    <div className="leading-tight">
+      <div className="truncate text-[11px] font-semibold">
+        {format(event.start, 'HH:mm')} {event.title}
+      </div>
+      {event.serviceName && (
+        <div className="truncate text-[10px] opacity-90">{event.serviceName}</div>
+      )}
+    </div>
+  );
 }
 
 interface AdminCalendarProps {
@@ -91,6 +125,7 @@ export function AdminCalendar({
         culture="es"
         messages={messagesEs}
         formats={formatsEs}
+        components={{ event: AdminEventCell }}
         events={events}
         view={view}
         onView={setView}
@@ -111,7 +146,12 @@ export function AdminCalendar({
         onEventDrop={handleChange}
         onEventResize={handleChange}
         onSelectEvent={(e) => onSelectEvent?.(e as AdminEvent)}
-        eventPropGetter={(e) => ({ className: `sc-status-${(e as AdminEvent).status}` })}
+        tooltipAccessor={(e) => {
+          const ev = e as AdminEvent;
+          const time = `${format(ev.start, 'HH:mm')}–${format(ev.end, 'HH:mm')}`;
+          return [time, ev.title, ev.doctorName, ev.serviceName].filter(Boolean).join(' · ');
+        }}
+        eventPropGetter={(e) => eventStyle(e as AdminEvent)}
         dayLayoutAlgorithm="no-overlap"
       />
     </div>

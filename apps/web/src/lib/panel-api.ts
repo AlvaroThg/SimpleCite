@@ -44,7 +44,7 @@ export interface AppointmentListItem {
   receiptUrl: string | null;
   patient: { id: string; name: string; phone: string };
   doctor: { id: string; name: string };
-  service: { id: string; name: string; duration: number; price: string };
+  service: { id: string; name: string; duration: number; price: string; color?: string | null };
 }
 
 export interface AppointmentDetail extends AppointmentListItem {
@@ -180,6 +180,33 @@ export async function createAppointment(
 export const approvePayment = (token: string, slug: string, id: string) =>
   transitionAppointment(token, slug, id, 'CONFIRMED');
 
+/** Descarga el informe PDF de una cita (formato APA, Inter, logo del tenant). */
+export async function downloadAppointmentReport(
+  token: string,
+  slug: string,
+  appointmentId: string,
+): Promise<void> {
+  const res = await fetch(`${BASE}/api/appointments/${appointmentId}/report`, {
+    headers: { Authorization: `Bearer ${token}`, 'x-tenant-slug': slug },
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new PanelApiError(
+      res.status,
+      (body as { message?: string }).message ?? 'No se pudo generar el informe',
+    );
+  }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `informe-cita-${appointmentId.slice(0, 8)}.pdf`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 /** Reprograma una cita (drag&drop / resize del calendario del panel). */
 export async function rescheduleAppointment(
   token: string,
@@ -197,6 +224,21 @@ export async function rescheduleAppointment(
 }
 
 // ─── Patients + EHR ──────────────────────────────────────────────────
+
+/** Alta de paciente desde el panel (walk-in). Dedup por phone/ci en el backend. */
+export async function createPatient(
+  token: string,
+  slug: string,
+  body: { name: string; phone: string; ci?: string },
+): Promise<PatientListItem> {
+  const res = await fetch(`${BASE}/api/patients`, {
+    method: 'POST',
+    headers: authHeaders(token, slug),
+    body: JSON.stringify(body),
+  });
+  const json = await handle<{ data: PatientListItem }>(res);
+  return json.data;
+}
 
 export async function getPatients(
   token: string,
@@ -521,6 +563,7 @@ export interface ServiceItem {
   duration: number;
   isActive: boolean;
   icon: string | null;
+  color: string | null;
 }
 export const getServices = (t: string, s: string) =>
   get<{ data: ServiceItem[] }>('/api/services', t, s).then((r) => r.data);
@@ -533,12 +576,58 @@ export const createService = (
     price: number;
     duration: number;
     icon?: string | null;
+    color?: string | null;
   },
 ) => post<{ data: ServiceItem }>('/api/services', t, s, body).then((r) => r.data);
 export const updateService = (t: string, s: string, id: string, body: Record<string, unknown>) =>
   patch<{ data: ServiceItem }>(`/api/services/${id}`, t, s, body).then((r) => r.data);
 export const deleteService = (t: string, s: string, id: string) =>
   del<{ success: boolean }>(`/api/services/${id}`, t, s);
+
+// ─── Productos / Inventario ───────────────────────────────────────────
+
+export type ProductCategory = 'MEDICATION' | 'SUPPLY' | 'OTHER';
+
+export interface ProductItem {
+  id: string;
+  name: string;
+  sku: string | null;
+  category: ProductCategory;
+  unit: string;
+  price: string;
+  stock: number;
+  lowStockThreshold: number | null;
+  isActive: boolean;
+}
+
+export interface ProductInput {
+  name: string;
+  sku?: string | null;
+  category: ProductCategory;
+  unit: string;
+  price: number;
+  stock: number;
+  lowStockThreshold?: number | null;
+}
+
+export const getProducts = (t: string, s: string, includeInactive = false) =>
+  get<{ data: ProductItem[] }>(
+    `/api/products${includeInactive ? '?includeInactive=true' : ''}`,
+    t,
+    s,
+  ).then((r) => r.data);
+export const createProduct = (t: string, s: string, body: ProductInput) =>
+  post<{ data: ProductItem }>('/api/products', t, s, body).then((r) => r.data);
+export const updateProduct = (
+  t: string,
+  s: string,
+  id: string,
+  body: Partial<ProductInput> & { isActive?: boolean },
+) => patch<{ data: ProductItem }>(`/api/products/${id}`, t, s, body).then((r) => r.data);
+export const adjustStock = (t: string, s: string, id: string, delta: number) =>
+  post<{ data: ProductItem }>(`/api/products/${id}/stock`, t, s, { delta }).then((r) => r.data);
+export const deleteProduct = (t: string, s: string, id: string) =>
+  del<{ success: boolean }>(`/api/products/${id}`, t, s);
 
 // ─── Horarios (rules + blocks) ────────────────────────────────────────
 

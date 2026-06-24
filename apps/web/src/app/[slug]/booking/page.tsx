@@ -133,9 +133,10 @@ export default function BookingWizard() {
       );
   }, [slug]);
 
-  // ─── Disponibilidad de toda la semana al cambiar doctor/servicio ──────
-  // Traemos el rango completo (hoy..+6d) una sola vez para poder deshabilitar
-  // las FECHAS sin cupo y mostrar los horarios ocupados grisados por día.
+  // ─── Disponibilidad al cambiar doctor/servicio ──────────────────────
+  // Traemos 4 semanas de entrada (la lista usa 7 días; el calendario puede
+  // navegar varias semanas sin recargar). Al navegar más allá, loadRange()
+  // trae y fusiona el rango faltante.
   useEffect(() => {
     const { selectedDoctor, selectedService } = state;
     if (!selectedDoctor || !selectedService) return;
@@ -143,7 +144,7 @@ export default function BookingWizard() {
     set({ loading: true, slots: [], selectedSlot: null, availableDates: [] });
 
     const from = new Date(todayStr() + 'T00:00:00').toISOString();
-    const to = new Date(addDays(todayStr(), 6) + 'T23:59:59').toISOString();
+    const to = new Date(addDays(todayStr(), 27) + 'T23:59:59').toISOString();
 
     getAvailability(slug, {
       doctorId: selectedDoctor.id,
@@ -160,6 +161,32 @@ export default function BookingWizard() {
       })
       .catch(() => set({ error: 'No se pudo cargar la disponibilidad.', loading: false }));
   }, [slug, state.selectedDoctor?.id, state.selectedService?.service.id]);
+
+  // Carga incremental: al navegar el calendario a un rango aún no cargado,
+  // trae esa franja y la fusiona (dedupe por startTime). No bloquea ni resetea.
+  async function loadRange(from: Date, to: Date) {
+    const { selectedDoctor, selectedService } = state;
+    if (!selectedDoctor || !selectedService) return;
+    try {
+      const fetched = await getAvailability(slug, {
+        doctorId: selectedDoctor.id,
+        serviceId: selectedService.service.id,
+        from: from.toISOString(),
+        to: to.toISOString(),
+      });
+      setState((prev) => {
+        const seen = new Set(prev.slots.map((s) => s.startTime));
+        const merged = [...prev.slots, ...fetched.filter((s) => !seen.has(s.startTime))];
+        const zone = prev.tenant?.timezone ?? 'America/La_Paz';
+        const availableDates = Array.from(
+          new Set(merged.filter((s) => s.available).map((s) => localDateStr(s.startTime, zone))),
+        );
+        return { ...prev, slots: merged, availableDates };
+      });
+    } catch {
+      /* silencioso: no romper la navegación del calendario */
+    }
+  }
 
   const primary = state.tenant?.primaryColor ?? '#3B82F6';
   const tz = state.tenant?.timezone ?? 'America/La_Paz';
@@ -258,8 +285,11 @@ export default function BookingWizard() {
     );
   }
 
+  // El paso de horario en vista calendario se ensancha (como el del panel).
+  const wideStep = state.step === 'select-slot' && slotView === 'calendar';
+
   return (
-    <div className="max-w-2xl mx-auto px-4 py-8 space-y-6">
+    <div className={`mx-auto px-4 py-8 space-y-6 ${wideStep ? 'max-w-5xl' : 'max-w-2xl'}`}>
       {/* Stepper visual — oculto en el primer paso para dar aire al hero */}
       {state.step !== 'select-doctor' && <Stepper step={state.step} primary={primary} />}
 
@@ -378,6 +408,7 @@ export default function BookingWizard() {
                 );
                 if (slot) set({ selectedSlot: slot, step: 'patient-info' });
               }}
+              onRangeChange={(from, to) => void loadRange(from, to)}
             />
           ) : (
             <>
