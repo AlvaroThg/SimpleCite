@@ -3,10 +3,12 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { FileText } from 'lucide-react';
 import { useAuth } from '@/lib/panel-auth';
 import {
   getAppointment,
   transitionAppointment,
+  downloadAppointmentReport,
   PanelApiError,
   type AppointmentDetail,
 } from '@/lib/panel-api';
@@ -122,6 +124,23 @@ function AppointmentDetailView() {
                 {appt.status === 'COMPLETED' ? 'Ver consulta' : 'Iniciar consulta'} →
               </Link>
             )}
+          {session?.user.role !== 'STAFF' && appt.status === 'COMPLETED' && (
+            <button
+              onClick={async () => {
+                if (!session) return;
+                try {
+                  await downloadAppointmentReport(session.token, session.slug, appt.id);
+                } catch (err) {
+                  setError(
+                    err instanceof PanelApiError ? err.message : 'No se pudo generar el informe',
+                  );
+                }
+              }}
+              className="inline-flex items-center gap-1.5 text-sm font-semibold text-blue-600 hover:text-blue-800"
+            >
+              <FileText className="size-4" /> Descargar informe PDF
+            </button>
+          )}
         </div>
       </div>
 
