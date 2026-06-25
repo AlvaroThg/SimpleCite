@@ -10,6 +10,7 @@ import 'react-big-calendar/lib/css/react-big-calendar.css';
 import 'react-big-calendar/lib/addons/dragAndDrop/styles.css';
 import './calendar.css';
 import { localizer, messagesEs, formatsEs } from './localizer';
+import { readableOn } from '@/lib/tenant-color';
 
 /** Cita tal como la ve el doctor: con nombre del paciente, estado y servicio. */
 export interface AdminEvent {
@@ -38,7 +39,9 @@ function eventStyle(e: AdminEvent): { className?: string; style?: CSSProperties 
   if (e.status === 'COMPLETED') return { className: 'sc-status-COMPLETED' };
   if (e.status === 'NO_SHOW') return { className: 'sc-status-NO_SHOW' };
   const bg = isHex(e.color) ? e.color : BRAND;
-  return { style: { backgroundColor: bg, borderColor: bg } };
+  // El texto se calcula para cumplir contraste AA sobre el color del servicio
+  // (blanco o navy según el color elegido por la clínica).
+  return { style: { backgroundColor: bg, borderColor: bg, color: readableOn(bg) } };
 }
 
 /** Contenido del bloque en el panel: hora + paciente + servicio. */
