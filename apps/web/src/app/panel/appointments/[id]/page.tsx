@@ -23,7 +23,7 @@ const TRANSITIONS: Record<string, { status: string; label: string; cls: string }
     { status: 'CANCELLED', label: 'Cancelar', cls: 'bg-red-600 hover:bg-red-700' },
   ],
   CONFIRMED: [
-    { status: 'COMPLETED', label: 'Marcar completada', cls: 'bg-blue-600 hover:bg-blue-700' },
+    { status: 'COMPLETED', label: 'Marcar completada', cls: 'bg-brand-600 hover:bg-brand-700' },
     { status: 'NO_SHOW', label: 'No asistió', cls: 'bg-orange-600 hover:bg-orange-700' },
     { status: 'CANCELLED', label: 'Cancelar', cls: 'bg-red-600 hover:bg-red-700' },
   ],
@@ -111,7 +111,7 @@ function AppointmentDetailView() {
         <div className="flex flex-wrap items-center gap-4 border-t border-gray-100 pt-4">
           <Link
             href={`/panel/patients/${appt.patient.id}`}
-            className="inline-flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-800"
+            className="inline-flex items-center gap-1 text-sm font-medium text-brand-600 hover:text-brand-800"
           >
             Ver historial clínico del paciente →
           </Link>
@@ -119,7 +119,7 @@ function AppointmentDetailView() {
             (appt.status === 'CONFIRMED' || appt.status === 'COMPLETED') && (
               <Link
                 href={`/panel/appointments/${appt.id}/consulta`}
-                className="inline-flex items-center gap-1 text-sm font-semibold text-blue-600 hover:text-blue-800"
+                className="inline-flex items-center gap-1 text-sm font-semibold text-brand-600 hover:text-brand-800"
               >
                 {appt.status === 'COMPLETED' ? 'Ver consulta' : 'Iniciar consulta'} →
               </Link>
@@ -136,7 +136,7 @@ function AppointmentDetailView() {
                   );
                 }
               }}
-              className="inline-flex items-center gap-1.5 text-sm font-semibold text-blue-600 hover:text-blue-800"
+              className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-600 hover:text-brand-800"
             >
               <FileText className="size-4" /> Descargar informe PDF
             </button>

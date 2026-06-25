@@ -89,7 +89,7 @@ export default function PanelLoginPage() {
           <button
             type="submit"
             disabled={loading || !slug || !email || !password}
-            className="w-full py-2.5 rounded-xl bg-blue-600 text-white font-semibold text-sm transition hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full py-2.5 rounded-xl bg-brand-600 text-white font-semibold text-sm transition hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? 'Ingresando…' : 'Ingresar'}
           </button>
@@ -120,7 +120,7 @@ function Field({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
+        className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-transparent"
       />
     </div>
   );

@@ -6,7 +6,7 @@ const STATUS_STYLES: Record<string, { label: string; cls: string }> = {
   TENTATIVE: { label: 'Tentativa', cls: 'bg-gray-100 text-gray-600' },
   PENDING_PAYMENT: { label: 'Pago pendiente', cls: 'bg-amber-100 text-amber-700' },
   CONFIRMED: { label: 'Confirmada', cls: 'bg-green-100 text-green-700' },
-  COMPLETED: { label: 'Completada', cls: 'bg-blue-100 text-blue-700' },
+  COMPLETED: { label: 'Completada', cls: 'bg-brand-100 text-brand-700' },
   CANCELLED: { label: 'Cancelada', cls: 'bg-red-100 text-red-600' },
   NO_SHOW: { label: 'No asistió', cls: 'bg-orange-100 text-orange-700' },
 };
@@ -57,7 +57,7 @@ export function Spinner({ label = 'Cargando…' }: { label?: string }) {
   return (
     <div className="flex flex-col items-center justify-center gap-3 py-12 text-gray-400">
       <svg
-        className="animate-spin text-blue-600"
+        className="animate-spin text-brand-600"
         width={28}
         height={28}
         viewBox="0 0 24 24"

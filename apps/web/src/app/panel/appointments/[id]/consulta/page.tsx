@@ -283,7 +283,7 @@ function ConsultaView() {
                       onClick={() =>
                         session && downloadPrescriptionPdf(session.token, session.slug, p.id)
                       }
-                      className="font-medium text-blue-600 hover:text-blue-800"
+                      className="font-medium text-brand-600 hover:text-brand-800"
                     >
                       Descargar PDF
                     </button>
@@ -343,7 +343,7 @@ function ConsultaView() {
                 <button
                   type="button"
                   onClick={addMed}
-                  className="text-sm font-medium text-blue-600 hover:text-blue-800"
+                  className="text-sm font-medium text-brand-600 hover:text-brand-800"
                 >
                   + Agregar medicamento
                 </button>
@@ -376,7 +376,7 @@ function ConsultaView() {
               <button
                 onClick={handleFinish}
                 disabled={finishing || saving}
-                className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+                className="rounded-xl bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
               >
                 {finishing ? 'Procesando…' : finishLabel}
               </button>
@@ -426,7 +426,7 @@ function Field({
         disabled={disabled}
         placeholder={placeholder}
         rows={3}
-        className="w-full resize-y rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-500"
+        className="w-full resize-y rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 disabled:bg-gray-50 disabled:text-gray-500"
       />
     </label>
   );
@@ -449,7 +449,7 @@ function MedInput({
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
       list={list}
-      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
     />
   );
 }

@@ -102,7 +102,7 @@ function PatientHistoryView() {
               <li key={a.id}>
                 <Link
                   href={`/panel/appointments/${a.id}`}
-                  className="block bg-white rounded-xl border border-gray-100 p-3 hover:border-blue-300 transition"
+                  className="block bg-white rounded-xl border border-gray-100 p-3 hover:border-brand-300 transition"
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div className="min-w-0">
@@ -151,7 +151,7 @@ function NoteEditor({ patientId, onSaved }: { patientId: string; onSaved: () => 
         <p className="text-sm font-semibold text-gray-700">Nueva nota clínica</p>
         <button
           onClick={() => setPreview((p) => !p)}
-          className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+          className="text-xs text-brand-600 hover:text-brand-800 font-medium"
         >
           {preview ? 'Editar' : 'Vista previa'}
         </button>
@@ -173,7 +173,7 @@ function NoteEditor({ patientId, onSaved }: { patientId: string; onSaved: () => 
           onChange={(e) => setContent(e.target.value)}
           placeholder="Escribe la nota… Soporta Markdown: **negrita**, *itálica*, # títulos, - listas"
           rows={5}
-          className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent resize-y"
+          className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-transparent resize-y"
         />
       )}
 
@@ -182,7 +182,7 @@ function NoteEditor({ patientId, onSaved }: { patientId: string; onSaved: () => 
         <button
           onClick={save}
           disabled={saving || content.trim().length < 3}
-          className="px-4 py-2 rounded-xl bg-blue-600 text-white text-sm font-semibold transition hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-4 py-2 rounded-xl bg-brand-600 text-white text-sm font-semibold transition hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {saving ? 'Guardando…' : 'Guardar nota'}
         </button>
