@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import {
   Injectable,
+  Inject,
   NotFoundException,
   ConflictException,
   BadRequestException,
@@ -8,7 +9,7 @@ import {
 import { Logger } from 'nestjs-pino';
 import type { CreateAppointmentDto, AppointmentStatus } from '@simplecite/shared';
 import { PrismaService } from '../../../../common/database/prisma.service';
-import { WhatsappCloudService } from '../../../whatsapp-cloud/application/services/whatsapp-cloud.service';
+import { MESSAGING_SERVICE, type IMessagingService } from '../../../messaging/messaging.port';
 
 /**
  * Genera un token de cancelación opaco (32 bytes → 64 hex chars).
@@ -40,7 +41,7 @@ const ALLOWED_TRANSITIONS: Record<AppointmentStatus, AppointmentStatus[]> = {
 export class AppointmentsService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly waCloud: WhatsappCloudService,
+    @Inject(MESSAGING_SERVICE) private readonly messaging: IMessagingService,
     private readonly logger: Logger,
   ) {}
 
@@ -89,25 +90,26 @@ export class AppointmentsService {
           cancellationToken: generateCancellationToken(),
         },
         include: {
-          patient: { select: { phone: true } },
+          patient: { select: { phone: true, name: true } },
           doctor: { select: { name: true } },
         },
       });
 
-      // Confirmación por WhatsApp (best-effort, no bloqueante): solo para citas
-      // ya CONFIRMED (CASH). Las STATIC_QR quedan PENDING_PAYMENT y se confirman
-      // luego, no aquí. Un fallo de WhatsApp nunca rompe la creación de la cita.
+      // Confirmación por el canal de mensajería activo (Telegram en pruebas /
+      // WhatsApp en prod). Best-effort y no bloqueante: solo para citas ya
+      // CONFIRMED (CASH); un fallo nunca rompe la creación de la cita.
       if (appointment.status === 'CONFIRMED' && appointment.cancellationToken) {
-        void this.waCloud
+        void this.messaging
           .sendAppointmentConfirmation(
             appointment.patient.phone,
+            appointment.patient.name,
             appointment.doctor.name,
             appointment.startTime,
             appointment.cancellationToken,
           )
           .catch((err) =>
             this.logger.error(
-              { event: 'appointment.confirm-wa.failed', err: (err as Error).message },
+              { event: 'appointment.confirm-msg.failed', err: (err as Error).message },
               'AppointmentsService',
             ),
           );

@@ -97,6 +97,13 @@ export const envSchema = z.object({
   // p.ej. el magic link de cancelación. Sin slash final.
   WEB_PUBLIC_URL: z.string().url().default('http://localhost:3000'),
 
+  // ─── Mensajería al paciente (Ports & Adapters) ───
+  // Canal saliente activo. 'telegram' (pruebas MVP) o 'whatsapp' (producción).
+  // Si no se setea: telegram cuando hay TELEGRAM_BOT_TOKEN, si no whatsapp.
+  MESSAGING_PROVIDER: z.enum(['telegram', 'whatsapp']).optional(),
+  // Token del bot de Telegram (BotFather). Necesario para el adaptador Telegram.
+  TELEGRAM_BOT_TOKEN: z.string().optional(),
+
   // ─── Cloudflare (tunneling / DNS de subdominios) ───
   CLOUDFLARE_API_TOKEN: z.string().optional(),
   CLOUDFLARE_ZONE_ID: z.string().optional(),

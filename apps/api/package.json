@@ -36,12 +36,14 @@
     "date-fns-tz": "^3.2.0",
     "dockerode": "^5.0.0",
     "nestjs-pino": "^4.6.1",
+    "nestjs-telegraf": "^2.9.1",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "pdfmake": "^0.2.23",
     "pino-http": "^11.0.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
+    "telegraf": "^4.16.3",
     "zod": "^3.25.6"
   },
   "devDependencies": {

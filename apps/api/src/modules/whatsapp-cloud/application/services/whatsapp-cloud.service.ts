@@ -1,11 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Logger } from 'nestjs-pino';
+import type { IMessagingService } from '../../../messaging/messaging.port';
 
 /**
- * Cliente de la WhatsApp Cloud API oficial de Meta (modelo "bot centralizado":
- * un único número de la plataforma). Envía mensajes salientes vía la Graph API
- * usando `fetch` nativo (Node 20+), sin dependencias extra.
+ * Adaptador de la WhatsApp Cloud API oficial de Meta (Ports & Adapters):
+ * implementa IMessagingService. Modelo "bot centralizado" (un único número de la
+ * plataforma). Envía vía la Graph API con `fetch` nativo (Node 20+).
  *
  * Config (ver packages/config/src/env.ts):
  *   META_WA_BASE_URL         — base versionada de la Graph API
@@ -17,11 +18,16 @@ import { Logger } from 'nestjs-pino';
  * sin romper el flujo que los invoca (best-effort).
  */
 @Injectable()
-export class WhatsappCloudService {
+export class WhatsappCloudService implements IMessagingService {
   constructor(
     private readonly config: ConfigService,
     private readonly logger: Logger,
   ) {}
+
+  /** Puerto IMessagingService: envío de texto simple (devuelve void). */
+  async sendMessage(to: string, content: string): Promise<void> {
+    await this.sendText(to, content);
+  }
 
   /** True solo si hay phoneNumberId + accessToken configurados. */
   get isConfigured(): boolean {
@@ -94,26 +100,27 @@ export class WhatsappCloudService {
   }
 
   /**
-   * Notifica al paciente que su cita quedó confirmada e incluye el magic link
-   * de cancelación (token generado al crear la cita).
+   * Puerto IMessagingService: confirma la cita al paciente con el magic link
+   * de cancelación. `to` es el teléfono E.164 sin '+'.
    */
   async sendAppointmentConfirmation(
-    patientPhone: string,
+    to: string,
+    patientName: string,
     doctorName: string,
     date: Date,
     cancellationToken: string,
-  ): Promise<string | null> {
+  ): Promise<void> {
     const webUrl = (this.config.get<string>('WEB_PUBLIC_URL') ?? '').replace(/\/+$/, '');
     const cancelLink = `${webUrl}/citas/cancelar?token=${cancellationToken}`;
     const when = this.formatDate(date);
 
     const body =
       `✅ *Cita confirmada*\n\n` +
-      `Hola 👋 Tu cita con *${doctorName}* quedó agendada para *${when}*.\n\n` +
+      `Hola ${patientName} 👋 Tu cita con *${doctorName}* quedó agendada para *${when}*.\n\n` +
       `Si no puedes asistir, cancélala desde aquí:\n${cancelLink}\n\n` +
       `— SimpleCite`;
 
-    return this.sendText(patientPhone, body);
+    await this.sendText(to, body);
   }
 
   /** Formatea la fecha/hora en español boliviano (timezone America/La_Paz). */
