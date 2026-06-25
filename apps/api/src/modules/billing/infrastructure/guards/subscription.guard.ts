@@ -27,17 +27,27 @@ export class SubscriptionGuard implements CanActivate {
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const req = context
       .switchToHttp()
-      .getRequest<Request & { user?: { tenantId?: string }; tenantId?: string }>();
+      .getRequest<
+        Request & { user?: { sub?: string; role?: string; tenantId?: string }; tenantId?: string }
+      >();
     const tenantId = req.user?.tenantId ?? req.tenantId;
 
     if (!tenantId) {
       throw new HttpException('No hay tenant asociado al usuario', HttpStatus.PAYMENT_REQUIRED);
     }
 
-    const tenant = await this.prisma.tenant.findUnique({
-      where: { id: tenantId },
-      select: { subscriptionStatus: true, subscriptionEndDate: true },
-    });
+    // Los guards corren ANTES del TenantContextInterceptor, así que cuando RLS
+    // está activo todavía no hay `app.current_tenant_id` en la sesión. Abrimos
+    // el contexto aquí para esta lectura (en modo dormante es un no-op directo).
+    const tenant = await this.prisma.runWithTenantContext(
+      tenantId,
+      () =>
+        this.prisma.client.tenant.findUnique({
+          where: { id: tenantId },
+          select: { subscriptionStatus: true, subscriptionEndDate: true },
+        }),
+      req.user?.sub ? { userId: req.user.sub, role: req.user.role } : undefined,
+    );
     if (!tenant) {
       throw new HttpException('Tenant no encontrado', HttpStatus.PAYMENT_REQUIRED);
     }
