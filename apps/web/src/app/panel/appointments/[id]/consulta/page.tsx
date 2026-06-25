@@ -10,10 +10,12 @@ import {
   createPrescription,
   downloadPrescriptionPdf,
   transitionAppointment,
+  getProducts,
   PanelApiError,
   type AppointmentDetail,
   type MedicalRecord,
   type MedicationItem,
+  type ProductItem,
 } from '@/lib/panel-api';
 import { ArrowLeft, Lock, X } from 'lucide-react';
 import { PanelShell } from '@/components/panel/PanelShell';
@@ -55,6 +57,7 @@ function ConsultaView() {
   });
   const [meds, setMeds] = useState<MedicationItem[]>([{ ...EMPTY_MED }]);
   const [instructions, setInstructions] = useState('');
+  const [products, setProducts] = useState<ProductItem[]>([]);
 
   const [savedAt, setSavedAt] = useState<string>('');
   const [saving, setSaving] = useState(false);
@@ -93,12 +96,27 @@ function ConsultaView() {
     void load();
   }, [load]);
 
+  // Productos del inventario para el autocomplete de medicamentos.
+  useEffect(() => {
+    if (!session) return;
+    getProducts(session.token, session.slug)
+      .then(setProducts)
+      .catch(() => setProducts([]));
+  }, [session]);
+
   function setField(key: keyof RecordForm, value: string) {
     setForm((f) => ({ ...f, [key]: value }));
   }
 
   function setMed(i: number, key: keyof MedicationItem, value: string) {
     setMeds((list) => list.map((m, idx) => (idx === i ? { ...m, [key]: value } : m)));
+  }
+  /** Nombre del medicamento: si coincide con un producto, guarda su productId. */
+  function setMedName(i: number, value: string) {
+    const match = products.find((p) => p.name.toLowerCase() === value.trim().toLowerCase());
+    setMeds((list) =>
+      list.map((m, idx) => (idx === i ? { ...m, name: value, productId: match?.id } : m)),
+    );
   }
   const addMed = () => setMeds((list) => [...list, { ...EMPTY_MED }]);
   const removeMed = (i: number) => setMeds((list) => list.filter((_, idx) => idx !== i));
@@ -276,6 +294,12 @@ function ConsultaView() {
 
             {!readOnly && (
               <>
+                {/* Sugerencias de productos del inventario para el nombre del medicamento */}
+                <datalist id="sc-products">
+                  {products.map((p) => (
+                    <option key={p.id} value={p.name} />
+                  ))}
+                </datalist>
                 <div className="space-y-3">
                   {meds.map((m, i) => (
                     <div
@@ -285,7 +309,8 @@ function ConsultaView() {
                       <MedInput
                         placeholder="Medicamento"
                         value={m.name}
-                        onChange={(v) => setMed(i, 'name', v)}
+                        onChange={(v) => setMedName(i, v)}
+                        list="sc-products"
                       />
                       <MedInput
                         placeholder="Dosis"
@@ -411,16 +436,19 @@ function MedInput({
   value,
   onChange,
   placeholder,
+  list,
 }: {
   value: string;
   onChange: (v: string) => void;
   placeholder: string;
+  list?: string;
 }) {
   return (
     <input
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
+      list={list}
       className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
     />
   );

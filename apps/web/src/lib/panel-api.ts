@@ -291,6 +291,8 @@ export interface MedicationItem {
   dose: string;
   frequency: string;
   duration: string;
+  /** Vínculo opcional a un producto del inventario. */
+  productId?: string;
 }
 
 export interface PrescriptionItem {
