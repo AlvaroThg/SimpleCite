@@ -1,7 +1,5 @@
-import { Controller, Post, Get, Body } from '@nestjs/common';
-import { LinkSubscriptionSchema, type LinkSubscriptionDto } from '@simplecite/shared';
+import { Controller, Get } from '@nestjs/common';
 import { CurrentUser, Roles } from '../../../../common/decorators';
-import { ZodValidationPipe } from '../../../../common/pipes/zod-validation.pipe';
 import { BillingService } from '../../application/services/billing.service';
 
 /**
@@ -11,20 +9,6 @@ import { BillingService } from '../../application/services/billing.service';
 @Controller('billing')
 export class BillingController {
   constructor(private readonly billing: BillingService) {}
-
-  /**
-   * Vincula la suscripción de PayPal aprobada en el frontend al tenant actual.
-   * SEGURIDAD: se ignora cualquier tenantId del body; se usa el del JWT.
-   */
-  @Post('link-subscription')
-  @Roles('ADMIN')
-  async link(
-    @CurrentUser('tenantId') tenantId: string,
-    @Body(new ZodValidationPipe(LinkSubscriptionSchema)) dto: LinkSubscriptionDto,
-  ) {
-    const data = await this.billing.linkSubscription(tenantId, dto.subscriptionId);
-    return { success: true, data };
-  }
 
   /** Estado de la suscripción del tenant (para mostrarlo en el panel). */
   @Get('status')

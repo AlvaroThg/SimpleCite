@@ -132,8 +132,6 @@ services:
         PNPM_VERSION: 10.33.2
         TURBO_VERSION: 2.5.4
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001}
-        NEXT_PUBLIC_PAYPAL_CLIENT_ID: ${NEXT_PUBLIC_PAYPAL_CLIENT_ID:-sb-xxxx}
-        NEXT_PUBLIC_PAYPAL_PLAN_ID: ${NEXT_PUBLIC_PAYPAL_PLAN_ID:-P-xxxx}
     image: simplecite-web:dev
     container_name: simplecite-web
     restart: unless-stopped

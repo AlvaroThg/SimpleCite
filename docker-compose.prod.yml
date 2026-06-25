@@ -93,10 +93,6 @@ services:
       R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY}
       R2_BUCKET: ${R2_BUCKET}
       R2_PUBLIC_URL: ${R2_PUBLIC_URL}
-      PAYPAL_API_BASE: ${PAYPAL_API_BASE:-https://api-m.paypal.com}
-      PAYPAL_CLIENT_ID: ${PAYPAL_CLIENT_ID}
-      PAYPAL_CLIENT_SECRET: ${PAYPAL_CLIENT_SECRET}
-      PAYPAL_WEBHOOK_ID: ${PAYPAL_WEBHOOK_ID}
       WA_DOCKER_NETWORK: ${WA_DOCKER_NETWORK:-simplecite-internal}
       WA_CALLBACK_URL: ${WA_CALLBACK_URL}
       WA_INTERNAL_SECRET: ${WA_INTERNAL_SECRET}
@@ -140,8 +136,6 @@ services:
       dockerfile: apps/web/Dockerfile
       args:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
-        NEXT_PUBLIC_PAYPAL_CLIENT_ID: ${NEXT_PUBLIC_PAYPAL_CLIENT_ID}
-        NEXT_PUBLIC_PAYPAL_PLAN_ID: ${NEXT_PUBLIC_PAYPAL_PLAN_ID}
     image: simplecite-web:prod
     container_name: simplecite-web
     restart: unless-stopped

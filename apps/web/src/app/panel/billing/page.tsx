@@ -1,24 +1,14 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { PayPalScriptProvider, PayPalButtons } from '@paypal/react-paypal-js';
-import { CreditCard, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, MessageCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/lib/panel-auth';
-import {
-  getBillingStatus,
-  linkSubscription,
-  PanelApiError,
-  type BillingStatus,
-} from '@/lib/panel-api';
+import { getBillingStatus, PanelApiError, type BillingStatus } from '@/lib/panel-api';
 import { PanelShell } from '@/components/panel/PanelShell';
 import { SkeletonCards } from '@/components/panel/Skeleton';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-
-// Variables públicas de Sandbox (las lee Next en build/runtime).
-const PAYPAL_CLIENT_ID = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID ?? '';
-const PAYPAL_PLAN_ID = process.env.NEXT_PUBLIC_PAYPAL_PLAN_ID ?? '';
 
 export default function BillingPage() {
   return (
@@ -47,7 +37,6 @@ function Billing() {
   const { session } = useAuth();
   const [status, setStatus] = useState<BillingStatus | null>(null);
   const [loading, setLoading] = useState(true);
-  const isAdmin = session?.user.role === 'ADMIN';
 
   const load = useCallback(async () => {
     if (!session) return;
@@ -68,8 +57,8 @@ function Billing() {
   if (loading) {
     return (
       <div className="space-y-5">
-        <h1 className="text-2xl font-bold text-gray-900">Suscripción</h1>
-        <SkeletonCards count={2} />
+        <h1 className="text-2xl font-bold text-foreground">Suscripción</h1>
+        <SkeletonCards count={1} />
       </div>
     );
   }
@@ -80,9 +69,10 @@ function Billing() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Suscripción</h1>
+        <h1 className="text-2xl font-bold text-foreground">Suscripción</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Gestiona el plan de tu clínica con PayPal (entorno de prueba — Sandbox).
+          Estado del plan de tu clínica. La activación y renovación se gestionan con el equipo de
+          SimpleCite.
         </p>
       </div>
 
@@ -100,99 +90,39 @@ function Billing() {
                   month: 'long',
                   year: 'numeric',
                 })}.`
-              : 'Aún no tienes una suscripción activa.'}
+              : status?.subscriptionStatus === 'TRIAL'
+                ? 'Estás en el período de prueba.'
+                : 'Tu suscripción no está activa.'}
           </CardDescription>
         </CardHeader>
-        <CardContent className="flex items-center gap-3 text-sm text-gray-600">
-          {active ? (
-            <CheckCircle2 className="size-5 flex-shrink-0 text-green-600" />
-          ) : (
-            <AlertTriangle className="size-5 flex-shrink-0 text-amber-500" />
-          )}
-          {status?.paypalSubscriptionId ? (
+        <CardContent className="space-y-3 text-sm text-muted-foreground">
+          <div className="flex items-center gap-3">
+            {active ? (
+              <CheckCircle2 className="size-5 flex-shrink-0 text-green-600" />
+            ) : (
+              <AlertTriangle className="size-5 flex-shrink-0 text-amber-500" />
+            )}
             <span>
-              ID de suscripción:{' '}
-              <span className="font-mono text-xs">{status.paypalSubscriptionId}</span>
+              Plan <span className="font-medium text-foreground">{status?.plan ?? '—'}</span>
             </span>
-          ) : (
-            <span>Suscríbete para asegurar el acceso continuo a todas las funciones.</span>
-          )}
+          </div>
         </CardContent>
       </Card>
 
-      {/* Suscribirse (solo admin) */}
-      {!isAdmin ? (
-        <Card>
-          <CardContent className="py-6 text-sm text-gray-500">
-            Solo los administradores pueden gestionar la suscripción de la clínica.
-          </CardContent>
-        </Card>
-      ) : !PAYPAL_CLIENT_ID || !PAYPAL_PLAN_ID ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>Configuración pendiente</CardTitle>
-            <CardDescription>
-              Falta configurar las variables de PayPal Sandbox para mostrar el botón de pago.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="text-sm text-gray-600">
-            Define <code className="rounded bg-gray-100 px-1">NEXT_PUBLIC_PAYPAL_CLIENT_ID</code> y{' '}
-            <code className="rounded bg-gray-100 px-1">NEXT_PUBLIC_PAYPAL_PLAN_ID</code> (de tu
-            cuenta Sandbox) y reinicia el frontend.
-          </CardContent>
-        </Card>
-      ) : (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <CreditCard className="size-5" /> {active ? 'Renovar o cambiar plan' : 'Suscribirse'}
-            </CardTitle>
-            <CardDescription>
-              Pago con PayPal · Sandbox (pagos ficticios de prueba).
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="max-w-sm">
-              <PayPalScriptProvider
-                options={{
-                  clientId: PAYPAL_CLIENT_ID,
-                  components: 'buttons',
-                  intent: 'subscription',
-                  vault: true,
-                }}
-              >
-                <PayPalButtons
-                  style={{ layout: 'vertical', label: 'subscribe', color: 'blue', shape: 'pill' }}
-                  createSubscription={(_data, actions) =>
-                    actions.subscription.create({ plan_id: PAYPAL_PLAN_ID })
-                  }
-                  onApprove={async (data) => {
-                    if (!session || !data.subscriptionID) return;
-                    try {
-                      const updated = await linkSubscription(
-                        session.token,
-                        session.slug,
-                        data.subscriptionID,
-                      );
-                      setStatus(updated);
-                      toast.success(
-                        '¡Suscripción vinculada! Tu plan se activa al confirmarse el pago.',
-                      );
-                    } catch (e) {
-                      toast.error(
-                        e instanceof PanelApiError
-                          ? e.message
-                          : 'No se pudo vincular la suscripción',
-                      );
-                    }
-                  }}
-                  onError={() => toast.error('Ocurrió un error con PayPal. Intenta de nuevo.')}
-                />
-              </PayPalScriptProvider>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {/* Renovación */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <MessageCircle className="size-5 text-brand-600" /> ¿Renovar o cambiar de plan?
+          </CardTitle>
+          <CardDescription>
+            Escríbenos para activar, renovar o ajustar el plan de tu clínica.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="text-sm text-muted-foreground">
+          Contacta a soporte de SimpleCite y actualizamos tu suscripción en el momento.
+        </CardContent>
+      </Card>
     </div>
   );
 }

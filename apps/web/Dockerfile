@@ -40,11 +40,7 @@ COPY tsconfig.base.json ./tsconfig.base.json
 
 # Variables públicas (se inlinean en el bundle del cliente).
 ARG NEXT_PUBLIC_API_URL
-ARG NEXT_PUBLIC_PAYPAL_CLIENT_ID
-ARG NEXT_PUBLIC_PAYPAL_PLAN_ID
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
-ENV NEXT_PUBLIC_PAYPAL_CLIENT_ID=${NEXT_PUBLIC_PAYPAL_CLIENT_ID}
-ENV NEXT_PUBLIC_PAYPAL_PLAN_ID=${NEXT_PUBLIC_PAYPAL_PLAN_ID}
 
 RUN pnpm turbo run build --filter=web
 
