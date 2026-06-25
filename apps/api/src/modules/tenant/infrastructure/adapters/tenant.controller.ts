@@ -60,11 +60,16 @@ export class TenantController {
   @Roles('ADMIN')
   async uploadAsset(
     @CurrentUser('tenantId') tenantId: string,
-    @Body() body: { type: 'logo' | 'static-qr' | 'hero'; imageBase64: string; mimeType: string },
+    @Body()
+    body: {
+      type: 'logo' | 'static-qr' | 'static-qr-2' | 'hero';
+      imageBase64: string;
+      mimeType: string;
+    },
   ) {
     const { type, imageBase64, mimeType } = body;
-    if (!['logo', 'static-qr', 'hero'].includes(type)) {
-      throw new BadRequestException('type debe ser "logo", "static-qr" o "hero"');
+    if (!['logo', 'static-qr', 'static-qr-2', 'hero'].includes(type)) {
+      throw new BadRequestException('type debe ser "logo", "static-qr", "static-qr-2" o "hero"');
     }
     if (!imageBase64 || !mimeType) {
       throw new BadRequestException('imageBase64 y mimeType son requeridos');

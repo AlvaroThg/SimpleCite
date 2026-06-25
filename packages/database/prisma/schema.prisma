@@ -101,8 +101,11 @@ model Tenant {
   status       TenantStatus     @default(TRIAL)
   timezone     String           @default("America/La_Paz") /// Timezone Bolivia
 
-  // Pagos: QR estático bancario de la clínica
-  staticQrUrl String? /// URL de la imagen del QR bancario estático
+  // Pagos: hasta 2 QR estáticos bancarios (el segundo es alternativa de respaldo)
+  staticQrUrl    String? /// URL de la imagen del QR bancario estático (principal)
+  staticQrLabel  String? /// Nombre del banco del QR principal (ej. "Banco Unión")
+  staticQrUrl2   String? /// URL del segundo QR (banco alternativo)
+  staticQrLabel2 String? /// Nombre del banco del segundo QR
 
   // ─── Personalización de la landing pública (editable por el admin) ───
   secondaryColor   String? /// Color secundario de la paleta (hex). Acentos/gradientes.
@@ -114,10 +117,9 @@ model Tenant {
   ctaTitle         String? /// Título del bloque CTA final
   ctaSubtitle      String? /// Subtítulo del bloque CTA final
 
-  // ─── Suscripción / Billing (PayPal Sandbox) ───
-  paypalSubscriptionId String?   @unique /// ID de la suscripción en PayPal
-  subscriptionStatus   String    @default("TRIAL") /// TRIAL | ACTIVE | PAST_DUE | CANCELED
-  subscriptionEndDate  DateTime? /// Fin del período pagado; el SubscriptionGuard valida contra NOW()
+  // ─── Suscripción / Billing (gestión manual en DB, sin pasarela) ───
+  subscriptionStatus  String    @default("TRIAL") /// TRIAL | ACTIVE | PAST_DUE | CANCELED
+  subscriptionEndDate DateTime? /// Fin del período pagado; el SubscriptionGuard valida contra NOW()
 
   // ─── Contacto y redes (footer de la landing pública) ───
   address         String? /// Dirección física (footer + modal de Google Maps)

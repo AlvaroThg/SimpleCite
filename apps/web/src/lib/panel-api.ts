@@ -441,6 +441,9 @@ export interface TenantConfig {
   primaryColor: string;
   secondaryColor: string | null;
   staticQrUrl: string | null;
+  staticQrLabel: string | null;
+  staticQrUrl2: string | null;
+  staticQrLabel2: string | null;
   heroImageUrl: string | null;
   heroTitle: string | null;
   heroSubtitle: string | null;
@@ -467,6 +470,9 @@ export const updateTenantBranding = (
     primaryColor?: string;
     secondaryColor?: string | null;
     staticQrUrl?: string | null;
+    staticQrLabel?: string | null;
+    staticQrUrl2?: string | null;
+    staticQrLabel2?: string | null;
     heroImageUrl?: string | null;
     heroTitle?: string | null;
     heroSubtitle?: string | null;
@@ -484,23 +490,22 @@ export const updateTenantBranding = (
 export const uploadTenantAsset = (
   t: string,
   s: string,
-  body: { type: 'logo' | 'static-qr' | 'hero'; imageBase64: string; mimeType: string },
+  body: {
+    type: 'logo' | 'static-qr' | 'static-qr-2' | 'hero';
+    imageBase64: string;
+    mimeType: string;
+  },
 ) => post<{ data: TenantConfig }>('/api/tenants/current/assets', t, s, body).then((r) => r.data);
 
-// ─── Billing / Suscripción (PayPal) ───────────────────────────────────
+// ─── Billing / Suscripción (gestión manual, sin pasarela) ─────────────
 
 export interface BillingStatus {
-  paypalSubscriptionId: string | null;
   subscriptionStatus: string; // TRIAL | ACTIVE | PAST_DUE | CANCELED
   subscriptionEndDate: string | null;
   plan: string;
 }
 export const getBillingStatus = (t: string, s: string) =>
   get<{ data: BillingStatus }>('/api/billing/status', t, s).then((r) => r.data);
-export const linkSubscription = (t: string, s: string, subscriptionId: string) =>
-  post<{ data: BillingStatus }>('/api/billing/link-subscription', t, s, { subscriptionId }).then(
-    (r) => r.data,
-  );
 
 // ─── Doctores ─────────────────────────────────────────────────────────
 

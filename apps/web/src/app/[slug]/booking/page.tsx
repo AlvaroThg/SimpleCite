@@ -17,6 +17,7 @@ import {
 } from '@/lib/api';
 import { readableOn } from '@/lib/tenant-color';
 import { BookingCalendar } from '@/components/calendar/BookingCalendar';
+import { PaymentQRSelector, type BankQr } from '@/components/PaymentQRSelector';
 
 // ─── Types ────────────────────────────────────────────────────────────
 
@@ -191,6 +192,24 @@ export default function BookingWizard() {
   const primary = state.tenant?.primaryColor ?? '#3B82F6';
   const tz = state.tenant?.timezone ?? 'America/La_Paz';
   const daySlots = state.slots.filter((s) => localDateStr(s.startTime, tz) === state.selectedDate);
+
+  // QR bancarios configurados por la clínica (1 o 2). El paciente ve el primero
+  // y puede cambiar al segundo si su banco es otro.
+  const qrBanks: BankQr[] = [];
+  if (state.tenant?.staticQrUrl) {
+    qrBanks.push({
+      id: 'qr1',
+      name: state.tenant.staticQrLabel || 'Banco',
+      qrUrl: state.tenant.staticQrUrl,
+    });
+  }
+  if (state.tenant?.staticQrUrl2) {
+    qrBanks.push({
+      id: 'qr2',
+      name: state.tenant.staticQrLabel2 || 'Otro banco',
+      qrUrl: state.tenant.staticQrUrl2,
+    });
+  }
 
   // ─── Acciones ──────────────────────────────────────────────────────
 
@@ -582,9 +601,11 @@ export default function BookingWizard() {
             >
               <span className="text-2xl">📲</span>
               <div>
-                <p className="font-semibold text-gray-900">QR bancario (por WhatsApp)</p>
+                <p className="font-semibold text-gray-900">QR bancario</p>
                 <p className="text-sm text-gray-500">
-                  Te enviamos el QR por WhatsApp; paga y manda el comprobante por ahí.
+                  {qrBanks.length > 0
+                    ? 'Escanea el QR y envía el comprobante por WhatsApp.'
+                    : 'Te enviamos el QR por WhatsApp; paga y manda el comprobante por ahí.'}
                 </p>
               </div>
             </button>
@@ -614,12 +635,23 @@ export default function BookingWizard() {
               <span className="font-semibold">{formatTime(state.selectedSlot.startTime, tz)}</span>.
             </p>
             {state.chosenMethod === 'STATIC_QR' ? (
-              <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-left text-sm text-amber-800">
-                📲 Te enviamos el <span className="font-semibold">QR de pago por WhatsApp</span> al{' '}
-                <span className="font-semibold">{state.phone}</span>. Realiza el pago y envía la{' '}
-                <span className="font-semibold">foto del comprobante</span> por WhatsApp para
-                confirmar tu cita.
-              </div>
+              qrBanks.length > 0 ? (
+                <div className="space-y-3">
+                  <PaymentQRSelector banks={qrBanks} />
+                  <p className="text-sm text-gray-500">
+                    Tras pagar, envía la{' '}
+                    <span className="font-semibold">foto del comprobante por WhatsApp</span> para
+                    confirmar tu cita.
+                  </p>
+                </div>
+              ) : (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-left text-sm text-amber-800">
+                  📲 Te enviamos el <span className="font-semibold">QR de pago por WhatsApp</span>{' '}
+                  al <span className="font-semibold">{state.phone}</span>. Realiza el pago y envía
+                  la <span className="font-semibold">foto del comprobante</span> por WhatsApp para
+                  confirmar tu cita.
+                </div>
+              )
             ) : (
               <p className="text-sm text-gray-500">
                 💵 Recuerda traer el pago en efectivo. Recibirás un recordatorio por WhatsApp el día

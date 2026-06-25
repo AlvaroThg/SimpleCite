@@ -13,6 +13,9 @@ export interface TenantConfig {
   primaryColor: string;
   secondaryColor: string | null;
   staticQrUrl: string | null;
+  staticQrLabel: string | null;
+  staticQrUrl2: string | null;
+  staticQrLabel2: string | null;
   heroImageUrl: string | null;
   heroTitle: string | null;
   heroSubtitle: string | null;
@@ -72,6 +75,9 @@ export class TenantService implements TenantServicePort {
         primaryColor: true,
         secondaryColor: true,
         staticQrUrl: true,
+        staticQrLabel: true,
+        staticQrUrl2: true,
+        staticQrLabel2: true,
         heroImageUrl: true,
         heroTitle: true,
         heroSubtitle: true,
@@ -102,6 +108,9 @@ export class TenantService implements TenantServicePort {
         ...(dto.primaryColor !== undefined && { primaryColor: dto.primaryColor }),
         ...(dto.secondaryColor !== undefined && { secondaryColor: dto.secondaryColor }),
         ...(dto.staticQrUrl !== undefined && { staticQrUrl: dto.staticQrUrl }),
+        ...(dto.staticQrLabel !== undefined && { staticQrLabel: dto.staticQrLabel }),
+        ...(dto.staticQrUrl2 !== undefined && { staticQrUrl2: dto.staticQrUrl2 }),
+        ...(dto.staticQrLabel2 !== undefined && { staticQrLabel2: dto.staticQrLabel2 }),
         ...(dto.heroImageUrl !== undefined && { heroImageUrl: dto.heroImageUrl }),
         ...(dto.heroTitle !== undefined && { heroTitle: dto.heroTitle }),
         ...(dto.heroSubtitle !== undefined && { heroSubtitle: dto.heroSubtitle }),
@@ -124,7 +133,7 @@ export class TenantService implements TenantServicePort {
    */
   async uploadAsset(
     tenantId: string,
-    type: 'logo' | 'static-qr' | 'hero',
+    type: 'logo' | 'static-qr' | 'static-qr-2' | 'hero',
     imageBase64: string,
     mimeType: string,
   ): Promise<TenantConfig> {
@@ -134,7 +143,16 @@ export class TenantService implements TenantServicePort {
       mimeType,
     );
 
-    const field = type === 'logo' ? 'logoUrl' : type === 'hero' ? 'heroImageUrl' : 'staticQrUrl';
+    const FIELD_BY_TYPE: Record<
+      typeof type,
+      'logoUrl' | 'heroImageUrl' | 'staticQrUrl' | 'staticQrUrl2'
+    > = {
+      logo: 'logoUrl',
+      hero: 'heroImageUrl',
+      'static-qr': 'staticQrUrl',
+      'static-qr-2': 'staticQrUrl2',
+    };
+    const field = FIELD_BY_TYPE[type];
     await this.prisma.client.tenant.update({
       where: { id: tenantId },
       data: { [field]: url },

@@ -81,6 +81,9 @@ export const UpdateTenantBrandingSchema = z
       .nullable()
       .optional(),
     staticQrUrl: z.string().url('URL de QR inválida').max(500).nullable().optional(),
+    staticQrLabel: z.string().max(60).nullable().optional(),
+    staticQrUrl2: z.string().url('URL de QR inválida').max(500).nullable().optional(),
+    staticQrLabel2: z.string().max(60).nullable().optional(),
     heroImageUrl: z.string().url('URL de imagen inválida').max(500).nullable().optional(),
     heroTitle: z.string().max(120).nullable().optional(),
     heroSubtitle: z.string().max(300).nullable().optional(),
@@ -420,17 +423,6 @@ export type ConfirmPublicBookingDto = z.infer<typeof ConfirmPublicBookingSchema>
 
 // ─── Public Tenant Info (response shape, no DTO de input) ───
 
-// ─── Billing / Suscripciones (PayPal) ───
-
-export const LinkSubscriptionSchema = z.object({
-  subscriptionId: z.string().min(1, 'subscriptionId requerido'),
-  /// El cliente puede enviar tenantId, pero el backend usa el del JWT (se ignora).
-  tenantId: z.string().optional(),
-});
-export type LinkSubscriptionDto = z.infer<typeof LinkSubscriptionSchema>;
-
-// ─── Public Tenant Info (response shape, no DTO de input) ───
-
 export const PublicTenantInfoSchema = z.object({
   slug: TenantSlugSchema,
   name: z.string(),
@@ -448,6 +440,10 @@ export const PublicTenantInfoSchema = z.object({
   facebookUrl: z.string().nullable(),
   instagramUrl: z.string().nullable(),
   whatsappContact: z.string().nullable(),
+  staticQrUrl: z.string().nullable(),
+  staticQrLabel: z.string().nullable(),
+  staticQrUrl2: z.string().nullable(),
+  staticQrLabel2: z.string().nullable(),
   timezone: z.string(),
   whatsappEnabled: z.boolean(),
 });

@@ -92,12 +92,16 @@ function Branding({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantConf
   const [specialistsTitle, setSpecialistsTitle] = useState(cfg.specialistsTitle ?? '');
   const [ctaTitle, setCtaTitle] = useState(cfg.ctaTitle ?? '');
   const [ctaSubtitle, setCtaSubtitle] = useState(cfg.ctaSubtitle ?? '');
+  const [qrLabel, setQrLabel] = useState(cfg.staticQrLabel ?? '');
+  const [qrLabel2, setQrLabel2] = useState(cfg.staticQrLabel2 ?? '');
   const [saving, setSaving] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [uploadingQr, setUploadingQr] = useState(false);
+  const [uploadingQr2, setUploadingQr2] = useState(false);
   const [uploadingHero, setUploadingHero] = useState(false);
   const logoInputRef = useRef<HTMLInputElement>(null);
   const qrInputRef = useRef<HTMLInputElement>(null);
+  const qr2InputRef = useRef<HTMLInputElement>(null);
   const heroInputRef = useRef<HTMLInputElement>(null);
 
   async function save() {
@@ -108,6 +112,8 @@ function Branding({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantConf
         name: name.trim(),
         primaryColor: color,
         secondaryColor: secondaryColor || null,
+        staticQrLabel: qrLabel.trim() || null,
+        staticQrLabel2: qrLabel2.trim() || null,
         heroTitle: heroTitle.trim() || null,
         heroSubtitle: heroSubtitle.trim() || null,
         servicesTitle: servicesTitle.trim() || null,
@@ -125,7 +131,7 @@ function Branding({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantConf
   }
 
   function handleFileUpload(
-    type: 'logo' | 'static-qr' | 'hero',
+    type: 'logo' | 'static-qr' | 'static-qr-2' | 'hero',
     setUploading: (v: boolean) => void,
   ) {
     return async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -240,7 +246,7 @@ function Branding({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantConf
             type="button"
             onClick={() => logoInputRef.current?.click()}
             disabled={uploadingLogo}
-            className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg hover:border-blue-300 hover:text-blue-700 disabled:opacity-50 transition"
+            className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg hover:border-brand-300 hover:text-brand-700 disabled:opacity-50 transition"
           >
             {uploadingLogo ? 'Subiendo…' : cfg.logoUrl ? 'Cambiar logo' : 'Subir logo'}
           </button>
@@ -254,42 +260,95 @@ function Branding({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantConf
         </div>
       </div>
 
-      {/* Static QR upload */}
+      {/* Static QR upload (hasta 2 bancos) */}
       <div className="border-t border-gray-50 pt-4">
-        <p className="text-sm font-semibold text-gray-700 mb-1">QR bancario de pago</p>
+        <p className="text-sm font-semibold text-gray-700 mb-1">QR bancarios de pago</p>
         <p className="text-xs text-gray-400 mb-3">
-          El bot enviará esta imagen al paciente cuando elija pagar con QR. Debe ser el QR de tu
-          cuenta bancaria.
+          El paciente verá el primer QR al pagar y podrá ver el segundo como alternativa. Escribe el
+          nombre del banco de cada uno.
         </p>
-        <div className="flex items-center gap-4">
-          {cfg.staticQrUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={cfg.staticQrUrl}
-              alt="QR bancario"
-              className="h-40 w-40 rounded-xl border border-gray-100 bg-white object-contain p-1"
-            />
-          ) : (
-            <div className="flex h-40 w-40 items-center justify-center rounded-xl border-2 border-dashed border-gray-200 p-2 text-center text-xs leading-tight text-gray-300">
-              Sin QR
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+          {/* QR principal */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-4">
+              {cfg.staticQrUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={cfg.staticQrUrl}
+                  alt="QR bancario principal"
+                  className="h-32 w-32 rounded-xl border border-gray-100 bg-white object-contain p-1"
+                />
+              ) : (
+                <div className="flex h-32 w-32 items-center justify-center rounded-xl border-2 border-dashed border-gray-200 p-2 text-center text-xs leading-tight text-gray-300">
+                  Sin QR
+                </div>
+              )}
+              <div className="space-y-1">
+                <button
+                  type="button"
+                  onClick={() => qrInputRef.current?.click()}
+                  disabled={uploadingQr}
+                  className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg hover:border-brand-300 hover:text-brand-700 disabled:opacity-50 transition"
+                >
+                  {uploadingQr ? 'Subiendo…' : cfg.staticQrUrl ? 'Cambiar' : 'Subir QR 1'}
+                </button>
+                <p className="text-xs text-gray-400">PNG, JPG · máx. 2 MB</p>
+                <input
+                  ref={qrInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  className="hidden"
+                  onChange={handleFileUpload('static-qr', setUploadingQr)}
+                />
+              </div>
             </div>
-          )}
-          <div className="space-y-1">
-            <button
-              type="button"
-              onClick={() => qrInputRef.current?.click()}
-              disabled={uploadingQr}
-              className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg hover:border-blue-300 hover:text-blue-700 disabled:opacity-50 transition"
-            >
-              {uploadingQr ? 'Subiendo…' : cfg.staticQrUrl ? 'Cambiar QR' : 'Subir QR bancario'}
-            </button>
-            <p className="text-xs text-gray-400">PNG, JPG · máx. 2 MB</p>
             <input
-              ref={qrInputRef}
-              type="file"
-              accept="image/png,image/jpeg,image/webp"
-              className="hidden"
-              onChange={handleFileUpload('static-qr', setUploadingQr)}
+              value={qrLabel}
+              onChange={(e) => setQrLabel(e.target.value)}
+              placeholder="Banco del QR 1 (ej. Banco Unión)"
+              className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+            />
+          </div>
+
+          {/* QR alternativo */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-4">
+              {cfg.staticQrUrl2 ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={cfg.staticQrUrl2}
+                  alt="QR bancario alternativo"
+                  className="h-32 w-32 rounded-xl border border-gray-100 bg-white object-contain p-1"
+                />
+              ) : (
+                <div className="flex h-32 w-32 items-center justify-center rounded-xl border-2 border-dashed border-gray-200 p-2 text-center text-xs leading-tight text-gray-300">
+                  Opcional
+                </div>
+              )}
+              <div className="space-y-1">
+                <button
+                  type="button"
+                  onClick={() => qr2InputRef.current?.click()}
+                  disabled={uploadingQr2}
+                  className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg hover:border-brand-300 hover:text-brand-700 disabled:opacity-50 transition"
+                >
+                  {uploadingQr2 ? 'Subiendo…' : cfg.staticQrUrl2 ? 'Cambiar' : 'Subir QR 2'}
+                </button>
+                <p className="text-xs text-gray-400">Banco alternativo</p>
+                <input
+                  ref={qr2InputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  className="hidden"
+                  onChange={handleFileUpload('static-qr-2', setUploadingQr2)}
+                />
+              </div>
+            </div>
+            <input
+              value={qrLabel2}
+              onChange={(e) => setQrLabel2(e.target.value)}
+              placeholder="Banco del QR 2 (ej. Mercantil)"
+              className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
             />
           </div>
         </div>
@@ -319,7 +378,7 @@ function Branding({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantConf
               type="button"
               onClick={() => heroInputRef.current?.click()}
               disabled={uploadingHero}
-              className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg hover:border-blue-300 hover:text-blue-700 disabled:opacity-50 transition"
+              className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg hover:border-brand-300 hover:text-brand-700 disabled:opacity-50 transition"
             >
               {uploadingHero ? 'Subiendo…' : cfg.heroImageUrl ? 'Cambiar portada' : 'Subir portada'}
             </button>

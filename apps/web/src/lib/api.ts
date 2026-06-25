@@ -34,6 +34,10 @@ export interface TenantInfo {
   facebookUrl: string | null;
   instagramUrl: string | null;
   whatsappContact: string | null;
+  staticQrUrl: string | null;
+  staticQrLabel: string | null;
+  staticQrUrl2: string | null;
+  staticQrLabel2: string | null;
   timezone: string;
   whatsappEnabled: boolean;
 }
