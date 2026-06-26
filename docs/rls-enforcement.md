@@ -40,9 +40,10 @@ SELECT rolbypassrls FROM pg_roles WHERE rolname = 'simplecite_app';
 ```
 
 > El helper `public.current_tenant_id()` y las políticas viven en
-> `packages/database/prisma/rls/*.sql` (bootstrap) y en las migraciones
-> `*_rls_*` / `phase17_rls_coverage`. En una DB nueva, corre el bootstrap de RLS
-> **antes** de `prisma migrate deploy` (ver memoria "Fresh DB bootstrap order").
+> `packages/database/prisma/rls/*.sql` (bootstrap) y en las migraciones que crean
+> cada tabla (cada `phaseN` habilita RLS + política al crear su tabla). En una DB
+> nueva, corre el bootstrap de RLS **antes** de `prisma migrate deploy` (ver
+> memoria "Fresh DB bootstrap order").
 
 ### 2. Apuntar la app al rol nuevo
 
