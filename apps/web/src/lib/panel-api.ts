@@ -42,7 +42,7 @@ export interface AppointmentListItem {
   isPaid: boolean;
   paymentMethod: PaymentMethod;
   receiptUrl: string | null;
-  patient: { id: string; name: string; phone: string };
+  patient: { id: string; name: string; phone: string; ci?: string | null };
   doctor: { id: string; name: string };
   service: { id: string; name: string; duration: number; price: string; color?: string | null };
 }

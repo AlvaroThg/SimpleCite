@@ -31,14 +31,16 @@ import { AdminCalendar, type AdminEvent } from '@/components/calendar/AdminCalen
 
 // ─── Celdas de tabla compartidas (sistema de diseño) ──────────────────
 
-/** Celda de paciente: avatar de iniciales + nombre + teléfono (mono). */
+/** Celda de paciente: avatar de iniciales + nombre + CI (o teléfono), en mono. */
 function PatientCell({ a }: { a: AppointmentListItem }) {
   return (
     <div className="flex items-center gap-2.5">
       <Avatar name={a.patient.name} size="sm" />
       <div className="min-w-0">
         <div className="truncate text-sm font-medium text-text-primary">{a.patient.name}</div>
-        <div className="truncate font-mono text-[11.5px] text-text-muted">{a.patient.phone}</div>
+        <div className="truncate font-mono text-[11.5px] text-text-muted">
+          {a.patient.ci ? `CI ${a.patient.ci}` : a.patient.phone}
+        </div>
       </div>
     </div>
   );

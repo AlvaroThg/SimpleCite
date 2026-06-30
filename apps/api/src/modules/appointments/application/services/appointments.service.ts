@@ -150,7 +150,7 @@ export class AppointmentsService {
         }),
       },
       include: {
-        patient: { select: { id: true, name: true, phone: true } },
+        patient: { select: { id: true, name: true, phone: true, ci: true } },
         doctor: { select: { id: true, name: true } },
         service: { select: { id: true, name: true, duration: true, price: true, color: true } },
       },
