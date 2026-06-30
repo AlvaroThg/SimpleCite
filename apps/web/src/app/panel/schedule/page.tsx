@@ -176,7 +176,7 @@ function Schedule() {
   if (loading) {
     return (
       <div className="space-y-5">
-        <h1 className="text-2xl font-bold text-gray-900">Horarios</h1>
+        <h1 className="text-2xl font-bold text-text-primary">Horarios</h1>
         <SkeletonList rows={5} />
       </div>
     );
@@ -185,7 +185,7 @@ function Schedule() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Horarios</h1>
+        <h1 className="text-2xl font-bold text-text-primary">Horarios</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Define la disponibilidad semanal y los bloqueos puntuales de cada doctor.
         </p>
@@ -205,7 +205,7 @@ function Schedule() {
             <select
               value={doctorId}
               onChange={(e) => setDoctorId(e.target.value)}
-              className="flex h-9 w-full rounded-lg border border-input bg-white px-3 py-1 text-sm shadow-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40"
+              className="flex h-9 w-full rounded-lg border border-input bg-surface px-3 py-1 text-sm shadow-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40"
             >
               {doctors.map((d) => (
                 <option key={d.id} value={d.id}>
@@ -235,14 +235,14 @@ function Schedule() {
                         'rounded-xl border p-4 transition-all',
                         d.enabled
                           ? 'border-primary/40 bg-accent/40 shadow-sm'
-                          : 'border-gray-200 bg-white opacity-90 hover:border-gray-300 hover:opacity-100',
+                          : 'border-border bg-surface opacity-90 hover:border-border-strong hover:opacity-100',
                       )}
                     >
                       <div className="flex items-center justify-between gap-2">
                         <span
                           className={cn(
                             'font-medium',
-                            d.enabled ? 'text-gray-900' : 'text-gray-500',
+                            d.enabled ? 'text-text-primary' : 'text-text-muted',
                           )}
                         >
                           {DAYS[i]}
@@ -255,13 +255,13 @@ function Schedule() {
                             'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold transition-all active:scale-95',
                             d.enabled
                               ? 'bg-primary text-primary-foreground hover:bg-primary/90'
-                              : 'bg-gray-100 text-gray-500 hover:bg-gray-200',
+                              : 'bg-muted text-text-muted hover:bg-muted',
                           )}
                         >
                           <span
                             className={cn(
                               'h-1.5 w-1.5 rounded-full',
-                              d.enabled ? 'bg-white' : 'bg-gray-400',
+                              d.enabled ? 'bg-surface' : 'bg-text-muted',
                             )}
                           />
                           {d.enabled ? 'Activo' : 'Inactivo'}
@@ -279,7 +279,7 @@ function Schedule() {
                           value={d.start}
                           disabled={!d.enabled}
                           onChange={(e) => setDay(i, { start: e.target.value })}
-                          className="h-9 bg-white"
+                          className="h-9 bg-surface"
                         />
                         <span className="text-sm text-muted-foreground">a</span>
                         <Input
@@ -287,7 +287,7 @@ function Schedule() {
                           value={d.end}
                           disabled={!d.enabled}
                           onChange={(e) => setDay(i, { end: e.target.value })}
-                          className="h-9 bg-white"
+                          className="h-9 bg-surface"
                         />
                       </div>
                     </div>
@@ -314,7 +314,7 @@ function Schedule() {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-gray-600">Desde</Label>
+                  <Label className="text-xs text-text-secondary">Desde</Label>
                   <div className="flex gap-2">
                     <Input
                       type="date"
@@ -331,7 +331,7 @@ function Schedule() {
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-gray-600">Hasta</Label>
+                  <Label className="text-xs text-text-secondary">Hasta</Label>
                   <div className="flex gap-2">
                     <Input
                       type="date"
@@ -350,7 +350,7 @@ function Schedule() {
               </div>
               <div className="flex items-end gap-2">
                 <div className="flex-1 space-y-1.5">
-                  <Label className="text-xs text-gray-600">Motivo (opcional)</Label>
+                  <Label className="text-xs text-text-secondary">Motivo (opcional)</Label>
                   <Input
                     value={blkReason}
                     onChange={(e) => setBlkReason(e.target.value)}
@@ -367,8 +367,8 @@ function Schedule() {
               </div>
 
               {blocks.length === 0 ? (
-                <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-gray-200 py-8 text-center text-sm text-gray-400">
-                  <CalendarOff className="size-6 text-gray-300" />
+                <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border py-8 text-center text-sm text-text-muted">
+                  <CalendarOff className="size-6 text-text-disabled" />
                   Sin bloqueos registrados.
                 </div>
               ) : (
@@ -376,13 +376,13 @@ function Schedule() {
                   {blocks.map((b) => (
                     <li
                       key={b.id}
-                      className="flex items-center justify-between gap-3 rounded-xl border border-gray-100 px-3 py-2.5 transition-colors hover:border-gray-200 hover:bg-gray-50"
+                      className="flex items-center justify-between gap-3 rounded-xl border border-border px-3 py-2.5 transition-colors hover:border-border hover:bg-canvas"
                     >
                       <div className="min-w-0 text-sm">
-                        <p className="text-gray-900">
+                        <p className="text-text-primary">
                           {fmtDateTime(b.startTime)} → {fmtDateTime(b.endTime)}
                         </p>
-                        {b.reason && <p className="truncate text-gray-400">{b.reason}</p>}
+                        {b.reason && <p className="truncate text-text-muted">{b.reason}</p>}
                       </div>
                       <button
                         onClick={() => removeBlock(b.id)}

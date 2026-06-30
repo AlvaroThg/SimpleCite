@@ -134,8 +134,8 @@ function Products() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">Productos</h1>
-          <p className="text-sm text-gray-500">Inventario de medicamentos, insumos y otros.</p>
+          <h1 className="text-xl font-bold text-text-primary">Productos</h1>
+          <p className="text-sm text-text-muted">Inventario de medicamentos, insumos y otros.</p>
         </div>
         {!draft && (
           <button
@@ -151,12 +151,12 @@ function Products() {
 
       {/* Formulario crear/editar */}
       {draft && (
-        <div className="space-y-4 rounded-2xl border border-gray-100 bg-white p-5">
+        <div className="space-y-4 rounded-2xl border border-border bg-surface p-5">
           <Field label="Nombre">
             <input
               value={draft.name}
               onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
               placeholder="Paracetamol 500mg"
             />
           </Field>
@@ -167,7 +167,7 @@ function Products() {
                 onChange={(e) =>
                   setDraft({ ...draft, category: e.target.value as ProductCategory })
                 }
-                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
               >
                 {CATEGORIES.map((c) => (
                   <option key={c.value} value={c.value}>
@@ -180,7 +180,7 @@ function Products() {
               <input
                 value={draft.unit}
                 onChange={(e) => setDraft({ ...draft, unit: e.target.value })}
-                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                 placeholder="caja, unidad, ml…"
               />
             </Field>
@@ -191,7 +191,7 @@ function Products() {
                 type="number"
                 value={draft.price}
                 onChange={(e) => setDraft({ ...draft, price: e.target.value })}
-                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                 min={0}
                 step="0.01"
               />
@@ -201,7 +201,7 @@ function Products() {
                 type="number"
                 value={draft.stock}
                 onChange={(e) => setDraft({ ...draft, stock: e.target.value })}
-                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                 min={0}
               />
             </Field>
@@ -210,7 +210,7 @@ function Products() {
                 type="number"
                 value={draft.lowStockThreshold}
                 onChange={(e) => setDraft({ ...draft, lowStockThreshold: e.target.value })}
-                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                 min={0}
                 placeholder="—"
               />
@@ -219,12 +219,12 @@ function Products() {
               <input
                 value={draft.sku}
                 onChange={(e) => setDraft({ ...draft, sku: e.target.value })}
-                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
               />
             </Field>
           </div>
           <div className="flex justify-end gap-2">
-            <button onClick={() => setDraft(null)} className="px-4 py-2 text-sm text-gray-500">
+            <button onClick={() => setDraft(null)} className="px-4 py-2 text-sm text-text-muted">
               Cancelar
             </button>
             <button
@@ -252,12 +252,12 @@ function Products() {
           {items.map((p) => (
             <li
               key={p.id}
-              className={`flex items-center justify-between gap-4 rounded-xl border bg-white p-4 transition-all hover:shadow-sm ${
-                p.isActive ? 'border-gray-100' : 'border-gray-100 opacity-60'
+              className={`flex items-center justify-between gap-4 rounded-xl border bg-surface p-4 transition-all hover:shadow-sm ${
+                p.isActive ? 'border-border' : 'border-border opacity-60'
               }`}
             >
               <div className="min-w-0">
-                <p className="flex items-center gap-2 font-semibold text-gray-900">
+                <p className="flex items-center gap-2 font-semibold text-text-primary">
                   <span className="truncate">{p.name}</span>
                   {isLow(p) && (
                     <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700">
@@ -266,11 +266,13 @@ function Products() {
                   )}
                   {!p.isActive && <span className="text-xs text-red-500">archivado</span>}
                 </p>
-                <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-sm text-gray-500">
+                <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-sm text-text-muted">
                   <span>{catLabel(p.category)}</span>
-                  <span className="text-gray-300">·</span>
-                  <span className="font-medium text-gray-900">Bs {Number(p.price).toFixed(2)}</span>
-                  <span className="text-gray-300">·</span>
+                  <span className="text-text-disabled">·</span>
+                  <span className="font-medium text-text-primary">
+                    Bs {Number(p.price).toFixed(2)}
+                  </span>
+                  <span className="text-text-disabled">·</span>
                   <span>/ {p.unit}</span>
                 </p>
               </div>
@@ -282,13 +284,13 @@ function Products() {
                     onClick={() => adjust(p.id, -1)}
                     disabled={p.stock <= 0}
                     aria-label="Restar stock"
-                    className="flex size-7 items-center justify-center rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-30"
+                    className="flex size-7 items-center justify-center rounded-lg border border-border text-text-secondary hover:bg-canvas disabled:opacity-30"
                   >
                     <Minus className="size-4" />
                   </button>
                   <span
                     className={`w-10 text-center text-sm font-semibold tabular-nums ${
-                      isLow(p) ? 'text-amber-600' : 'text-gray-900'
+                      isLow(p) ? 'text-amber-600' : 'text-text-primary'
                     }`}
                   >
                     {p.stock}
@@ -296,7 +298,7 @@ function Products() {
                   <button
                     onClick={() => adjust(p.id, 1)}
                     aria-label="Sumar stock"
-                    className="flex size-7 items-center justify-center rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50"
+                    className="flex size-7 items-center justify-center rounded-lg border border-border text-text-secondary hover:bg-canvas"
                   >
                     <Plus className="size-4" />
                   </button>
@@ -342,7 +344,7 @@ function Products() {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-sm font-medium text-gray-700">{label}</span>
+      <span className="mb-1 block text-sm font-medium text-text-secondary">{label}</span>
       {children}
     </label>
   );

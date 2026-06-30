@@ -22,6 +22,7 @@ import { ErrorBox } from '@/components/panel/ui';
 import { SkeletonList } from '@/components/panel/Skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Button } from '@/components/ui/button';
+import { Avatar } from '@/components/ui/avatar';
 import { Stethoscope } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -142,7 +143,7 @@ function Doctors() {
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-gray-900">Doctores</h1>
+        <h1 className="text-xl font-bold text-text-primary">Doctores</h1>
         <button
           onClick={() => setDraft({ ...empty })}
           className="px-4 py-2 rounded-xl bg-brand-600 text-white text-sm font-semibold hover:bg-brand-700"
@@ -154,7 +155,7 @@ function Doctors() {
       {error && <ErrorBox message={error} />}
 
       {draft && (
-        <div className="bg-white rounded-2xl border border-brand-200 p-4 space-y-3">
+        <div className="bg-surface rounded-2xl border border-brand-200 p-4 space-y-3">
           <p className="text-sm font-semibold">{draft.id ? 'Editar doctor' : 'Nuevo doctor'}</p>
           {!draft.id && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -195,7 +196,7 @@ function Doctors() {
             onChange={(v) => setDraft({ ...draft, bio: v })}
           />
           {draft.id && (
-            <label className="flex items-center gap-2 text-sm text-gray-700">
+            <label className="flex items-center gap-2 text-sm text-text-secondary">
               <input
                 type="checkbox"
                 checked={draft.isActive}
@@ -205,7 +206,7 @@ function Doctors() {
             </label>
           )}
           <div className="flex gap-2 justify-end">
-            <button onClick={() => setDraft(null)} className="px-4 py-2 text-sm text-gray-500">
+            <button onClick={() => setDraft(null)} className="px-4 py-2 text-sm text-text-muted">
               Cancelar
             </button>
             <button
@@ -232,21 +233,21 @@ function Doctors() {
           {items.map((d) => (
             <li
               key={d.id}
-              className="bg-white rounded-xl border border-gray-100 overflow-hidden transition-all hover:border-brand-300 hover:shadow-sm"
+              className="bg-surface rounded-xl border border-border overflow-hidden transition-all hover:border-brand-300 hover:shadow-sm"
             >
               <div className="p-4 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-700 font-semibold">
-                    {initials(d.name) || <Stethoscope className="h-5 w-5" />}
-                  </div>
+                  <Avatar name={d.name} size="lg">
+                    {initials(d.name) ? undefined : <Stethoscope className="h-5 w-5" />}
+                  </Avatar>
                   <div className="min-w-0">
-                    <p className="font-semibold text-gray-900 truncate">
+                    <p className="font-semibold text-text-primary truncate">
                       {d.name}
                       {!d.isActive && (
                         <span className="text-red-500 font-normal"> · archivado</span>
                       )}
                     </p>
-                    <p className="text-sm text-gray-500 truncate">
+                    <p className="text-sm text-text-muted truncate">
                       {d.specialty ?? 'Sin especialidad'} · {d.email}
                     </p>
                   </div>
@@ -254,7 +255,7 @@ function Doctors() {
                 <div className="flex gap-2 flex-shrink-0 text-sm">
                   <button
                     onClick={() => setExpanded(expanded === d.id ? null : d.id)}
-                    className="text-gray-500 hover:text-gray-800 font-medium transition-colors"
+                    className="text-text-muted hover:text-text-primary font-medium transition-colors"
                   >
                     Servicios
                   </button>
@@ -389,18 +390,18 @@ function DoctorServices({ doctorId }: { doctorId: string }) {
   const available = catalog.filter((c) => !assignedIds.has(c.id));
 
   return (
-    <div className="border-t border-gray-100 bg-gray-50 px-4 py-3 space-y-3">
+    <div className="border-t border-border bg-canvas px-4 py-3 space-y-3">
       {err && <ErrorBox message={err} />}
       {loading ? (
-        <p className="text-xs text-gray-400">Cargando servicios…</p>
+        <p className="text-xs text-text-muted">Cargando servicios…</p>
       ) : (
         <>
           <div>
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+            <p className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-1.5">
               Asignados
             </p>
             {links.length === 0 ? (
-              <p className="text-sm text-gray-400">Ninguno todavía.</p>
+              <p className="text-sm text-text-muted">Ninguno todavía.</p>
             ) : (
               <div className="flex flex-wrap gap-2">
                 {links.map((l) => (
@@ -423,7 +424,7 @@ function DoctorServices({ doctorId }: { doctorId: string }) {
           </div>
           {available.length > 0 && (
             <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+              <p className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-1.5">
                 Disponibles
               </p>
               <div className="flex flex-wrap gap-2">
@@ -431,7 +432,7 @@ function DoctorServices({ doctorId }: { doctorId: string }) {
                   <button
                     key={c.id}
                     onClick={() => add(c.id)}
-                    className="inline-flex items-center gap-1 border border-gray-300 text-gray-600 text-sm rounded-full px-3 py-1 transition-all hover:border-brand-400 hover:text-brand-700"
+                    className="inline-flex items-center gap-1 border border-border-strong text-text-secondary text-sm rounded-full px-3 py-1 transition-all hover:border-brand-400 hover:text-brand-700"
                   >
                     + {c.name}
                   </button>
@@ -439,8 +440,8 @@ function DoctorServices({ doctorId }: { doctorId: string }) {
               </div>
             </div>
           )}
-          <div className="rounded-xl border border-gray-200 bg-white p-3">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+          <div className="rounded-xl border border-border bg-surface p-3">
+            <p className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-2">
               Crear servicio nuevo
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -448,7 +449,7 @@ function DoctorServices({ doctorId }: { doctorId: string }) {
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
                 placeholder="Nombre"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+                className="w-full border border-border-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
               />
               <input
                 type="number"
@@ -456,7 +457,7 @@ function DoctorServices({ doctorId }: { doctorId: string }) {
                 value={newPrice}
                 onChange={(e) => setNewPrice(e.target.value)}
                 placeholder="Precio (Bs)"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+                className="w-full border border-border-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
               />
               <input
                 type="number"
@@ -464,7 +465,7 @@ function DoctorServices({ doctorId }: { doctorId: string }) {
                 value={newDuration}
                 onChange={(e) => setNewDuration(e.target.value)}
                 placeholder="Duración (min)"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+                className="w-full border border-border-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
               />
             </div>
             <div className="mt-2 flex justify-end">
@@ -497,12 +498,12 @@ function Input({
 }) {
   return (
     <label className="block space-y-1">
-      <span className="text-sm font-medium text-gray-700">{label}</span>
+      <span className="text-sm font-medium text-text-secondary">{label}</span>
       <input
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+        className="w-full border border-border-strong rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
       />
     </label>
   );

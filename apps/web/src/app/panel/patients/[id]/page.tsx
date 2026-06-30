@@ -52,15 +52,18 @@ function PatientHistoryView() {
 
   return (
     <div className="space-y-6">
-      <button onClick={() => router.back()} className="text-sm text-gray-500 hover:text-gray-800">
+      <button
+        onClick={() => router.back()}
+        className="text-sm text-text-muted hover:text-text-primary"
+      >
         ← Volver
       </button>
 
       {/* Cabecera del paciente */}
-      <div className="bg-white rounded-2xl border border-gray-100 p-6">
-        <h1 className="text-xl font-bold text-gray-900">{data.patient.name}</h1>
-        <p className="text-sm text-gray-500">{data.patient.phone}</p>
-        {data.patient.ci && <p className="text-sm text-gray-500">CI: {data.patient.ci}</p>}
+      <div className="bg-surface rounded-2xl border border-border p-6">
+        <h1 className="text-xl font-bold text-text-primary">{data.patient.name}</h1>
+        <p className="text-sm text-text-muted">{data.patient.phone}</p>
+        {data.patient.ci && <p className="text-sm text-text-muted">CI: {data.patient.ci}</p>}
       </div>
 
       {/* Editor de notas (solo ADMIN/DOCTOR) */}
@@ -68,20 +71,20 @@ function PatientHistoryView() {
 
       {/* Notas clínicas */}
       <section>
-        <h2 className="text-sm font-semibold text-gray-700 mb-3">Notas clínicas</h2>
+        <h2 className="text-sm font-semibold text-text-secondary mb-3">Notas clínicas</h2>
         {!data.clinicalAccess ? (
-          <div className="flex items-center justify-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-4 py-6 text-center text-sm text-gray-500">
+          <div className="flex items-center justify-center gap-2 bg-canvas border border-border rounded-xl px-4 py-6 text-center text-sm text-text-muted">
             <Lock className="size-4 flex-shrink-0" /> No tienes acceso al contenido clínico de este
             paciente.
           </div>
         ) : data.notes.length === 0 ? (
-          <p className="text-gray-400 text-sm">Aún no hay notas clínicas.</p>
+          <p className="text-text-muted text-sm">Aún no hay notas clínicas.</p>
         ) : (
           <ul className="space-y-3">
             {data.notes.map((n) => (
-              <li key={n.id} className="bg-white rounded-xl border border-gray-100 p-4">
-                <div className="flex items-center justify-between mb-2 text-xs text-gray-400">
-                  <span className="font-medium text-gray-600">{n.doctor.name}</span>
+              <li key={n.id} className="bg-surface rounded-xl border border-border p-4">
+                <div className="flex items-center justify-between mb-2 text-xs text-text-muted">
+                  <span className="font-medium text-text-secondary">{n.doctor.name}</span>
                   <span>{fmtDateTime(n.createdAt)}</span>
                 </div>
                 <Markdown content={n.content} />
@@ -93,21 +96,23 @@ function PatientHistoryView() {
 
       {/* Historial de citas */}
       <section>
-        <h2 className="text-sm font-semibold text-gray-700 mb-3">Citas</h2>
+        <h2 className="text-sm font-semibold text-text-secondary mb-3">Citas</h2>
         {data.appointments.items.length === 0 ? (
-          <p className="text-gray-400 text-sm">Sin citas registradas.</p>
+          <p className="text-text-muted text-sm">Sin citas registradas.</p>
         ) : (
           <ul className="space-y-2">
             {data.appointments.items.map((a) => (
               <li key={a.id}>
                 <Link
                   href={`/panel/appointments/${a.id}`}
-                  className="block bg-white rounded-xl border border-gray-100 p-3 hover:border-brand-300 transition"
+                  className="block bg-surface rounded-xl border border-border p-3 hover:border-brand-300 transition"
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div className="min-w-0">
-                      <p className="text-sm font-medium text-gray-800 truncate">{a.service.name}</p>
-                      <p className="text-xs text-gray-500">{fmtDateTime(a.startTime)}</p>
+                      <p className="text-sm font-medium text-text-primary truncate">
+                        {a.service.name}
+                      </p>
+                      <p className="text-xs text-text-muted">{fmtDateTime(a.startTime)}</p>
                     </div>
                     <StatusBadge status={a.status} />
                   </div>
@@ -146,9 +151,9 @@ function NoteEditor({ patientId, onSaved }: { patientId: string; onSaved: () => 
   }
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 p-4 space-y-3">
+    <div className="bg-surface rounded-2xl border border-border p-4 space-y-3">
       <div className="flex items-center justify-between">
-        <p className="text-sm font-semibold text-gray-700">Nueva nota clínica</p>
+        <p className="text-sm font-semibold text-text-secondary">Nueva nota clínica</p>
         <button
           onClick={() => setPreview((p) => !p)}
           className="text-xs text-brand-600 hover:text-brand-800 font-medium"
@@ -160,11 +165,11 @@ function NoteEditor({ patientId, onSaved }: { patientId: string; onSaved: () => 
       {error && <ErrorBox message={error} />}
 
       {preview ? (
-        <div className="min-h-[120px] border border-gray-200 rounded-xl p-3 bg-gray-50">
+        <div className="min-h-[120px] border border-border rounded-xl p-3 bg-canvas">
           {content.trim() ? (
             <Markdown content={content} />
           ) : (
-            <p className="text-gray-400 text-sm">Nada que previsualizar.</p>
+            <p className="text-text-muted text-sm">Nada que previsualizar.</p>
           )}
         </div>
       ) : (
@@ -173,12 +178,12 @@ function NoteEditor({ patientId, onSaved }: { patientId: string; onSaved: () => 
           onChange={(e) => setContent(e.target.value)}
           placeholder="Escribe la nota… Soporta Markdown: **negrita**, *itálica*, # títulos, - listas"
           rows={5}
-          className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-transparent resize-y"
+          className="w-full border border-border-strong rounded-xl px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-transparent resize-y"
         />
       )}
 
       <div className="flex items-center justify-between">
-        <span className="text-xs text-gray-400">Markdown soportado</span>
+        <span className="text-xs text-text-muted">Markdown soportado</span>
         <button
           onClick={save}
           disabled={saving || content.trim().length < 3}

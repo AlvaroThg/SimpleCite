@@ -116,7 +116,7 @@ function Services() {
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-gray-900">Servicios</h1>
+        <h1 className="text-xl font-bold text-text-primary">Servicios</h1>
         <button
           onClick={() => setDraft({ ...empty })}
           className="px-4 py-2 rounded-xl bg-brand-600 text-white text-sm font-semibold hover:bg-brand-700"
@@ -128,7 +128,7 @@ function Services() {
       {error && <ErrorBox message={error} />}
 
       {draft && (
-        <div className="bg-white rounded-2xl border border-brand-200 p-4 space-y-3">
+        <div className="bg-surface rounded-2xl border border-brand-200 p-4 space-y-3">
           <p className="text-sm font-semibold">{draft.id ? 'Editar servicio' : 'Nuevo servicio'}</p>
           <Input
             label="Nombre"
@@ -155,7 +155,7 @@ function Services() {
             />
           </div>
           <div className="space-y-1">
-            <span className="text-sm font-medium text-gray-700">Ícono (opcional)</span>
+            <span className="text-sm font-medium text-text-secondary">Ícono (opcional)</span>
             <div className="grid grid-cols-6 gap-2">
               {SERVICE_ICON_OPTIONS.map(({ key, label, Icon }) => {
                 const selected = draft.icon === key;
@@ -170,7 +170,7 @@ function Services() {
                     className={`flex items-center justify-center rounded-xl border p-2 transition-colors ${
                       selected
                         ? 'border-brand-500 bg-brand-50 text-brand-700'
-                        : 'border-gray-200 text-gray-500 hover:border-brand-300'
+                        : 'border-border text-text-muted hover:border-brand-300'
                     }`}
                   >
                     <Icon className="size-5" />
@@ -180,7 +180,7 @@ function Services() {
             </div>
           </div>
           <div className="space-y-1">
-            <span className="text-sm font-medium text-gray-700">
+            <span className="text-sm font-medium text-text-secondary">
               Color en el calendario (opcional)
             </span>
             <div className="flex flex-wrap items-center gap-2">
@@ -204,18 +204,18 @@ function Services() {
                 <button
                   type="button"
                   onClick={() => setDraft({ ...draft, color: null })}
-                  className="text-xs text-gray-400 hover:text-gray-600"
+                  className="text-xs text-text-muted hover:text-text-secondary"
                 >
                   Quitar
                 </button>
               )}
             </div>
-            <p className="text-xs text-gray-400">
+            <p className="text-xs text-text-muted">
               Pinta las citas de este servicio (antes de completarse) en el calendario del panel.
             </p>
           </div>
           <div className="flex gap-2 justify-end">
-            <button onClick={() => setDraft(null)} className="px-4 py-2 text-sm text-gray-500">
+            <button onClick={() => setDraft(null)} className="px-4 py-2 text-sm text-text-muted">
               Cancelar
             </button>
             <button
@@ -244,7 +244,7 @@ function Services() {
             return (
               <li
                 key={s.id}
-                className="bg-white rounded-xl border border-gray-100 p-4 flex items-center justify-between gap-4 transition-all hover:border-brand-300 hover:shadow-sm"
+                className="bg-surface rounded-xl border border-border p-4 flex items-center justify-between gap-4 transition-all hover:border-brand-300 hover:shadow-sm"
               >
                 <div className="flex items-center gap-3 min-w-0">
                   <div
@@ -256,16 +256,16 @@ function Services() {
                     <Icon className="size-5" />
                   </div>
                   <div className="min-w-0">
-                    <p className="font-semibold text-gray-900 truncate">{s.name}</p>
-                    <p className="mt-1 text-sm text-gray-600 flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                      <span className="font-medium text-gray-900">
+                    <p className="font-semibold text-text-primary truncate">{s.name}</p>
+                    <p className="mt-1 text-sm text-text-secondary flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                      <span className="font-medium text-text-primary">
                         Bs {Number(s.price).toFixed(0)}
                       </span>
-                      <span className="text-gray-300">·</span>
+                      <span className="text-text-disabled">·</span>
                       <span>{s.duration} min</span>
                       {!s.isActive && (
                         <>
-                          <span className="text-gray-300">·</span>
+                          <span className="text-text-disabled">·</span>
                           <span className="text-red-500">inactivo</span>
                         </>
                       )}
@@ -318,12 +318,12 @@ function Input({
 }) {
   return (
     <label className="block space-y-1">
-      <span className="text-sm font-medium text-gray-700">{label}</span>
+      <span className="text-sm font-medium text-text-secondary">{label}</span>
       <input
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+        className="w-full border border-border-strong rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
       />
     </label>
   );

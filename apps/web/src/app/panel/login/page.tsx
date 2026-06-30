@@ -41,7 +41,7 @@ export default function PanelLoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-canvas px-4">
       <div className="w-full max-w-sm">
         <div className="flex flex-col items-center mb-8">
           <Image
@@ -52,12 +52,12 @@ export default function PanelLoginPage() {
             priority
             className="h-16 w-auto"
           />
-          <p className="text-sm text-gray-500 mt-1">Panel profesional</p>
+          <p className="text-sm text-text-muted mt-1">Panel profesional</p>
         </div>
 
         <form
           onSubmit={handleSubmit}
-          className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-4"
+          className="bg-surface rounded-2xl shadow-sm border border-border p-6 space-y-4"
         >
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-3 py-2 text-sm">
@@ -114,13 +114,13 @@ function Field({
 }) {
   return (
     <div className="space-y-1">
-      <label className="text-sm font-medium text-gray-700">{label}</label>
+      <label className="text-sm font-medium text-text-secondary">{label}</label>
       <input
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-transparent"
+        className="w-full border border-border-strong rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-transparent"
       />
     </div>
   );

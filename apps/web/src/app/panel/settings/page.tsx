@@ -55,7 +55,7 @@ function Settings() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-bold text-gray-900">Configuración</h1>
+      <h1 className="text-xl font-bold text-text-primary">Configuración</h1>
       {error && <ErrorBox message={error} />}
       {loading ? (
         <SkeletonCards count={2} />
@@ -66,9 +66,9 @@ function Settings() {
             <ContactInfo cfg={cfg} onSaved={setCfg} />
           </>
         ) : (
-          <section className="bg-white rounded-2xl border border-gray-100 p-5">
-            <h2 className="text-sm font-semibold text-gray-700">Marca de tu clínica</h2>
-            <p className="text-xs text-gray-400 mt-1">
+          <section className="bg-surface rounded-2xl border border-border p-5">
+            <h2 className="text-sm font-semibold text-text-secondary">Marca de tu clínica</h2>
+            <p className="text-xs text-text-muted mt-1">
               Solo los administradores pueden editar el nombre, logo, color y QR de pago de la
               clínica.
             </p>
@@ -173,54 +173,54 @@ function Branding({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantConf
   }
 
   return (
-    <section className="bg-white rounded-2xl border border-gray-100 p-5 space-y-5">
+    <section className="bg-surface rounded-2xl border border-border p-5 space-y-5">
       <div>
-        <h2 className="text-sm font-semibold text-gray-700">Marca de tu clínica</h2>
-        <p className="text-xs text-gray-400">
+        <h2 className="text-sm font-semibold text-text-secondary">Marca de tu clínica</h2>
+        <p className="text-xs text-text-muted">
           Nombre, logo y color que verán tus pacientes al reservar.
         </p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <label className="block space-y-1">
-          <span className="text-sm font-medium text-gray-700">Nombre de la clínica</span>
+          <span className="text-sm font-medium text-text-secondary">Nombre de la clínica</span>
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+            className="w-full border border-border-strong rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
           />
         </label>
 
         <div className="space-y-1">
-          <span className="text-sm font-medium text-gray-700">Color principal</span>
+          <span className="text-sm font-medium text-text-secondary">Color principal</span>
           <div className="flex items-center gap-2 mt-1">
             <input
               type="color"
               value={color}
               onChange={(e) => setColor(e.target.value)}
-              className="w-10 h-10 rounded-lg border border-gray-300 cursor-pointer"
+              className="w-10 h-10 rounded-lg border border-border-strong cursor-pointer"
             />
             <input
               value={color}
               onChange={(e) => setColor(e.target.value)}
-              className="w-28 border border-gray-300 rounded-xl px-3 py-2 text-sm"
+              className="w-28 border border-border-strong rounded-xl px-3 py-2 text-sm"
             />
           </div>
         </div>
 
         <div className="space-y-1">
-          <span className="text-sm font-medium text-gray-700">Color secundario</span>
+          <span className="text-sm font-medium text-text-secondary">Color secundario</span>
           <div className="flex items-center gap-2 mt-1">
             <input
               type="color"
               value={secondaryColor}
               onChange={(e) => setSecondaryColor(e.target.value)}
-              className="w-10 h-10 rounded-lg border border-gray-300 cursor-pointer"
+              className="w-10 h-10 rounded-lg border border-border-strong cursor-pointer"
             />
             <input
               value={secondaryColor}
               onChange={(e) => setSecondaryColor(e.target.value)}
-              className="w-28 border border-gray-300 rounded-xl px-3 py-2 text-sm"
+              className="w-28 border border-border-strong rounded-xl px-3 py-2 text-sm"
             />
           </div>
         </div>
@@ -233,20 +233,20 @@ function Branding({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantConf
           <img
             src={cfg.logoUrl}
             alt="Logo"
-            className="h-20 w-auto max-w-[200px] rounded-xl border border-gray-100 bg-white object-contain p-1"
+            className="h-20 w-auto max-w-[200px] rounded-xl border border-border bg-surface object-contain p-1"
           />
         ) : (
-          <div className="flex h-20 w-20 items-center justify-center rounded-xl border-2 border-dashed border-gray-200 text-xs text-gray-300">
+          <div className="flex h-20 w-20 items-center justify-center rounded-xl border-2 border-dashed border-border text-xs text-text-disabled">
             Logo
           </div>
         )}
         <div className="space-y-1">
-          <p className="text-sm font-medium text-gray-700">Logo de la clínica</p>
+          <p className="text-sm font-medium text-text-secondary">Logo de la clínica</p>
           <button
             type="button"
             onClick={() => logoInputRef.current?.click()}
             disabled={uploadingLogo}
-            className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg hover:border-brand-300 hover:text-brand-700 disabled:opacity-50 transition"
+            className="px-3 py-1.5 text-sm border border-border rounded-lg hover:border-brand-300 hover:text-brand-700 disabled:opacity-50 transition"
           >
             {uploadingLogo ? 'Subiendo…' : cfg.logoUrl ? 'Cambiar logo' : 'Subir logo'}
           </button>
@@ -261,9 +261,9 @@ function Branding({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantConf
       </div>
 
       {/* Static QR upload (hasta 2 bancos) */}
-      <div className="border-t border-gray-50 pt-4">
-        <p className="text-sm font-semibold text-gray-700 mb-1">QR bancarios de pago</p>
-        <p className="text-xs text-gray-400 mb-3">
+      <div className="border-t border-border pt-4">
+        <p className="text-sm font-semibold text-text-secondary mb-1">QR bancarios de pago</p>
+        <p className="text-xs text-text-muted mb-3">
           El paciente verá el primer QR al pagar y podrá ver el segundo como alternativa. Escribe el
           nombre del banco de cada uno.
         </p>
@@ -276,10 +276,10 @@ function Branding({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantConf
                 <img
                   src={cfg.staticQrUrl}
                   alt="QR bancario principal"
-                  className="h-32 w-32 rounded-xl border border-gray-100 bg-white object-contain p-1"
+                  className="h-32 w-32 rounded-xl border border-border bg-surface object-contain p-1"
                 />
               ) : (
-                <div className="flex h-32 w-32 items-center justify-center rounded-xl border-2 border-dashed border-gray-200 p-2 text-center text-xs leading-tight text-gray-300">
+                <div className="flex h-32 w-32 items-center justify-center rounded-xl border-2 border-dashed border-border p-2 text-center text-xs leading-tight text-text-disabled">
                   Sin QR
                 </div>
               )}
@@ -288,11 +288,11 @@ function Branding({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantConf
                   type="button"
                   onClick={() => qrInputRef.current?.click()}
                   disabled={uploadingQr}
-                  className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg hover:border-brand-300 hover:text-brand-700 disabled:opacity-50 transition"
+                  className="px-3 py-1.5 text-sm border border-border rounded-lg hover:border-brand-300 hover:text-brand-700 disabled:opacity-50 transition"
                 >
                   {uploadingQr ? 'Subiendo…' : cfg.staticQrUrl ? 'Cambiar' : 'Subir QR 1'}
                 </button>
-                <p className="text-xs text-gray-400">PNG, JPG · máx. 2 MB</p>
+                <p className="text-xs text-text-muted">PNG, JPG · máx. 2 MB</p>
                 <input
                   ref={qrInputRef}
                   type="file"
@@ -306,7 +306,7 @@ function Branding({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantConf
               value={qrLabel}
               onChange={(e) => setQrLabel(e.target.value)}
               placeholder="Banco del QR 1 (ej. Banco Unión)"
-              className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+              className="w-full border border-border-strong rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
             />
           </div>
 
@@ -318,10 +318,10 @@ function Branding({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantConf
                 <img
                   src={cfg.staticQrUrl2}
                   alt="QR bancario alternativo"
-                  className="h-32 w-32 rounded-xl border border-gray-100 bg-white object-contain p-1"
+                  className="h-32 w-32 rounded-xl border border-border bg-surface object-contain p-1"
                 />
               ) : (
-                <div className="flex h-32 w-32 items-center justify-center rounded-xl border-2 border-dashed border-gray-200 p-2 text-center text-xs leading-tight text-gray-300">
+                <div className="flex h-32 w-32 items-center justify-center rounded-xl border-2 border-dashed border-border p-2 text-center text-xs leading-tight text-text-disabled">
                   Opcional
                 </div>
               )}
@@ -330,11 +330,11 @@ function Branding({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantConf
                   type="button"
                   onClick={() => qr2InputRef.current?.click()}
                   disabled={uploadingQr2}
-                  className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg hover:border-brand-300 hover:text-brand-700 disabled:opacity-50 transition"
+                  className="px-3 py-1.5 text-sm border border-border rounded-lg hover:border-brand-300 hover:text-brand-700 disabled:opacity-50 transition"
                 >
                   {uploadingQr2 ? 'Subiendo…' : cfg.staticQrUrl2 ? 'Cambiar' : 'Subir QR 2'}
                 </button>
-                <p className="text-xs text-gray-400">Banco alternativo</p>
+                <p className="text-xs text-text-muted">Banco alternativo</p>
                 <input
                   ref={qr2InputRef}
                   type="file"
@@ -348,16 +348,16 @@ function Branding({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantConf
               value={qrLabel2}
               onChange={(e) => setQrLabel2(e.target.value)}
               placeholder="Banco del QR 2 (ej. Mercantil)"
-              className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+              className="w-full border border-border-strong rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
             />
           </div>
         </div>
       </div>
 
       {/* Hero image upload */}
-      <div className="border-t border-gray-50 pt-4">
-        <p className="text-sm font-semibold text-gray-700 mb-1">Imagen de portada</p>
-        <p className="text-xs text-gray-400 mb-3">
+      <div className="border-t border-border pt-4">
+        <p className="text-sm font-semibold text-text-secondary mb-1">Imagen de portada</p>
+        <p className="text-xs text-text-muted mb-3">
           Imagen principal (hero) que verán tus pacientes en la página pública.
         </p>
         <div className="flex items-center gap-4">
@@ -366,10 +366,10 @@ function Branding({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantConf
             <img
               src={cfg.heroImageUrl}
               alt="Portada"
-              className="h-32 w-auto max-w-[320px] rounded-xl border border-gray-100 bg-white object-cover"
+              className="h-32 w-auto max-w-[320px] rounded-xl border border-border bg-surface object-cover"
             />
           ) : (
-            <div className="flex h-32 w-48 items-center justify-center rounded-xl border-2 border-dashed border-gray-200 text-xs text-gray-300">
+            <div className="flex h-32 w-48 items-center justify-center rounded-xl border-2 border-dashed border-border text-xs text-text-disabled">
               Sin portada
             </div>
           )}
@@ -378,11 +378,11 @@ function Branding({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantConf
               type="button"
               onClick={() => heroInputRef.current?.click()}
               disabled={uploadingHero}
-              className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg hover:border-brand-300 hover:text-brand-700 disabled:opacity-50 transition"
+              className="px-3 py-1.5 text-sm border border-border rounded-lg hover:border-brand-300 hover:text-brand-700 disabled:opacity-50 transition"
             >
               {uploadingHero ? 'Subiendo…' : cfg.heroImageUrl ? 'Cambiar portada' : 'Subir portada'}
             </button>
-            <p className="text-xs text-gray-400">PNG, JPG · máx. 2 MB</p>
+            <p className="text-xs text-text-muted">PNG, JPG · máx. 2 MB</p>
             <input
               ref={heroInputRef}
               type="file"
@@ -395,70 +395,72 @@ function Branding({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantConf
       </div>
 
       {/* Landing texts */}
-      <div className="border-t border-gray-50 pt-4 space-y-4">
+      <div className="border-t border-border pt-4 space-y-4">
         <div>
-          <p className="text-sm font-semibold text-gray-700">Textos de la página</p>
-          <p className="text-xs text-gray-400">
+          <p className="text-sm font-semibold text-text-secondary">Textos de la página</p>
+          <p className="text-xs text-text-muted">
             Personaliza los títulos y subtítulos de tu página pública. Deja un campo vacío para usar
             el valor por defecto.
           </p>
         </div>
 
         <label className="block space-y-1">
-          <span className="text-sm font-medium text-gray-700">Título de portada</span>
+          <span className="text-sm font-medium text-text-secondary">Título de portada</span>
           <input
             value={heroTitle}
             onChange={(e) => setHeroTitle(e.target.value)}
             placeholder="Reserva tu cita en minutos"
-            className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+            className="w-full border border-border-strong rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
           />
         </label>
 
         <label className="block space-y-1">
-          <span className="text-sm font-medium text-gray-700">Subtítulo de portada</span>
+          <span className="text-sm font-medium text-text-secondary">Subtítulo de portada</span>
           <textarea
             value={heroSubtitle}
             onChange={(e) => setHeroSubtitle(e.target.value)}
             rows={2}
             placeholder="Agenda con tu especialista de confianza de forma rápida y segura."
-            className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+            className="w-full border border-border-strong rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
           />
         </label>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <label className="block space-y-1">
-            <span className="text-sm font-medium text-gray-700">Título de servicios</span>
+            <span className="text-sm font-medium text-text-secondary">Título de servicios</span>
             <input
               value={servicesTitle}
               onChange={(e) => setServicesTitle(e.target.value)}
               placeholder="Nuestros servicios"
-              className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+              className="w-full border border-border-strong rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
             />
           </label>
 
           <label className="block space-y-1">
-            <span className="text-sm font-medium text-gray-700">Título de especialistas</span>
+            <span className="text-sm font-medium text-text-secondary">Título de especialistas</span>
             <input
               value={specialistsTitle}
               onChange={(e) => setSpecialistsTitle(e.target.value)}
               placeholder="Nuestros especialistas"
-              className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+              className="w-full border border-border-strong rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
             />
           </label>
         </div>
 
         <label className="block space-y-1">
-          <span className="text-sm font-medium text-gray-700">Título de llamada a la acción</span>
+          <span className="text-sm font-medium text-text-secondary">
+            Título de llamada a la acción
+          </span>
           <input
             value={ctaTitle}
             onChange={(e) => setCtaTitle(e.target.value)}
             placeholder="¿Listo para tu próxima cita?"
-            className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+            className="w-full border border-border-strong rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
           />
         </label>
 
         <label className="block space-y-1">
-          <span className="text-sm font-medium text-gray-700">
+          <span className="text-sm font-medium text-text-secondary">
             Subtítulo de llamada a la acción
           </span>
           <textarea
@@ -466,7 +468,7 @@ function Branding({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantConf
             onChange={(e) => setCtaSubtitle(e.target.value)}
             rows={2}
             placeholder="Reserva ahora y recibe confirmación al instante por WhatsApp."
-            className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+            className="w-full border border-border-strong rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
           />
         </label>
       </div>
@@ -513,58 +515,58 @@ function ContactInfo({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantC
   }
 
   return (
-    <section className="bg-white rounded-2xl border border-gray-100 p-5 space-y-5">
+    <section className="bg-surface rounded-2xl border border-border p-5 space-y-5">
       <div>
-        <h2 className="text-sm font-semibold text-gray-700">Contacto y redes</h2>
-        <p className="text-xs text-gray-400">
+        <h2 className="text-sm font-semibold text-text-secondary">Contacto y redes</h2>
+        <p className="text-xs text-text-muted">
           Dirección y enlaces que verán tus pacientes en la página pública.
         </p>
       </div>
 
       <label className="block space-y-1">
-        <span className="text-sm font-medium text-gray-700">Dirección</span>
+        <span className="text-sm font-medium text-text-secondary">Dirección</span>
         <input
           value={address}
           onChange={(e) => setAddress(e.target.value)}
           placeholder="Av. Las Américas #123, Tarija"
-          className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+          className="w-full border border-border-strong rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
         />
       </label>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <label className="block space-y-1">
-          <span className="text-sm font-medium text-gray-700">Facebook</span>
+          <span className="text-sm font-medium text-text-secondary">Facebook</span>
           <input
             type="url"
             value={facebookUrl}
             onChange={(e) => setFacebookUrl(e.target.value)}
             placeholder="https://facebook.com/tu-clinica"
-            className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+            className="w-full border border-border-strong rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
           />
         </label>
 
         <label className="block space-y-1">
-          <span className="text-sm font-medium text-gray-700">Instagram</span>
+          <span className="text-sm font-medium text-text-secondary">Instagram</span>
           <input
             type="url"
             value={instagramUrl}
             onChange={(e) => setInstagramUrl(e.target.value)}
             placeholder="https://instagram.com/tu-clinica"
-            className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+            className="w-full border border-border-strong rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
           />
         </label>
       </div>
 
       <label className="block space-y-1">
-        <span className="text-sm font-medium text-gray-700">WhatsApp de contacto</span>
+        <span className="text-sm font-medium text-text-secondary">WhatsApp de contacto</span>
         <input
           type="tel"
           value={whatsappContact}
           onChange={(e) => setWhatsappContact(e.target.value)}
           placeholder="59170000000"
-          className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+          className="w-full border border-border-strong rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
         />
-        <span className="text-xs text-gray-400">Número con código de país, sin el signo +.</span>
+        <span className="text-xs text-text-muted">Número con código de país, sin el signo +.</span>
       </label>
 
       <div className="flex justify-end">
@@ -649,11 +651,11 @@ function WhatsApp() {
   }
 
   return (
-    <section className="bg-white rounded-2xl border border-gray-100 p-5 space-y-4">
+    <section className="bg-surface rounded-2xl border border-border p-5 space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-sm font-semibold text-gray-700">WhatsApp</h2>
-          <p className="text-xs text-gray-400">
+          <h2 className="text-sm font-semibold text-text-secondary">WhatsApp</h2>
+          <p className="text-xs text-text-muted">
             Conecta el número desde el que tu bot atiende y envía recordatorios.
           </p>
         </div>
@@ -671,17 +673,17 @@ function WhatsApp() {
       {err && <ErrorBox message={err} />}
 
       {loading ? (
-        <p className="text-sm text-gray-400">Cargando…</p>
+        <p className="text-sm text-text-muted">Cargando…</p>
       ) : instances.length === 0 ? (
-        <p className="text-sm text-gray-400">Aún no has conectado ningún número.</p>
+        <p className="text-sm text-text-muted">Aún no has conectado ningún número.</p>
       ) : (
         <ul className="space-y-3">
           {instances.map((i) => (
-            <li key={i.id} className="border border-gray-100 rounded-xl p-4 space-y-3">
+            <li key={i.id} className="border border-border rounded-xl p-4 space-y-3">
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="font-medium text-gray-900">{i.phone ?? 'Sin vincular'}</p>
-                  <p className="text-xs text-gray-400 truncate">{i.containerName}</p>
+                  <p className="font-medium text-text-primary">{i.phone ?? 'Sin vincular'}</p>
+                  <p className="text-xs text-text-muted truncate">{i.containerName}</p>
                 </div>
                 <div className="flex items-center gap-3 text-sm flex-shrink-0">
                   <StatusPill status={i.status} />
@@ -694,7 +696,7 @@ function WhatsApp() {
                   <button
                     onClick={() => restart(i.id)}
                     disabled={busy}
-                    className="text-gray-500 hover:text-gray-800"
+                    className="text-text-muted hover:text-text-primary"
                   >
                     Reiniciar
                   </button>
@@ -724,7 +726,7 @@ function StatusPill({ status }: { status: string }) {
   };
   return (
     <span
-      className={`px-2 py-0.5 rounded-full text-xs font-medium ${map[status] ?? 'bg-gray-100 text-gray-600'}`}
+      className={`px-2 py-0.5 rounded-full text-xs font-medium ${map[status] ?? 'bg-muted text-text-secondary'}`}
     >
       {status}
     </span>
@@ -798,7 +800,7 @@ function QrPanel({ instanceId, onConnected }: { instanceId: string; onConnected:
   }, [instanceId, session]);
 
   return (
-    <div className="bg-gray-50 rounded-xl p-4 flex flex-col items-center text-center">
+    <div className="bg-canvas rounded-xl p-4 flex flex-col items-center text-center">
       {state === 'connected' ? (
         <p className="inline-flex items-center gap-1.5 text-sm text-green-700 font-medium">
           <CheckCircle2 className="size-4" /> WhatsApp conectado.
@@ -811,12 +813,12 @@ function QrPanel({ instanceId, onConnected }: { instanceId: string; onConnected:
         <>
           {/* El QR llega como data URL base64; <img> evita configurar dominios en next/image. */}
           <img src={qr} alt="QR de WhatsApp" width={224} height={224} className="rounded-lg" />
-          <p className="mt-3 text-sm text-gray-600">
+          <p className="mt-3 text-sm text-text-secondary">
             Abre WhatsApp → <b>Dispositivos vinculados</b> → <b>Vincular dispositivo</b> y escanea.
           </p>
         </>
       ) : (
-        <p className="text-sm text-gray-500">Generando código QR…</p>
+        <p className="text-sm text-text-muted">Generando código QR…</p>
       )}
     </div>
   );

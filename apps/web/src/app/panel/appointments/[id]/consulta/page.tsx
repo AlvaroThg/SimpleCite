@@ -196,7 +196,7 @@ function ConsultaView() {
     <div className="space-y-5">
       <button
         onClick={() => router.push(`/panel/appointments/${id}`)}
-        className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800"
+        className="inline-flex items-center gap-1.5 text-sm text-text-muted hover:text-text-primary"
       >
         <ArrowLeft className="size-4" /> Volver a la cita
       </button>
@@ -204,13 +204,13 @@ function ConsultaView() {
       <div className="grid gap-5 lg:grid-cols-[300px_1fr]">
         {/* ── Contexto del paciente (sticky en desktop) ── */}
         <aside className="space-y-4 lg:sticky lg:top-4 lg:self-start">
-          <div className="bg-white rounded-2xl border border-gray-100 p-5">
-            <p className="text-xs font-medium uppercase tracking-wider text-gray-400">Consulta</p>
-            <h1 className="mt-1 text-lg font-bold text-gray-900">{appt.patient.name}</h1>
-            <p className="text-sm text-gray-500">{appt.patient.phone}</p>
-            {appt.patient.ci && <p className="text-sm text-gray-500">CI: {appt.patient.ci}</p>}
+          <div className="bg-surface rounded-2xl border border-border p-5">
+            <p className="text-xs font-medium uppercase tracking-wider text-text-muted">Consulta</p>
+            <h1 className="mt-1 text-lg font-bold text-text-primary">{appt.patient.name}</h1>
+            <p className="text-sm text-text-muted">{appt.patient.phone}</p>
+            {appt.patient.ci && <p className="text-sm text-text-muted">CI: {appt.patient.ci}</p>}
 
-            <dl className="mt-4 space-y-2 border-t border-gray-100 pt-4 text-sm">
+            <dl className="mt-4 space-y-2 border-t border-border pt-4 text-sm">
               <Row label="Fecha" value={fmtDate(appt.startTime)} />
               <Row label="Hora" value={`${fmtTime(appt.startTime)} – ${fmtTime(appt.endTime)}`} />
               <Row label="Servicio" value={appt.service.name} />
@@ -232,8 +232,8 @@ function ConsultaView() {
           {error && <ErrorBox message={error} />}
 
           {/* ① Historia clínica */}
-          <section className="bg-white rounded-2xl border border-gray-100 p-6 space-y-4">
-            <h2 className="text-sm font-semibold text-gray-900">Historia clínica</h2>
+          <section className="bg-surface rounded-2xl border border-border p-6 space-y-4">
+            <h2 className="text-sm font-semibold text-text-primary">Historia clínica</h2>
             <Field
               label="Síntomas / motivo de consulta"
               value={form.symptoms}
@@ -263,9 +263,9 @@ function ConsultaView() {
           </section>
 
           {/* ② Receta */}
-          <section className="bg-white rounded-2xl border border-gray-100 p-6 space-y-4">
+          <section className="bg-surface rounded-2xl border border-border p-6 space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-gray-900">Receta — medicamentos</h2>
+              <h2 className="text-sm font-semibold text-text-primary">Receta — medicamentos</h2>
             </div>
 
             {/* Recetas ya emitidas en esta consulta */}
@@ -274,9 +274,9 @@ function ConsultaView() {
                 {record.prescriptions.map((p) => (
                   <div
                     key={p.id}
-                    className="flex items-center justify-between rounded-xl border border-gray-100 bg-gray-50 px-4 py-2 text-sm"
+                    className="flex items-center justify-between rounded-xl border border-border bg-canvas px-4 py-2 text-sm"
                   >
-                    <span className="text-gray-600">
+                    <span className="text-text-secondary">
                       Receta · {p.medications.length} medicamento(s)
                     </span>
                     <button
@@ -331,7 +331,7 @@ function ConsultaView() {
                         type="button"
                         onClick={() => removeMed(i)}
                         disabled={meds.length === 1}
-                        className="flex items-center justify-center rounded-lg px-2 text-gray-400 hover:text-red-600 disabled:opacity-30"
+                        className="flex items-center justify-center rounded-lg px-2 text-text-muted hover:text-red-600 disabled:opacity-30"
                         aria-label="Eliminar medicamento"
                       >
                         <X className="size-4" />
@@ -362,14 +362,14 @@ function ConsultaView() {
           {!readOnly && (
             <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-end">
               {savedAt && (
-                <span className="text-xs text-gray-400 sm:mr-auto">
+                <span className="text-xs text-text-muted sm:mr-auto">
                   Borrador guardado {savedAt}
                 </span>
               )}
               <button
                 onClick={handleSaveDraft}
                 disabled={saving || finishing}
-                className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                className="rounded-xl border border-border px-4 py-2 text-sm font-semibold text-text-secondary hover:bg-canvas disabled:opacity-50"
               >
                 {saving ? 'Guardando…' : 'Guardar borrador'}
               </button>
@@ -393,8 +393,8 @@ function ConsultaView() {
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex justify-between gap-3">
-      <dt className="text-gray-400">{label}</dt>
-      <dd className="text-right font-medium text-gray-800">{value}</dd>
+      <dt className="text-text-muted">{label}</dt>
+      <dd className="text-right font-medium text-text-primary">{value}</dd>
     </div>
   );
 }
@@ -416,7 +416,7 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="mb-1 flex items-center gap-1.5 text-xs font-medium text-gray-500">
+      <span className="mb-1 flex items-center gap-1.5 text-xs font-medium text-text-muted">
         {LabelIcon && <LabelIcon className="size-3.5" />}
         {label}
       </span>
@@ -426,7 +426,7 @@ function Field({
         disabled={disabled}
         placeholder={placeholder}
         rows={3}
-        className="w-full resize-y rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 disabled:bg-gray-50 disabled:text-gray-500"
+        className="w-full resize-y rounded-lg border border-border px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 disabled:bg-canvas disabled:text-text-muted"
       />
     </label>
   );
@@ -449,7 +449,7 @@ function MedInput({
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
       list={list}
-      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+      className="w-full rounded-lg border border-border px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
     />
   );
 }

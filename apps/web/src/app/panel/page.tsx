@@ -43,8 +43,8 @@ function Home() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-bold text-gray-900">Hola, {session?.user.name}</h1>
-        <p className="text-sm text-gray-500">Resumen de tu clínica</p>
+        <h1 className="text-xl font-bold text-text-primary">Hola, {session?.user.name}</h1>
+        <p className="text-sm text-text-muted">Resumen de tu clínica</p>
       </div>
 
       {error && <ErrorBox message={error} />}
@@ -69,25 +69,27 @@ function Home() {
           </div>
 
           <section>
-            <h2 className="text-sm font-semibold text-gray-700 mb-3">Próximas citas</h2>
+            <h2 className="text-sm font-semibold text-text-secondary mb-3">Próximas citas</h2>
             {data.proximasCitas.length === 0 ? (
-              <p className="text-gray-400 text-sm">No hay citas confirmadas próximas.</p>
+              <p className="text-text-muted text-sm">No hay citas confirmadas próximas.</p>
             ) : (
               <ul className="space-y-2">
                 {data.proximasCitas.map((c) => (
                   <li key={c.id}>
                     <Link
                       href={`/panel/appointments/${c.id}`}
-                      className="block bg-white rounded-xl border border-gray-100 p-4 hover:border-brand-300 transition"
+                      className="block bg-surface rounded-xl border border-border p-4 hover:border-brand-300 transition"
                     >
                       <div className="flex items-center justify-between gap-3">
                         <div className="min-w-0">
-                          <p className="font-semibold text-gray-900 truncate">{c.patientName}</p>
-                          <p className="text-sm text-gray-500 truncate">
+                          <p className="font-semibold text-text-primary truncate">
+                            {c.patientName}
+                          </p>
+                          <p className="text-sm text-text-muted truncate">
                             {c.serviceName} · {c.doctorName}
                           </p>
                         </div>
-                        <span className="text-sm font-medium text-gray-700 flex-shrink-0">
+                        <span className="text-sm font-medium text-text-secondary flex-shrink-0">
                           {fmtDateTime(c.startTime)}
                         </span>
                       </div>
@@ -115,9 +117,9 @@ function Metric({
   warn?: boolean;
 }) {
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 p-5">
+    <div className="bg-surface rounded-2xl border border-border p-5">
       <div className="flex items-center justify-between">
-        <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">{label}</p>
+        <p className="text-xs font-medium text-text-muted uppercase tracking-wider">{label}</p>
         <span
           className={`flex size-9 items-center justify-center rounded-lg ${
             warn ? 'bg-red-50 text-red-600' : 'bg-brand-50 text-brand-600'
@@ -126,7 +128,7 @@ function Metric({
           <Icon className="size-[18px]" />
         </span>
       </div>
-      <p className={`mt-2 text-3xl font-extrabold ${warn ? 'text-red-600' : 'text-gray-900'}`}>
+      <p className={`mt-2 text-3xl font-extrabold ${warn ? 'text-red-600' : 'text-text-primary'}`}>
         {value}
       </p>
     </div>

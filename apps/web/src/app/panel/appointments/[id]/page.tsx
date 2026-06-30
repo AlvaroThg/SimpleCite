@@ -85,21 +85,24 @@ function AppointmentDetailView() {
 
   return (
     <div className="space-y-5">
-      <button onClick={() => router.back()} className="text-sm text-gray-500 hover:text-gray-800">
+      <button
+        onClick={() => router.back()}
+        className="text-sm text-text-muted hover:text-text-primary"
+      >
         ← Volver
       </button>
 
-      <div className="bg-white rounded-2xl border border-gray-100 p-6 space-y-4">
+      <div className="bg-surface rounded-2xl border border-border p-6 space-y-4">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h1 className="text-xl font-bold text-gray-900">{appt.patient.name}</h1>
-            <p className="text-sm text-gray-500">{appt.patient.phone}</p>
-            {appt.patient.ci && <p className="text-sm text-gray-500">CI: {appt.patient.ci}</p>}
+            <h1 className="text-xl font-bold text-text-primary">{appt.patient.name}</h1>
+            <p className="text-sm text-text-muted">{appt.patient.phone}</p>
+            {appt.patient.ci && <p className="text-sm text-text-muted">CI: {appt.patient.ci}</p>}
           </div>
           <StatusBadge status={appt.status} />
         </div>
 
-        <dl className="grid grid-cols-2 gap-3 text-sm border-t border-gray-100 pt-4">
+        <dl className="grid grid-cols-2 gap-3 text-sm border-t border-border pt-4">
           <Info label="Fecha" value={fmtDate(appt.startTime)} />
           <Info label="Hora" value={`${fmtTime(appt.startTime)} – ${fmtTime(appt.endTime)}`} />
           <Info label="Servicio" value={appt.service.name} />
@@ -108,7 +111,7 @@ function AppointmentDetailView() {
           <Info label="Pago" value={appt.isPaid ? 'Pagado' : 'Pendiente'} />
         </dl>
 
-        <div className="flex flex-wrap items-center gap-4 border-t border-gray-100 pt-4">
+        <div className="flex flex-wrap items-center gap-4 border-t border-border pt-4">
           <Link
             href={`/panel/patients/${appt.patient.id}`}
             className="inline-flex items-center gap-1 text-sm font-medium text-brand-600 hover:text-brand-800"
@@ -147,8 +150,8 @@ function AppointmentDetailView() {
       {error && <ErrorBox message={error} />}
 
       {transitions.length > 0 && (
-        <div className="bg-white rounded-2xl border border-gray-100 p-4">
-          <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-3">
+        <div className="bg-surface rounded-2xl border border-border p-4">
+          <p className="text-xs font-medium text-text-muted uppercase tracking-wider mb-3">
             Acciones
           </p>
           <div className="flex flex-wrap gap-2">
@@ -172,8 +175,8 @@ function AppointmentDetailView() {
 function Info({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <dt className="text-gray-400 text-xs">{label}</dt>
-      <dd className="text-gray-800 font-medium">{value}</dd>
+      <dt className="text-text-muted text-xs">{label}</dt>
+      <dd className="text-text-primary font-medium">{value}</dd>
     </div>
   );
 }

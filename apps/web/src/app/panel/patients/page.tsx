@@ -9,16 +9,7 @@ import { PanelShell } from '@/components/panel/PanelShell';
 import { ErrorBox } from '@/components/panel/ui';
 import { SkeletonList } from '@/components/panel/Skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
-
-/** Iniciales (máx. 2) para el avatar a partir del nombre del paciente. */
-function initials(name: string): string {
-  return name
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((w) => w.charAt(0).toUpperCase())
-    .join('');
-}
+import { Avatar } from '@/components/ui/avatar';
 
 export default function PatientsPage() {
   return (
@@ -66,13 +57,13 @@ function PatientsList() {
 
   return (
     <div className="space-y-5">
-      <h1 className="text-xl font-bold text-gray-900">Pacientes</h1>
+      <h1 className="text-xl font-bold text-text-primary">Pacientes</h1>
 
       <input
         value={q}
         onChange={(e) => setQ(e.target.value)}
         placeholder="Buscar por nombre, teléfono o CI…"
-        className="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-transparent"
+        className="w-full border border-border-strong rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-transparent"
       />
 
       {error && <ErrorBox message={error} />}
@@ -99,22 +90,20 @@ function PatientsList() {
               <li key={p.id}>
                 <Link
                   href={`/panel/patients/${p.id}`}
-                  className="block bg-white rounded-xl border border-gray-100 p-4 transition-all hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-sm"
+                  className="block bg-surface rounded-xl border border-border p-4 transition-all hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-sm"
                 >
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex min-w-0 items-center gap-3">
-                      <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-700 font-semibold">
-                        {initials(p.name)}
-                      </span>
+                      <Avatar name={p.name} size="lg" />
                       <div className="min-w-0">
-                        <p className="font-semibold text-gray-900 truncate">{p.name}</p>
-                        <p className="text-sm text-gray-500 truncate">
+                        <p className="font-semibold text-text-primary truncate">{p.name}</p>
+                        <p className="text-sm text-text-muted truncate">
                           {p.phone}
                           {p.ci ? ` · CI ${p.ci}` : ''}
                         </p>
                       </div>
                     </div>
-                    <span className="text-xs text-gray-400 flex-shrink-0">
+                    <span className="text-xs text-text-muted flex-shrink-0">
                       {p._count.appointments} cita{p._count.appointments === 1 ? '' : 's'}
                     </span>
                   </div>
@@ -127,7 +116,7 @@ function PatientsList() {
             <button
               onClick={() => void load(q, nextCursor)}
               disabled={loading}
-              className="w-full py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 transition-all hover:bg-gray-100 hover:border-gray-300 disabled:opacity-50"
+              className="w-full py-2.5 rounded-xl border border-border text-sm font-medium text-text-secondary transition-all hover:bg-muted hover:border-border-strong disabled:opacity-50"
             >
               {loading ? 'Cargando…' : 'Cargar más'}
             </button>
