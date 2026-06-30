@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import {
   getDoctors,
   getTenantInfo,
@@ -124,6 +125,10 @@ export default function BookingWizard() {
 
   // Vista del paso de horario: lista de turnos o calendario interactivo.
   const [slotView, setSlotView] = useState<'list' | 'calendar'>('list');
+
+  // Movimiento reducido: las transiciones de paso se vuelven instantáneas.
+  const reduce = useReducedMotion();
+  const EASE = [0.16, 1, 0.3, 1] as const;
 
   // ─── Carga inicial ─────────────────────────────────────────────────
   useEffect(() => {
@@ -319,354 +324,389 @@ export default function BookingWizard() {
         </div>
       )}
 
-      {/* ── Paso 1: Hero + Nuestros Especialistas (landing) ── */}
-      {state.step === 'select-doctor' && (
-        <>
-          <section className="space-y-3 py-2 text-center">
-            <h1 className="text-3xl font-bold text-gray-900">
-              Reserva tu cita{state.tenant ? ` en ${state.tenant.name}` : ''}
-            </h1>
-            <p className="mx-auto max-w-md text-gray-500">
-              Agenda online en menos de un minuto. Elige a tu especialista y tu horario; te
-              confirmamos por WhatsApp.
-            </p>
-          </section>
-
-          <StepCard title="Nuestros especialistas">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {state.doctors.map((doc) => (
-                <button
-                  key={doc.id}
-                  onClick={() =>
-                    set({ selectedDoctor: doc, selectedService: null, step: 'select-service' })
-                  }
-                  className="group flex items-center gap-4 rounded-2xl border border-gray-200 bg-white p-4 text-left transition-all hover:-translate-y-0.5 hover:border-blue-400 hover:shadow-md"
-                >
-                  <Avatar name={doc.name} color={primary} />
-                  <div className="min-w-0">
-                    <p className="truncate font-semibold text-gray-900">{doc.name}</p>
-                    {doc.doctorProfile?.specialty && (
-                      <p className="truncate text-sm text-gray-500">
-                        {doc.doctorProfile.specialty}
-                      </p>
-                    )}
-                    {doc.doctorServices.length > 0 && (
-                      <p className="mt-0.5 text-xs text-gray-400">
-                        {doc.doctorServices.length} servicio
-                        {doc.doctorServices.length > 1 ? 's' : ''}
-                      </p>
-                    )}
-                  </div>
-                </button>
-              ))}
-            </div>
-          </StepCard>
-        </>
-      )}
-
-      {/* ── Paso 2: Elegir servicio ── */}
-      {state.step === 'select-service' && state.selectedDoctor && (
-        <StepCard title="¿Qué servicio necesitas?" onBack={() => set({ step: 'select-doctor' })}>
-          <div className="space-y-3">
-            {state.selectedDoctor.doctorServices.map((ds) => (
-              <button
-                key={ds.id}
-                onClick={() => set({ selectedService: ds, step: 'select-slot' })}
-                className="w-full text-left bg-white border border-gray-200 rounded-xl p-4 hover:border-blue-400 hover:shadow-sm transition"
-              >
-                <p className="font-semibold text-gray-900">{ds.service.name}</p>
-                {ds.service.description && (
-                  <p className="text-sm text-gray-500 mt-1">{ds.service.description}</p>
-                )}
-                <p className="text-sm text-gray-500 mt-1">
-                  Bs {Number(ds.customPrice ?? ds.service.price).toFixed(0)} ·{' '}
-                  {ds.customDuration ?? ds.service.duration} min
-                </p>
-              </button>
-            ))}
-          </div>
-        </StepCard>
-      )}
-
-      {/* ── Paso 3: Elegir fecha y slot ── */}
-      {state.step === 'select-slot' && state.selectedService && (
-        <StepCard title="¿Cuándo quieres tu cita?" onBack={() => set({ step: 'select-service' })}>
-          {/* Toggle Lista / Calendario */}
-          <div className="mb-4 flex w-fit gap-1 rounded-lg bg-gray-100 p-1">
-            {(
-              [
-                ['list', 'Lista'],
-                ['calendar', 'Calendario'],
-              ] as ['list' | 'calendar', string][]
-            ).map(([k, l]) => (
-              <button
-                key={k}
-                onClick={() => setSlotView(k)}
-                aria-pressed={slotView === k}
-                className={`min-h-9 rounded-md px-3 py-1.5 text-sm font-medium transition ${
-                  slotView === k
-                    ? 'bg-white text-gray-900 shadow-sm'
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                {l}
-              </button>
-            ))}
-          </div>
-
-          {slotView === 'calendar' ? (
-            <BookingCalendar
-              slots={state.slots.map((s) => ({
-                start: new Date(s.startTime),
-                end: new Date(s.endTime),
-                available: s.available,
-              }))}
-              onPick={({ start }) => {
-                const slot = state.slots.find(
-                  (s) => new Date(s.startTime).getTime() === start.getTime(),
-                );
-                if (slot) set({ selectedSlot: slot, step: 'patient-info' });
-              }}
-              onRangeChange={(from, to) => void loadRange(from, to)}
-            />
-          ) : (
+      {/* Transición continua entre pasos (cross-fade + deslizamiento). */}
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.div
+          key={state.step}
+          className="space-y-6"
+          initial={reduce ? false : { opacity: 0, x: 24 }}
+          animate={reduce ? {} : { opacity: 1, x: 0 }}
+          exit={reduce ? {} : { opacity: 0, x: -24 }}
+          transition={{ duration: 0.32, ease: EASE }}
+        >
+          {/* ── Paso 1: Hero + Nuestros Especialistas (landing) ── */}
+          {state.step === 'select-doctor' && (
             <>
-              {/* Date picker simple: botones ±7 días */}
-              <div className="flex items-center gap-2 mb-5 overflow-x-auto pb-1">
-                {Array.from({ length: 7 }, (_, i) => addDays(todayStr(), i)).map((d) => {
-                  const label = new Intl.DateTimeFormat('es-BO', {
-                    weekday: 'short',
-                    day: 'numeric',
-                    timeZone: tz,
-                  }).format(new Date(d + 'T12:00:00'));
-                  const isSelected = state.selectedDate === d;
-                  const disabled = !state.loading && !state.availableDates.includes(d);
-                  return (
-                    <button
-                      key={d}
-                      disabled={disabled}
-                      onClick={() => set({ selectedDate: d })}
-                      className={`flex-shrink-0 min-h-11 rounded-xl px-3 py-2 text-sm font-medium border transition ${
-                        isSelected
-                          ? 'text-white border-transparent'
-                          : disabled
-                            ? 'cursor-not-allowed border-gray-100 bg-gray-50 text-gray-300 opacity-60'
-                            : 'bg-white border-gray-200 text-gray-700 hover:border-blue-400'
-                      }`}
-                      style={isSelected ? { backgroundColor: primary, borderColor: primary } : {}}
-                    >
-                      {label}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {state.loading ? (
-                <p className="text-gray-400 text-center py-6 animate-pulse">Buscando horarios...</p>
-              ) : daySlots.length === 0 ? (
-                <p className="text-gray-500 text-center py-6">
-                  No hay turnos disponibles este día. Elige otro.
+              <section className="space-y-3 py-2 text-center">
+                <h1 className="text-3xl font-bold text-gray-900">
+                  Reserva tu cita{state.tenant ? ` en ${state.tenant.name}` : ''}
+                </h1>
+                <p className="mx-auto max-w-md text-gray-500">
+                  Agenda online en menos de un minuto. Elige a tu especialista y tu horario; te
+                  confirmamos por WhatsApp.
                 </p>
-              ) : (
-                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                  {daySlots.map((slot) => (
+              </section>
+
+              <StepCard title="Nuestros especialistas">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {state.doctors.map((doc) => (
                     <button
-                      key={slot.startTime}
-                      disabled={!slot.available}
-                      onClick={() => set({ selectedSlot: slot, step: 'patient-info' })}
-                      className={`min-h-11 rounded-xl py-2 text-sm font-medium border transition ${
-                        !slot.available
-                          ? 'cursor-not-allowed border-gray-100 bg-gray-100 text-gray-300 opacity-60'
-                          : 'bg-white border-gray-200 text-gray-800 hover:border-blue-400 hover:shadow-sm'
-                      }`}
+                      key={doc.id}
+                      onClick={() =>
+                        set({ selectedDoctor: doc, selectedService: null, step: 'select-service' })
+                      }
+                      className="group flex items-center gap-4 rounded-2xl border border-gray-200 bg-white p-4 text-left transition-all hover:-translate-y-0.5 hover:border-blue-400 hover:shadow-md"
                     >
-                      {formatTime(slot.startTime, tz)}
+                      <Avatar name={doc.name} color={primary} />
+                      <div className="min-w-0">
+                        <p className="truncate font-semibold text-gray-900">{doc.name}</p>
+                        {doc.doctorProfile?.specialty && (
+                          <p className="truncate text-sm text-gray-500">
+                            {doc.doctorProfile.specialty}
+                          </p>
+                        )}
+                        {doc.doctorServices.length > 0 && (
+                          <p className="mt-0.5 text-xs text-gray-400">
+                            {doc.doctorServices.length} servicio
+                            {doc.doctorServices.length > 1 ? 's' : ''}
+                          </p>
+                        )}
+                      </div>
                     </button>
                   ))}
                 </div>
-              )}
+              </StepCard>
             </>
           )}
-        </StepCard>
-      )}
 
-      {/* ── Paso 4: Datos del paciente + teléfono ── */}
-      {state.step === 'patient-info' && state.selectedSlot && (
-        <StepCard title="Tus datos" onBack={() => set({ step: 'select-slot' })}>
-          <div className="bg-blue-50 rounded-xl p-3 mb-5 text-sm text-blue-800">
-            <span className="font-medium">{formatDate(state.selectedSlot.startTime, tz)}</span> a
-            las <span className="font-medium">{formatTime(state.selectedSlot.startTime, tz)}</span>
-          </div>
-
-          <div className="space-y-4">
-            <Field
-              label="Tu nombre completo"
-              value={state.patientName}
-              onChange={(v) => set({ patientName: v })}
-              placeholder="Ej: Juan Pérez"
-              required
-            />
-            <Field
-              label="Cédula de identidad (opcional)"
-              value={state.patientCi}
-              onChange={(v) => set({ patientCi: v })}
-              placeholder="Ej: 1234567"
-            />
-            <Field
-              label="Teléfono WhatsApp (con código de país, sin +)"
-              value={state.phone}
-              onChange={(v) => set({ phone: v })}
-              placeholder="Ej: 59170000000"
-              type="tel"
-              required
-            />
-            <p className="text-xs text-gray-500">
-              Te enviaremos un código de verificación a tu WhatsApp para confirmar la cita.
-            </p>
-
-            <Btn
-              label="Recibir código por WhatsApp"
-              color={primary}
-              loading={state.loading}
-              disabled={!state.patientName.trim() || !/^[1-9]\d{7,14}$/.test(state.phone)}
-              onClick={handleRequestOtp}
-            />
-          </div>
-        </StepCard>
-      )}
-
-      {/* ── Paso 5: Verificar OTP ── */}
-      {state.step === 'verify-otp' && (
-        <StepCard title="Verifica tu WhatsApp" onBack={() => set({ step: 'patient-info' })}>
-          <p className="text-gray-600 text-sm mb-5">
-            Enviamos un código de 6 dígitos al número{' '}
-            <span className="font-semibold">{state.phone}</span>. Revisa tus mensajes de WhatsApp.
-          </p>
-
-          <div className="space-y-4">
-            <Field
-              label="Código de verificación"
-              value={state.otpCode}
-              onChange={(v) => set({ otpCode: v.replace(/\D/g, '').slice(0, 6) })}
-              placeholder="000000"
-              type="text"
-              inputMode="numeric"
-              maxLength={6}
-            />
-
-            <Btn
-              label="Continuar al pago"
-              color={primary}
-              loading={state.loading}
-              disabled={state.otpCode.length !== 6}
-              onClick={handleVerifyAndBook}
-            />
-
-            <button
-              className="w-full text-sm text-gray-500 underline text-center"
-              onClick={() => set({ step: 'patient-info', otpCode: '' })}
+          {/* ── Paso 2: Elegir servicio ── */}
+          {state.step === 'select-service' && state.selectedDoctor && (
+            <StepCard
+              title="¿Qué servicio necesitas?"
+              onBack={() => set({ step: 'select-doctor' })}
             >
-              No recibí el código, volver
-            </button>
-          </div>
-        </StepCard>
-      )}
-
-      {/* ── Paso 6: Elegir método de pago ── */}
-      {state.step === 'payment-method' && state.selectedSlot && (
-        <StepCard title="¿Cómo deseas pagar?">
-          <div className="bg-blue-50 rounded-xl p-3 mb-5 text-sm text-blue-800">
-            <span className="font-medium">{state.selectedDoctor?.name}</span> ·{' '}
-            {formatDate(state.selectedSlot.startTime, tz)} a las{' '}
-            {formatTime(state.selectedSlot.startTime, tz)}
-          </div>
-
-          <div className="space-y-3">
-            <button
-              onClick={() => handleConfirm('CASH')}
-              disabled={state.loading}
-              className="flex w-full items-center gap-3 rounded-2xl border border-gray-200 bg-white p-4 text-left transition-all hover:border-blue-400 hover:shadow-sm active:scale-[.99] disabled:opacity-50"
-            >
-              <span className="text-2xl">💵</span>
-              <div>
-                <p className="font-semibold text-gray-900">Efectivo (en la clínica)</p>
-                <p className="text-sm text-gray-500">Reserva tu cita y paga al llegar.</p>
+              <div className="space-y-3">
+                {state.selectedDoctor.doctorServices.map((ds) => (
+                  <button
+                    key={ds.id}
+                    onClick={() => set({ selectedService: ds, step: 'select-slot' })}
+                    className="w-full text-left bg-white border border-gray-200 rounded-xl p-4 hover:border-blue-400 hover:shadow-sm transition"
+                  >
+                    <p className="font-semibold text-gray-900">{ds.service.name}</p>
+                    {ds.service.description && (
+                      <p className="text-sm text-gray-500 mt-1">{ds.service.description}</p>
+                    )}
+                    <p className="text-sm text-gray-500 mt-1">
+                      Bs {Number(ds.customPrice ?? ds.service.price).toFixed(0)} ·{' '}
+                      {ds.customDuration ?? ds.service.duration} min
+                    </p>
+                  </button>
+                ))}
               </div>
-            </button>
+            </StepCard>
+          )}
 
-            <button
-              onClick={() => handleConfirm('STATIC_QR')}
-              disabled={state.loading}
-              className="flex w-full items-center gap-3 rounded-2xl border border-gray-200 bg-white p-4 text-left transition-all hover:border-blue-400 hover:shadow-sm active:scale-[.99] disabled:opacity-50"
+          {/* ── Paso 3: Elegir fecha y slot ── */}
+          {state.step === 'select-slot' && state.selectedService && (
+            <StepCard
+              title="¿Cuándo quieres tu cita?"
+              onBack={() => set({ step: 'select-service' })}
             >
-              <span className="text-2xl">📲</span>
-              <div>
-                <p className="font-semibold text-gray-900">QR bancario</p>
-                <p className="text-sm text-gray-500">
-                  {qrBanks.length > 0
-                    ? 'Escanea el QR y envía el comprobante por WhatsApp.'
-                    : 'Te enviamos el QR por WhatsApp; paga y manda el comprobante por ahí.'}
-                </p>
+              {/* Toggle Lista / Calendario */}
+              <div className="mb-4 flex w-fit gap-1 rounded-lg bg-gray-100 p-1">
+                {(
+                  [
+                    ['list', 'Lista'],
+                    ['calendar', 'Calendario'],
+                  ] as ['list' | 'calendar', string][]
+                ).map(([k, l]) => (
+                  <button
+                    key={k}
+                    onClick={() => setSlotView(k)}
+                    aria-pressed={slotView === k}
+                    className={`min-h-9 rounded-md px-3 py-1.5 text-sm font-medium transition ${
+                      slotView === k
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    {l}
+                  </button>
+                ))}
               </div>
-            </button>
-          </div>
 
-          {state.loading && <p className="mt-3 text-center text-sm text-gray-400">Procesando…</p>}
-        </StepCard>
-      )}
-
-      {/* ── Paso 7: Confirmado ── */}
-      {state.step === 'confirmed' && state.selectedSlot && (
-        <StepCard title="">
-          <div className="text-center space-y-4 py-4">
-            <div
-              className="w-16 h-16 rounded-full flex items-center justify-center text-white text-3xl mx-auto"
-              style={{ backgroundColor: primary }}
-            >
-              {state.chosenMethod === 'STATIC_QR' ? '📲' : '✓'}
-            </div>
-            <h2 className="text-2xl font-bold text-gray-900">
-              {state.chosenMethod === 'STATIC_QR' ? '¡Cita registrada!' : '¡Cita confirmada!'}
-            </h2>
-            <p className="text-gray-600">
-              Tu cita con <span className="font-semibold">{state.selectedDoctor?.name}</span> es el{' '}
-              <span className="font-semibold">{formatDate(state.selectedSlot.startTime, tz)}</span>{' '}
-              a las{' '}
-              <span className="font-semibold">{formatTime(state.selectedSlot.startTime, tz)}</span>.
-            </p>
-            {state.chosenMethod === 'STATIC_QR' ? (
-              qrBanks.length > 0 ? (
-                <div className="space-y-3">
-                  <PaymentQRSelector banks={qrBanks} />
-                  <p className="text-sm text-gray-500">
-                    Tras pagar, envía la{' '}
-                    <span className="font-semibold">foto del comprobante por WhatsApp</span> para
-                    confirmar tu cita.
-                  </p>
-                </div>
+              {slotView === 'calendar' ? (
+                <BookingCalendar
+                  slots={state.slots.map((s) => ({
+                    start: new Date(s.startTime),
+                    end: new Date(s.endTime),
+                    available: s.available,
+                  }))}
+                  onPick={({ start }) => {
+                    const slot = state.slots.find(
+                      (s) => new Date(s.startTime).getTime() === start.getTime(),
+                    );
+                    if (slot) set({ selectedSlot: slot, step: 'patient-info' });
+                  }}
+                  onRangeChange={(from, to) => void loadRange(from, to)}
+                />
               ) : (
-                <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-left text-sm text-amber-800">
-                  📲 Te enviamos el <span className="font-semibold">QR de pago por WhatsApp</span>{' '}
-                  al <span className="font-semibold">{state.phone}</span>. Realiza el pago y envía
-                  la <span className="font-semibold">foto del comprobante</span> por WhatsApp para
-                  confirmar tu cita.
-                </div>
-              )
-            ) : (
-              <p className="text-sm text-gray-500">
-                💵 Recuerda traer el pago en efectivo. Recibirás un recordatorio por WhatsApp el día
-                anterior.
+                <>
+                  {/* Date picker simple: botones ±7 días */}
+                  <div className="flex items-center gap-2 mb-5 overflow-x-auto pb-1">
+                    {Array.from({ length: 7 }, (_, i) => addDays(todayStr(), i)).map((d) => {
+                      const label = new Intl.DateTimeFormat('es-BO', {
+                        weekday: 'short',
+                        day: 'numeric',
+                        timeZone: tz,
+                      }).format(new Date(d + 'T12:00:00'));
+                      const isSelected = state.selectedDate === d;
+                      const disabled = !state.loading && !state.availableDates.includes(d);
+                      return (
+                        <button
+                          key={d}
+                          disabled={disabled}
+                          onClick={() => set({ selectedDate: d })}
+                          className={`flex-shrink-0 min-h-11 rounded-xl px-3 py-2 text-sm font-medium border transition ${
+                            isSelected
+                              ? 'text-white border-transparent'
+                              : disabled
+                                ? 'cursor-not-allowed border-gray-100 bg-gray-50 text-gray-300 opacity-60'
+                                : 'bg-white border-gray-200 text-gray-700 hover:border-blue-400'
+                          }`}
+                          style={
+                            isSelected ? { backgroundColor: primary, borderColor: primary } : {}
+                          }
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {state.loading ? (
+                    <p className="text-gray-400 text-center py-6 animate-pulse">
+                      Buscando horarios...
+                    </p>
+                  ) : daySlots.length === 0 ? (
+                    <p className="text-gray-500 text-center py-6">
+                      No hay turnos disponibles este día. Elige otro.
+                    </p>
+                  ) : (
+                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                      {daySlots.map((slot) => (
+                        <motion.button
+                          key={slot.startTime}
+                          disabled={!slot.available}
+                          onClick={() => set({ selectedSlot: slot, step: 'patient-info' })}
+                          // Cupos disponibles: feedback de pulsación con resorte.
+                          // Ocupados: inertes (sin hover ni tap) para no malgastar toques.
+                          whileTap={!slot.available || reduce ? undefined : { scale: 0.94 }}
+                          transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                          className={`min-h-11 rounded-xl py-2 text-sm font-medium border transition ${
+                            !slot.available
+                              ? 'cursor-not-allowed border-gray-100 bg-gray-100 text-gray-300 opacity-60'
+                              : 'bg-white border-gray-200 text-gray-800 hover:border-blue-400 hover:shadow-sm'
+                          }`}
+                        >
+                          {formatTime(slot.startTime, tz)}
+                        </motion.button>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+            </StepCard>
+          )}
+
+          {/* ── Paso 4: Datos del paciente + teléfono ── */}
+          {state.step === 'patient-info' && state.selectedSlot && (
+            <StepCard title="Tus datos" onBack={() => set({ step: 'select-slot' })}>
+              <div className="bg-blue-50 rounded-xl p-3 mb-5 text-sm text-blue-800">
+                <span className="font-medium">{formatDate(state.selectedSlot.startTime, tz)}</span>{' '}
+                a las{' '}
+                <span className="font-medium">{formatTime(state.selectedSlot.startTime, tz)}</span>
+              </div>
+
+              <div className="space-y-4">
+                <Field
+                  label="Tu nombre completo"
+                  value={state.patientName}
+                  onChange={(v) => set({ patientName: v })}
+                  placeholder="Ej: Juan Pérez"
+                  required
+                />
+                <Field
+                  label="Cédula de identidad (opcional)"
+                  value={state.patientCi}
+                  onChange={(v) => set({ patientCi: v })}
+                  placeholder="Ej: 1234567"
+                />
+                <Field
+                  label="Teléfono WhatsApp (con código de país, sin +)"
+                  value={state.phone}
+                  onChange={(v) => set({ phone: v })}
+                  placeholder="Ej: 59170000000"
+                  type="tel"
+                  required
+                />
+                <p className="text-xs text-gray-500">
+                  Te enviaremos un código de verificación a tu WhatsApp para confirmar la cita.
+                </p>
+
+                <Btn
+                  label="Recibir código por WhatsApp"
+                  color={primary}
+                  loading={state.loading}
+                  disabled={!state.patientName.trim() || !/^[1-9]\d{7,14}$/.test(state.phone)}
+                  onClick={handleRequestOtp}
+                />
+              </div>
+            </StepCard>
+          )}
+
+          {/* ── Paso 5: Verificar OTP ── */}
+          {state.step === 'verify-otp' && (
+            <StepCard title="Verifica tu WhatsApp" onBack={() => set({ step: 'patient-info' })}>
+              <p className="text-gray-600 text-sm mb-5">
+                Enviamos un código de 6 dígitos al número{' '}
+                <span className="font-semibold">{state.phone}</span>. Revisa tus mensajes de
+                WhatsApp.
               </p>
-            )}
-            <button
-              className="mt-4 text-sm underline text-gray-500"
-              onClick={() => router.push(`/${slug}`)}
-            >
-              Volver al inicio
-            </button>
-          </div>
-        </StepCard>
-      )}
+
+              <div className="space-y-4">
+                <Field
+                  label="Código de verificación"
+                  value={state.otpCode}
+                  onChange={(v) => set({ otpCode: v.replace(/\D/g, '').slice(0, 6) })}
+                  placeholder="000000"
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={6}
+                />
+
+                <Btn
+                  label="Continuar al pago"
+                  color={primary}
+                  loading={state.loading}
+                  disabled={state.otpCode.length !== 6}
+                  onClick={handleVerifyAndBook}
+                />
+
+                <button
+                  className="w-full text-sm text-gray-500 underline text-center"
+                  onClick={() => set({ step: 'patient-info', otpCode: '' })}
+                >
+                  No recibí el código, volver
+                </button>
+              </div>
+            </StepCard>
+          )}
+
+          {/* ── Paso 6: Elegir método de pago ── */}
+          {state.step === 'payment-method' && state.selectedSlot && (
+            <StepCard title="¿Cómo deseas pagar?">
+              <div className="bg-blue-50 rounded-xl p-3 mb-5 text-sm text-blue-800">
+                <span className="font-medium">{state.selectedDoctor?.name}</span> ·{' '}
+                {formatDate(state.selectedSlot.startTime, tz)} a las{' '}
+                {formatTime(state.selectedSlot.startTime, tz)}
+              </div>
+
+              <div className="space-y-3">
+                <button
+                  onClick={() => handleConfirm('CASH')}
+                  disabled={state.loading}
+                  className="flex w-full items-center gap-3 rounded-2xl border border-gray-200 bg-white p-4 text-left transition-all hover:border-blue-400 hover:shadow-sm active:scale-[.99] disabled:opacity-50"
+                >
+                  <span className="text-2xl">💵</span>
+                  <div>
+                    <p className="font-semibold text-gray-900">Efectivo (en la clínica)</p>
+                    <p className="text-sm text-gray-500">Reserva tu cita y paga al llegar.</p>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => handleConfirm('STATIC_QR')}
+                  disabled={state.loading}
+                  className="flex w-full items-center gap-3 rounded-2xl border border-gray-200 bg-white p-4 text-left transition-all hover:border-blue-400 hover:shadow-sm active:scale-[.99] disabled:opacity-50"
+                >
+                  <span className="text-2xl">📲</span>
+                  <div>
+                    <p className="font-semibold text-gray-900">QR bancario</p>
+                    <p className="text-sm text-gray-500">
+                      {qrBanks.length > 0
+                        ? 'Escanea el QR y envía el comprobante por WhatsApp.'
+                        : 'Te enviamos el QR por WhatsApp; paga y manda el comprobante por ahí.'}
+                    </p>
+                  </div>
+                </button>
+              </div>
+
+              {state.loading && (
+                <p className="mt-3 text-center text-sm text-gray-400">Procesando…</p>
+              )}
+            </StepCard>
+          )}
+
+          {/* ── Paso 7: Confirmado ── */}
+          {state.step === 'confirmed' && state.selectedSlot && (
+            <StepCard title="">
+              <div className="text-center space-y-4 py-4">
+                <CheckDraw color={primary} reduce={!!reduce} />
+                <h2 className="text-2xl font-bold text-gray-900">
+                  {state.chosenMethod === 'STATIC_QR' ? '¡Cita registrada!' : '¡Cita confirmada!'}
+                </h2>
+                <p className="text-gray-600">
+                  Tu cita con <span className="font-semibold">{state.selectedDoctor?.name}</span> es
+                  el{' '}
+                  <span className="font-semibold">
+                    {formatDate(state.selectedSlot.startTime, tz)}
+                  </span>{' '}
+                  a las{' '}
+                  <span className="font-semibold">
+                    {formatTime(state.selectedSlot.startTime, tz)}
+                  </span>
+                  .
+                </p>
+                {state.chosenMethod === 'STATIC_QR' ? (
+                  qrBanks.length > 0 ? (
+                    <div className="space-y-3">
+                      {/* Espera calmada del pago: pulso suave en lugar de spinner. */}
+                      <div className="animate-qr-wait rounded-2xl">
+                        <PaymentQRSelector banks={qrBanks} />
+                      </div>
+                      <p className="text-sm text-gray-500">
+                        Tras pagar, envía la{' '}
+                        <span className="font-semibold">foto del comprobante por WhatsApp</span>{' '}
+                        para confirmar tu cita.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-left text-sm text-amber-800">
+                      📲 Te enviamos el{' '}
+                      <span className="font-semibold">QR de pago por WhatsApp</span> al{' '}
+                      <span className="font-semibold">{state.phone}</span>. Realiza el pago y envía
+                      la <span className="font-semibold">foto del comprobante</span> por WhatsApp
+                      para confirmar tu cita.
+                    </div>
+                  )
+                ) : (
+                  <p className="text-sm text-gray-500">
+                    💵 Recuerda traer el pago en efectivo. Recibirás un recordatorio por WhatsApp el
+                    día anterior.
+                  </p>
+                )}
+                <button
+                  className="mt-4 text-sm underline text-gray-500"
+                  onClick={() => router.push(`/${slug}`)}
+                >
+                  Volver al inicio
+                </button>
+              </div>
+            </StepCard>
+          )}
+        </motion.div>
+      </AnimatePresence>
     </div>
   );
 }
@@ -709,6 +749,35 @@ function Stepper({ step, primary }: { step: Step; primary: string }) {
         </div>
       ))}
     </div>
+  );
+}
+
+/**
+ * Marca de confirmación con trazo animado (~600ms) — el momento emocional más
+ * importante del flujo. Con movimiento reducido aparece ya dibujada.
+ */
+function CheckDraw({ color, reduce }: { color: string; reduce: boolean }) {
+  return (
+    <motion.div
+      className="mx-auto flex h-16 w-16 items-center justify-center rounded-full"
+      style={{ backgroundColor: color }}
+      initial={reduce ? false : { scale: 0.6, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1 }}
+      transition={{ type: 'spring', stiffness: 360, damping: 22 }}
+    >
+      <svg width="34" height="34" viewBox="0 0 24 24" fill="none" aria-hidden>
+        <motion.path
+          d="M5 13l4 4L19 7"
+          stroke={readableOn(color)}
+          strokeWidth={2.6}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          initial={reduce ? { pathLength: 1 } : { pathLength: 0 }}
+          animate={{ pathLength: 1 }}
+          transition={{ duration: 0.6, ease: 'easeOut', delay: reduce ? 0 : 0.15 }}
+        />
+      </svg>
+    </motion.div>
   );
 }
 
