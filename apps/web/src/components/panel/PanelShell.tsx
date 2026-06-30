@@ -21,6 +21,7 @@ import { useAuth, useRequireAuth } from '@/lib/panel-auth';
 import { getBillingStatus, type BillingStatus } from '@/lib/panel-api';
 import { BrandSpinner } from '@/components/panel/Skeleton';
 import { Avatar } from '@/components/ui/avatar';
+import { ThemeToggle } from '@/components/theme-toggle';
 
 /** Marca del shell oscuro: cuadro azul con punto blanco + wordmark. */
 function LogoDot({ className = '' }: { className?: string }) {
@@ -200,10 +201,11 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
           <h1 className="hidden text-[22px] font-semibold tracking-[-0.01em] text-text-primary md:block">
             {current?.label ?? 'Panel'}
           </h1>
-          <div className="flex items-center gap-3 text-sm">
+          <div className="flex items-center gap-2 text-sm">
             <span className="hidden font-medium text-text-secondary sm:inline md:hidden lg:inline">
               {session.user.name}
             </span>
+            <ThemeToggle />
             <button
               onClick={logout}
               className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 font-medium text-text-muted transition-colors hover:bg-[var(--danger-bg)] hover:text-danger active:scale-95 md:hidden"

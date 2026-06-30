@@ -29,6 +29,14 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es" className={`${inter.variable} ${jetbrainsMono.variable}`}>
+      <head>
+        {/* Aplica el tema guardado antes de pintar para evitar el flash. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{if(localStorage.getItem('sc-theme')==='dark'){document.documentElement.setAttribute('data-theme','dark')}}catch(e){}`,
+          }}
+        />
+      </head>
       <body className="font-sans antialiased">
         <SmoothScroll />
         {children}
