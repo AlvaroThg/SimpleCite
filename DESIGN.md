@@ -2,29 +2,29 @@
 name: SimpleCite
 description: SaaS multi-tenant de agenda y cobros para clínicas en Bolivia — claridad confiable.
 colors:
-  brand-50: '#eef5ff'
-  brand-100: '#d9e8ff'
-  brand-200: '#b6d2ff'
-  brand-300: '#90c0f8'
-  brand-400: '#4d97fa'
-  brand-500: '#0a70f8'
-  brand-600: '#0860dd'
-  brand-700: '#084fb8'
-  brand-800: '#0c3f8f'
-  brand-900: '#102a5c'
-  primary: '#0860dd'
+  brand-50: '#eff6ff'
+  brand-100: '#dbeafe'
+  brand-200: '#bfdbfe'
+  brand-300: '#93c5fd'
+  brand-400: '#60a5fa'
+  brand-500: '#3b82f6'
+  brand-600: '#2563eb'
+  brand-700: '#1d4ed8'
+  brand-800: '#1e40af'
+  brand-900: '#1e3a8a'
+  primary: '#2563eb'
   primary-foreground: '#ffffff'
-  accent: '#eef5ff'
-  accent-foreground: '#084fb8'
-  ink-900: '#182838'
-  ink-800: '#1f2d3d'
-  ink-700: '#2a3a4d'
-  background: '#ffffff'
-  foreground: '#182838'
+  accent: '#eff6ff'
+  accent-foreground: '#1d4ed8'
+  ink-900: '#0f172a'
+  ink-800: '#1e293b'
+  ink-700: '#334155'
+  background: '#f8fafc' # canvas de la app; las superficies/tarjetas son #ffffff (surface)
+  foreground: '#0f172a'
   muted: '#f1f5f9'
-  muted-foreground: '#64748b'
-  border: '#e5e7eb'
-  ring: '#4d97fa'
+  muted-foreground: '#475569'
+  border: '#e2e8f0'
+  ring: '#2563eb'
   destructive: '#dc2626'
   success: '#15803d'
   warning: '#b45309'
@@ -97,7 +97,7 @@ components:
 
 **Creative North Star: "Claridad confiable"**
 
-SimpleCite es una herramienta de salud, y la confianza médica se gana cuando todo se entiende a la primera, no con solemnidad ni con azul corporativo. El sistema apuesta por jerarquía legible, blanco limpio y espacios respirados; el azul de marca (`#0a70f8`) guía la atención hacia lo accionable, y la calidez vive en el copy humano (español boliviano) y en el acento, no en fondos tibios. Es moderno y ágil sin ser ruidoso: se siente actual, rápido y serio con los datos, pero cercano.
+SimpleCite es una herramienta de salud, y la confianza médica se gana cuando todo se entiende a la primera, no con solemnidad ni con azul corporativo. El sistema apuesta por jerarquía legible, blanco limpio y espacios respirados; el azul de marca (`#2563EB`) guía la atención hacia lo accionable, y la calidez vive en el copy humano (español boliviano) y en el acento, no en fondos tibios. Es moderno y ágil sin ser ruidoso: se siente actual, rápido y serio con los datos, pero cercano.
 
 Una sola identidad sirve a tres densidades. El **panel** del staff prioriza eficiencia: denso, plano, pocos clics. El **booking/landing del tenant** prioriza la confianza del paciente: guiado, espacioso, móvil primero. La **landing de marca** persuade. La paleta y la voz no cambian entre ellas; cambia el ritmo. Cada clínica además trae su propio `primaryColor`/`secondaryColor`, así que el sistema debe verse impecable con cualquier hue y nunca caer en plantilla.
 
@@ -105,7 +105,7 @@ Rechaza explícitamente: el SaaS genérico de IA (crema, eyebrows en mayúsculas
 
 **Key Characteristics:**
 
-- Fondo blanco real (`#ffffff`), tinta navy (`#182838`), un solo azul de marca como acento accionable.
+- Canvas de app casi blanco (`#f8fafc`) con superficies/tarjetas blancas (`#ffffff`), tinta slate (`#0f172a`), un solo azul de marca como acento accionable.
 - Plano por defecto; profundidad solo como respuesta a estado (hover/focus).
 - Una familia tipográfica (Inter) en contraste de peso, no fuentes que compiten.
 - Esquinas suaves generosas (`rounded-xl`/`2xl`), toques amplios, móvil primero.
@@ -117,8 +117,8 @@ Paleta de un solo acento: navy + azul de marca sobre blanco, con neutros fríos.
 
 ### Primary
 
-- **Azul Cite** (`#0a70f8`, token `brand-500`): el azul del logo; identidad y foco. En UI el botón primario usa el `#0860dd` (`brand-600`/`primary`) por contraste sobre blanco.
-- **Azul profundo** (`#084fb8`, `brand-700`): hover de primarios y texto de acento sobre tints claros (`accent-foreground`).
+- **Azul de marca** (`#2563EB`, token `brand-600`/`primary`): identidad, foco y botón primario. Alineado al primario del rediseño importado de claude.ai/design (reemplaza al antiguo `#0a70f8`; los assets de logo/favicon deben re-exportarse a esta paleta).
+- **Azul profundo** (`#1d4ed8`, `brand-700`): hover de primarios y texto de acento sobre tints claros (`accent-foreground`).
 
 ### Secondary
 
@@ -205,7 +205,7 @@ Plano por defecto, con capas tonales (blanco sobre `#f8fafc`/`#f9fafb`) y bordes
 ### Inputs / Fields
 
 - **Style:** `h-9`, `rounded-md` (8px), borde `#e5e7eb`, fondo transparente/blanco, `text-sm`. Placeholder con contraste AA (no gris claro).
-- **Focus:** `ring-2 ring-ring/50` (azul `#4d97fa`), sin glow.
+- **Focus:** `ring-2 ring-ring/50` (azul de marca `#2563eb`), sin glow.
 - **Error / Disabled:** error vía toast descriptivo (sonner) + texto; disabled `opacity-50 cursor-not-allowed`.
 
 ### Navigation
