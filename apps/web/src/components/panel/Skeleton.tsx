@@ -31,16 +31,16 @@ export function BrandSpinner({ size = 28, className = '' }: { size?: number; cla
 /** Carga centrada con spinner (para vistas completas). */
 export function LoadingView({ label = 'Cargando…' }: { label?: string }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-3 py-16 text-gray-400">
+    <div className="flex flex-col items-center justify-center gap-3 py-16 text-text-muted">
       <BrandSpinner size={32} />
       <p className="text-sm">{label}</p>
     </div>
   );
 }
 
-/** Barra/línea base de skeleton. */
+/** Barra/línea base de skeleton (pulse, no shimmer; usa el token de borde). */
 function Bar({ className = '' }: { className?: string }) {
-  return <div className={`bg-gray-200 rounded animate-pulse ${className}`} />;
+  return <div className={`bg-border rounded-md animate-pulse ${className}`} />;
 }
 
 /** Lista de tarjetas placeholder (citas, pacientes…). */
@@ -48,7 +48,7 @@ export function SkeletonList({ rows = 5 }: { rows?: number }) {
   return (
     <ul className="space-y-2">
       {Array.from({ length: rows }).map((_, i) => (
-        <li key={i} className="bg-white rounded-xl border border-gray-100 p-4">
+        <li key={i} className="bg-surface rounded-xl border border-border p-4">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0 flex-1 space-y-2">
               <Bar className="h-4 w-1/3" />
@@ -70,7 +70,7 @@ export function SkeletonCards({ count = 3 }: { count?: number }) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
       {Array.from({ length: count }).map((_, i) => (
-        <div key={i} className="bg-white rounded-2xl border border-gray-100 p-5 space-y-3">
+        <div key={i} className="bg-surface rounded-2xl border border-border p-5 space-y-3">
           <Bar className="h-3 w-1/2" />
           <Bar className="h-7 w-2/3" />
         </div>
@@ -83,7 +83,7 @@ export function SkeletonCards({ count = 3 }: { count?: number }) {
 export function SkeletonDetail() {
   return (
     <div className="space-y-4">
-      <div className="bg-white rounded-2xl border border-gray-100 p-6 space-y-3">
+      <div className="bg-surface rounded-2xl border border-border p-6 space-y-3">
         <Bar className="h-5 w-1/3" />
         <Bar className="h-3 w-1/4" />
         <div className="grid grid-cols-2 gap-3 pt-2">

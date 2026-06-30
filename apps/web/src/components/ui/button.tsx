@@ -4,21 +4,28 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 active:scale-[.98] shrink-0 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-[background-color,border-color,transform,box-shadow] duration-150 outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 active:scale-[.98] shrink-0 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
-        default: 'bg-primary text-primary-foreground shadow-sm hover:bg-primary/90',
-        destructive: 'bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90',
+        // Primary — único azul accionable de la marca.
+        default: 'bg-primary text-primary-foreground hover:bg-[var(--primary-hover)]',
+        // Danger — acciones destructivas (cancelar cita, eliminar).
+        destructive: 'bg-destructive text-destructive-foreground hover:bg-[#dc2626]',
+        // Secondary del rediseño: superficie blanca con borde.
         outline:
-          'border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground',
-        secondary: 'bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80',
-        ghost: 'hover:bg-accent hover:text-accent-foreground',
+          'border border-border bg-surface text-text-secondary hover:bg-canvas hover:border-border-strong hover:text-text-primary',
+        // Relleno suave (slate) — acciones secundarias dentro de superficies claras.
+        secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/80',
+        // Ghost — acciones terciarias / "más tarde".
+        ghost: 'text-text-muted hover:bg-accent hover:text-text-primary',
         link: 'text-primary underline-offset-4 hover:underline',
+        // WhatsApp — exclusivo para acciones de WhatsApp.
+        whatsapp: 'bg-whatsapp text-white hover:bg-[var(--whatsapp-hover)]',
       },
       size: {
         default: 'h-9 px-4 py-2',
-        sm: 'h-8 rounded-md px-3 text-xs',
+        sm: 'h-8 px-3 text-[13px]',
         lg: 'h-11 rounded-lg px-6 text-base',
         icon: 'size-9',
       },

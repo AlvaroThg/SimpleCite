@@ -2,19 +2,66 @@
 
 /** Helpers de UI compartidos del panel: badges de estado, formato de fechas. */
 
-const STATUS_STYLES: Record<string, { label: string; cls: string }> = {
-  TENTATIVE: { label: 'Tentativa', cls: 'bg-gray-100 text-gray-600' },
-  PENDING_PAYMENT: { label: 'Pago pendiente', cls: 'bg-amber-100 text-amber-700' },
-  CONFIRMED: { label: 'Confirmada', cls: 'bg-green-100 text-green-700' },
-  COMPLETED: { label: 'Completada', cls: 'bg-brand-100 text-brand-700' },
-  CANCELLED: { label: 'Cancelada', cls: 'bg-red-100 text-red-600' },
-  NO_SHOW: { label: 'No asistió', cls: 'bg-orange-100 text-orange-700' },
+/**
+ * Estado de cita como dato (no feedback): punto de 6px + fondo + texto + borde,
+ * derivados de los tokens de estado del sistema de diseño. Semántica corregida
+ * respecto a la versión anterior (CONFIRMED → azul, COMPLETED → verde,
+ * TENTATIVE → morado, CANCELLED → gris, NO_SHOW → rojo). Sin animación.
+ */
+const STATUS_STYLES: Record<string, { label: string; bg: string; tx: string; bd: string }> = {
+  TENTATIVE: {
+    label: 'Tentativa',
+    bg: 'var(--st-tent-bg)',
+    tx: 'var(--st-tent-tx)',
+    bd: 'var(--st-tent-bd)',
+  },
+  PENDING_PAYMENT: {
+    label: 'Pendiente de pago',
+    bg: 'var(--st-pend-bg)',
+    tx: 'var(--st-pend-tx)',
+    bd: 'var(--st-pend-bd)',
+  },
+  CONFIRMED: {
+    label: 'Confirmada',
+    bg: 'var(--st-conf-bg)',
+    tx: 'var(--st-conf-tx)',
+    bd: 'var(--st-conf-bd)',
+  },
+  COMPLETED: {
+    label: 'Completada',
+    bg: 'var(--st-comp-bg)',
+    tx: 'var(--st-comp-tx)',
+    bd: 'var(--st-comp-bd)',
+  },
+  CANCELLED: {
+    label: 'Cancelada',
+    bg: 'var(--st-canc-bg)',
+    tx: 'var(--st-canc-tx)',
+    bd: 'var(--st-canc-bd)',
+  },
+  NO_SHOW: {
+    label: 'No se presentó',
+    bg: 'var(--st-nosh-bg)',
+    tx: 'var(--st-nosh-tx)',
+    bd: 'var(--st-nosh-bd)',
+  },
 };
 
 export function StatusBadge({ status }: { status: string }) {
-  const s = STATUS_STYLES[status] ?? { label: status, cls: 'bg-gray-100 text-gray-600' };
+  const s =
+    STATUS_STYLES[status] ??
+    ({
+      label: status,
+      bg: 'var(--st-canc-bg)',
+      tx: 'var(--st-canc-tx)',
+      bd: 'var(--st-canc-bd)',
+    } as const);
   return (
-    <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${s.cls}`}>
+    <span
+      className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border py-[3px] pl-2 pr-2.5 text-xs font-medium leading-[1.4]"
+      style={{ backgroundColor: s.bg, color: s.tx, borderColor: s.bd }}
+    >
+      <span className="size-1.5 shrink-0 rounded-full bg-current" />
       {s.label}
     </span>
   );
