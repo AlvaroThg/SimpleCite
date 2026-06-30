@@ -4,14 +4,22 @@ import {
   ConflictException,
   BadRequestException,
   ForbiddenException,
+  HttpException,
+  HttpStatus,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Logger } from 'nestjs-pino';
 import type { CreatePublicAppointmentDto, PaymentMethod } from '@simplecite/shared';
 import { PrismaService } from '../../../../common/database/prisma.service';
+import { TurnstileService } from '../../../../common/services/turnstile.service';
 import { PatientsService } from '../../../patients/application/services/patients.service';
 import { WaMessageService } from '../../../whatsapp/application/services/wa-message.service';
 import { generateCancellationToken } from '../../../appointments/application/services/appointments.service';
+
+// Anti-spam del flujo abierto (sin OTP): un mismo teléfono no puede crear más
+// de N reservas por hora en la misma clínica.
+const BOOKING_RATE_WINDOW_MS = 60 * 60 * 1000;
+const MAX_BOOKINGS_PER_PHONE = 5;
 
 /**
  * Reserva pública de citas vía OTP.
@@ -30,17 +38,31 @@ export class PublicBookingService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
+    private readonly turnstile: TurnstileService,
     private readonly patients: PatientsService,
     private readonly waMessage: WaMessageService,
     private readonly logger: Logger,
   ) {}
 
+  private get requireOtp(): boolean {
+    return this.config.get<string>('PUBLIC_BOOKING_REQUIRE_OTP') === 'true';
+  }
+
   async createTentative(params: {
     tenantId: string;
     phone: string;
     dto: CreatePublicAppointmentDto;
+    remoteIp?: string;
   }): Promise<{ appointmentId: string; expiresAt: Date }> {
-    const { tenantId, phone, dto } = params;
+    const { tenantId, phone, dto, remoteIp } = params;
+
+    // 0. Modo abierto (sin OTP): anti-bot Turnstile + rate limit por teléfono.
+    //    En modo OTP el JWT ya autenticó al titular, así que se omite.
+    if (!this.requireOtp) {
+      const ok = await this.turnstile.verify(dto.turnstileToken, remoteIp);
+      if (!ok) throw new ForbiddenException('Verificación de seguridad falló. Reintenta.');
+      await this.enforcePhoneRateLimit(tenantId, phone);
+    }
 
     // 1. Validar doctor + service activos en el tenant
     const [doctor, service, link] = await Promise.all([
@@ -127,6 +149,28 @@ export class PublicBookingService {
   }
 
   /**
+   * Rate limit por teléfono (modo abierto sin OTP): un mismo número no puede
+   * crear más de MAX_BOOKINGS_PER_PHONE reservas por hora en la misma clínica.
+   * Cuenta citas recientes del teléfono (vía relación patient.phone normalizada).
+   */
+  private async enforcePhoneRateLimit(tenantId: string, phone: string) {
+    const since = new Date(Date.now() - BOOKING_RATE_WINDOW_MS);
+    const count = await this.prisma.client.appointment.count({
+      where: { tenantId, patient: { phone }, createdAt: { gte: since } },
+    });
+    if (count >= MAX_BOOKINGS_PER_PHONE) {
+      this.logger.warn(
+        { event: 'public.booking.ratelimit.phone', tenantId, phone, count },
+        'PublicBookingService',
+      );
+      throw new HttpException(
+        'Demasiadas reservas con este número. Intenta más tarde.',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+  }
+
+  /**
    * Confirma una cita TENTATIVE → CONFIRMED.
    *
    * Verifica:
@@ -179,16 +223,22 @@ export class PublicBookingService {
       throw new BadRequestException('La reserva expiró. Inicia el proceso de nuevo.');
     }
 
-    // CASH → CONFIRMED directo. STATIC_QR → PENDING_PAYMENT: el QR y el
-    // comprobante se gestionan por WhatsApp (los datos del paciente ya están
-    // guardados para poder confirmarlo por ese canal).
-    const status = paymentMethod === 'STATIC_QR' ? 'PENDING_PAYMENT' : 'CONFIRMED';
+    // Estado tras confirmar:
+    //  - Modo abierto (main, sin bot): TODA reserva pública queda PENDING_PAYMENT,
+    //    incluido efectivo. El staff la pasa a CONFIRMED a mano ("Confirmar pago
+    //    recibido"), evitando que una reserva no atendida bloquee el slot como
+    //    CONFIRMED permanente.
+    //  - Modo OTP (bot activo): efectivo → CONFIRMED directo; QR → PENDING_PAYMENT
+    //    (el comprobante llega por WhatsApp).
+    const status = this.requireOtp && paymentMethod === 'CASH' ? 'CONFIRMED' : 'PENDING_PAYMENT';
     const updated = await this.prisma.client.appointment.update({
       where: { id: appointmentId },
       data: { status, paymentMethod, expiresAt: null },
     });
 
-    if (paymentMethod === 'STATIC_QR') {
+    // Envío del QR por WhatsApp: SOLO en modo OTP (bot activo). En main el QR se
+    // muestra en la propia UI de booking, sin dependencia de WhatsApp.
+    if (this.requireOtp && paymentMethod === 'STATIC_QR') {
       // No-bloqueante: el envío del QR no debe frenar la respuesta al paciente.
       void this.sendStaticQrByWhatsApp(tenantId, phone, appointmentId);
     }

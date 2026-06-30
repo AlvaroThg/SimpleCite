@@ -412,12 +412,19 @@ export const CreatePublicAppointmentSchema = z.object({
     /// Algunos servicios (médico-legales) requieren CI; el resto puede omitirla.
     ci: z.string().max(20).optional(),
   }),
+  /// Modo abierto (sin OTP, default en main): el phone viaja en el body en vez
+  /// del JWT de paciente. En modo OTP (bot activo) se ignora y se usa el JWT.
+  phone: PhoneSchema.optional(),
+  /// Token de Cloudflare Turnstile (anti-bot) para el flujo abierto sin OTP.
+  turnstileToken: z.string().optional(),
 });
 export type CreatePublicAppointmentDto = z.infer<typeof CreatePublicAppointmentSchema>;
 
 /** Confirmación de la reserva pública: elige método de pago (efectivo o QR). */
 export const ConfirmPublicBookingSchema = z.object({
   paymentMethod: PaymentMethod,
+  /// Modo abierto (sin OTP): el phone del titular viaja en el body.
+  phone: PhoneSchema.optional(),
 });
 export type ConfirmPublicBookingDto = z.infer<typeof ConfirmPublicBookingSchema>;
 

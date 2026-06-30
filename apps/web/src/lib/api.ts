@@ -172,30 +172,35 @@ export async function verifyOtp(
 
 // ─── Public Booking API ──────────────────────────────────────────────
 
+/**
+ * Crea la reserva pública en modo abierto (sin OTP, default en `main`): el
+ * teléfono viaja en el body junto al token de Turnstile (anti-bot). Cuando el
+ * bot de WhatsApp esté activo (OTP), este flujo se reemplaza por el de sesión.
+ */
 export async function createBooking(
   slug: string,
-  sessionToken: string,
   payload: {
     doctorId: string;
     serviceId: string;
     startTime: string;
+    phone: string;
     patient: { name: string; ci?: string };
+    turnstileToken?: string;
   },
 ): Promise<BookingResult> {
-  return apiPost(`/api/public/tenants/${slug}/appointments`, payload, sessionToken);
+  return apiPost(`/api/public/tenants/${slug}/appointments`, payload);
 }
 
 export async function confirmBooking(
   slug: string,
-  sessionToken: string,
   appointmentId: string,
   paymentMethod: 'CASH' | 'STATIC_QR',
+  phone: string,
 ): Promise<{ id: string; status: string }> {
-  return apiPost(
-    `/api/public/tenants/${slug}/appointments/${appointmentId}/confirm`,
-    { paymentMethod },
-    sessionToken,
-  );
+  return apiPost(`/api/public/tenants/${slug}/appointments/${appointmentId}/confirm`, {
+    paymentMethod,
+    phone,
+  });
 }
 
 // ─── Public Cancellation (magic link) ───────────────────────────────

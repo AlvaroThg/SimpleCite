@@ -7,8 +7,6 @@ import {
   getDoctors,
   getTenantInfo,
   getAvailability,
-  requestOtp,
-  verifyOtp,
   createBooking,
   confirmBooking,
   ApiError,
@@ -19,6 +17,7 @@ import {
 import { readableOn } from '@/lib/tenant-color';
 import { BookingCalendar } from '@/components/calendar/BookingCalendar';
 import { PaymentQRSelector, type BankQr } from '@/components/PaymentQRSelector';
+import { TurnstileWidget } from '@/components/TurnstileWidget';
 
 // ─── Types ────────────────────────────────────────────────────────────
 
@@ -29,7 +28,6 @@ type Step =
   | 'select-service'
   | 'select-slot'
   | 'patient-info'
-  | 'verify-otp'
   | 'payment-method'
   | 'confirmed';
 
@@ -46,8 +44,6 @@ interface State {
   patientName: string;
   patientCi: string;
   phone: string;
-  otpCode: string;
-  sessionToken: string;
   appointmentId: string;
   chosenMethod: '' | 'CASH' | 'STATIC_QR'; // método de pago elegido al confirmar
   loading: boolean;
@@ -113,8 +109,6 @@ export default function BookingWizard() {
     patientName: '',
     patientCi: '',
     phone: '',
-    otpCode: '',
-    sessionToken: '',
     appointmentId: '',
     chosenMethod: '',
     loading: true,
@@ -125,6 +119,10 @@ export default function BookingWizard() {
 
   // Vista del paso de horario: lista de turnos o calendario interactivo.
   const [slotView, setSlotView] = useState<'list' | 'calendar'>('list');
+
+  // Token de Turnstile (anti-bot). Solo se rellena si hay site key configurada;
+  // si no, queda vacío y el backend lo trata como no-op en dev.
+  const [turnstileToken, setTurnstileToken] = useState('');
 
   // Movimiento reducido: las transiciones de paso se vuelven instantáneas.
   const reduce = useReducedMotion();
@@ -218,36 +216,26 @@ export default function BookingWizard() {
 
   // ─── Acciones ──────────────────────────────────────────────────────
 
-  async function handleRequestOtp() {
+  /**
+   * Crea la reserva directamente (flujo abierto sin OTP) y pasa al paso de pago.
+   * El teléfono y el token de Turnstile (anti-bot) viajan en el body.
+   */
+  async function handleCreateBooking() {
     set({ loading: true });
     try {
-      await requestOtp(slug, state.phone);
-      set({ step: 'verify-otp', loading: false });
-    } catch (e) {
-      set({
-        error: e instanceof ApiError ? e.message : 'Error al enviar el código',
-        loading: false,
-      });
-    }
-  }
-
-  async function handleVerifyAndBook() {
-    set({ loading: true });
-    try {
-      const { sessionToken } = await verifyOtp(slug, state.phone, state.otpCode);
-
-      const booking = await createBooking(slug, sessionToken, {
+      const booking = await createBooking(slug, {
         doctorId: state.selectedDoctor!.id,
         serviceId: state.selectedService!.service.id,
         startTime: state.selectedSlot!.startTime,
+        phone: state.phone,
         patient: {
           name: state.patientName,
           ci: state.patientCi || undefined,
         },
+        turnstileToken: turnstileToken || undefined,
       });
 
       set({
-        sessionToken,
         appointmentId: booking.appointmentId,
         step: 'payment-method',
         loading: false,
@@ -264,7 +252,7 @@ export default function BookingWizard() {
   async function handleConfirm(method: 'CASH' | 'STATIC_QR') {
     set({ loading: true });
     try {
-      await confirmBooking(slug, state.sessionToken, state.appointmentId, method);
+      await confirmBooking(slug, state.appointmentId, method, state.phone);
       set({ chosenMethod: method, step: 'confirmed', loading: false });
     } catch (e) {
       set({
@@ -543,7 +531,7 @@ export default function BookingWizard() {
                   placeholder="Ej: 1234567"
                 />
                 <Field
-                  label="Teléfono WhatsApp (con código de país, sin +)"
+                  label="Número de teléfono"
                   value={state.phone}
                   onChange={(v) => set({ phone: v })}
                   placeholder="Ej: 59170000000"
@@ -551,59 +539,23 @@ export default function BookingWizard() {
                   required
                 />
                 <p className="text-xs text-gray-500">
-                  Te enviaremos un código de verificación a tu WhatsApp para confirmar la cita.
+                  Lo usaremos para coordinar tu cita. No se comparte con terceros.
                 </p>
 
-                <Btn
-                  label="Recibir código por WhatsApp"
-                  color={primary}
-                  loading={state.loading}
-                  disabled={!state.patientName.trim() || !/^[1-9]\d{7,14}$/.test(state.phone)}
-                  onClick={handleRequestOtp}
-                />
-              </div>
-            </StepCard>
-          )}
-
-          {/* ── Paso 5: Verificar OTP ── */}
-          {state.step === 'verify-otp' && (
-            <StepCard title="Verifica tu WhatsApp" onBack={() => set({ step: 'patient-info' })}>
-              <p className="text-gray-600 text-sm mb-5">
-                Enviamos un código de 6 dígitos al número{' '}
-                <span className="font-semibold">{state.phone}</span>. Revisa tus mensajes de
-                WhatsApp.
-              </p>
-
-              <div className="space-y-4">
-                <Field
-                  label="Código de verificación"
-                  value={state.otpCode}
-                  onChange={(v) => set({ otpCode: v.replace(/\D/g, '').slice(0, 6) })}
-                  placeholder="000000"
-                  type="text"
-                  inputMode="numeric"
-                  maxLength={6}
-                />
+                <TurnstileWidget onToken={setTurnstileToken} />
 
                 <Btn
                   label="Continuar al pago"
                   color={primary}
                   loading={state.loading}
-                  disabled={state.otpCode.length !== 6}
-                  onClick={handleVerifyAndBook}
+                  disabled={!state.patientName.trim() || !/^[1-9]\d{7,14}$/.test(state.phone)}
+                  onClick={handleCreateBooking}
                 />
-
-                <button
-                  className="w-full text-sm text-gray-500 underline text-center"
-                  onClick={() => set({ step: 'patient-info', otpCode: '' })}
-                >
-                  No recibí el código, volver
-                </button>
               </div>
             </StepCard>
           )}
 
-          {/* ── Paso 6: Elegir método de pago ── */}
+          {/* ── Paso 5: Elegir método de pago ── */}
           {state.step === 'payment-method' && state.selectedSlot && (
             <StepCard title="¿Cómo deseas pagar?">
               <div className="bg-blue-50 rounded-xl p-3 mb-5 text-sm text-blue-800">
@@ -718,14 +670,13 @@ const STEPS: Step[] = [
   'select-service',
   'select-slot',
   'patient-info',
-  'verify-otp',
   'payment-method',
   'confirmed',
 ];
 
 function Stepper({ step, primary }: { step: Step; primary: string }) {
   const idx = STEPS.indexOf(step);
-  const labels = ['Doctor', 'Servicio', 'Horario', 'Datos', 'OTP', 'Pago', '¡Listo!'];
+  const labels = ['Doctor', 'Servicio', 'Horario', 'Datos', 'Pago', '¡Listo!'];
   return (
     <div className="flex items-center gap-1 overflow-x-auto">
       {STEPS.map((s, i) => (

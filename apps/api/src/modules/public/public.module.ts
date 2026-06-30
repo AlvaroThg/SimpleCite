@@ -18,6 +18,8 @@ import { PublicBookingController } from './infrastructure/adapters/public-bookin
 import { PublicCancellationController } from './infrastructure/adapters/public-cancellation.controller';
 
 import { PatientJwtStrategy } from './infrastructure/strategies/patient-jwt.strategy';
+import { PatientSessionGuard } from './infrastructure/guards/patient-session.guard';
+import { OptionalPatientSessionGuard } from './infrastructure/guards/optional-patient-session.guard';
 
 import { TurnstileService } from '../../common/services/turnstile.service';
 import { WhatsAppService } from '../../common/services/whatsapp.service';
@@ -62,6 +64,8 @@ import { WhatsAppService } from '../../common/services/whatsapp.service';
     PublicOtpService,
     PublicBookingService,
     PatientJwtStrategy,
+    PatientSessionGuard,
+    OptionalPatientSessionGuard,
     TurnstileService,
     WhatsAppService,
   ],
