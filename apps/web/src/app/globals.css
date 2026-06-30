@@ -284,6 +284,62 @@
   }
 }
 
+/* ── Motion del landing / booking ── */
+@layer utilities {
+  /* Respiración sutil del mockup del hero (±4px, 4s). */
+  .animate-breathe {
+    animation: breathe 4s ease-in-out infinite;
+    will-change: transform;
+  }
+  /* Pulso del punto indicador (en línea / pendiente). */
+  .animate-pulse-dot {
+    animation: pulse-dot 2s ease-in-out infinite;
+  }
+  /* Pulso calmado del QR mientras se espera el pago. */
+  .animate-qr-wait {
+    animation: qr-wait 2.4s ease-in-out infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .animate-breathe,
+    .animate-pulse-dot,
+    .animate-qr-wait {
+      animation: none;
+    }
+  }
+}
+
+@keyframes breathe {
+  0%,
+  100% {
+    transform: translateY(-4px);
+  }
+  50% {
+    transform: translateY(4px);
+  }
+}
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.45;
+    transform: scale(0.82);
+  }
+}
+@keyframes qr-wait {
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.25);
+  }
+  50% {
+    opacity: 0.92;
+    box-shadow: 0 0 0 10px rgba(37, 99, 235, 0);
+  }
+}
+
 @keyframes modal-in {
   from {
     opacity: 0;

@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import Image from 'next/image';
+import { Reveal, Stagger, StaggerItem, ScrollCue } from '@/components/landing/motion';
 
 // Número de WhatsApp de ventas (E.164 sin '+').
 const WA_NUMBER = '59161869814';
@@ -82,9 +83,21 @@ function Hero() {
         <p className="mt-4 text-sm text-gray-400">
           Sin tarjeta de crédito · Configuración en minutos
         </p>
+        <div className="mt-10 hidden lg:block">
+          <ScrollCue />
+        </div>
       </div>
 
-      <PhoneMockup />
+      {/* Mockup con glow radial de marca detrás + respiración sutil. */}
+      <div className="relative mx-auto">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute left-1/2 top-1/2 -z-10 h-[420px] w-[420px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-brand-500/20 blur-[90px]"
+        />
+        <div className="animate-breathe">
+          <PhoneMockup />
+        </div>
+      </div>
     </section>
   );
 }
@@ -101,7 +114,10 @@ function PhoneMockup() {
           </div>
           <div className="leading-tight">
             <p className="text-sm font-semibold">Clínica Tarija</p>
-            <p className="text-[10px] text-white/70">en línea</p>
+            <p className="flex items-center gap-1.5 text-[10px] text-white/70">
+              <span className="animate-pulse-dot inline-block size-1.5 rounded-full bg-green-400" />
+              en línea
+            </p>
           </div>
         </div>
         {/* Chat */}
@@ -144,15 +160,15 @@ function ProblemSolution() {
   return (
     <section className="bg-gray-50 border-y border-gray-100">
       <div className="max-w-6xl mx-auto px-5 py-20 grid md:grid-cols-2 gap-8">
-        <div className="bg-white rounded-3xl p-8 border border-gray-100">
+        <Reveal className="bg-white rounded-3xl p-8 border border-gray-100">
           <span className="text-3xl">😟</span>
           <h3 className="mt-3 text-xl font-bold">Cada paciente que no asiste, es dinero perdido</h3>
           <p className="mt-3 text-gray-600 leading-relaxed">
             Las llamadas para confirmar consumen tiempo de tu recepción. Los pacientes olvidan la
             cita, no avisan, y ese horario queda vacío. Sin pago anticipado, no hay compromiso.
           </p>
-        </div>
-        <div className="bg-white rounded-3xl p-8 border-2 border-brand-200">
+        </Reveal>
+        <Reveal delay={0.1} className="bg-white rounded-3xl p-8 border-2 border-brand-200">
           <span className="text-3xl">✅</span>
           <h3 className="mt-3 text-xl font-bold">SimpleCite lo resuelve por ti</h3>
           <ul className="mt-3 space-y-2 text-gray-700">
@@ -160,7 +176,7 @@ function ProblemSolution() {
             <li>• Pago por QR bancario al reservar → compromiso real del paciente.</li>
             <li>• Confirmación instantánea → tu recepción deja de llamar.</li>
           </ul>
-        </div>
+        </Reveal>
       </div>
     </section>
   );
@@ -189,17 +205,17 @@ function HowItWorks() {
     <section id="como-funciona" className="max-w-6xl mx-auto px-5 py-20">
       <h2 className="text-3xl font-bold text-center">Cómo funciona</h2>
       <p className="text-center text-gray-500 mt-2">En 3 pasos, sin complicaciones.</p>
-      <div className="mt-12 grid md:grid-cols-3 gap-6">
+      <Stagger className="mt-12 grid md:grid-cols-3 gap-6">
         {steps.map((s) => (
-          <div key={s.n} className="text-center">
+          <StaggerItem key={s.n} className="text-center">
             <div className="w-12 h-12 mx-auto rounded-2xl bg-brand-600 text-white font-bold text-xl flex items-center justify-center">
               {s.n}
             </div>
             <h3 className="mt-4 font-semibold text-lg">{s.t}</h3>
             <p className="mt-2 text-gray-600 text-sm leading-relaxed">{s.d}</p>
-          </div>
+          </StaggerItem>
         ))}
-      </div>
+      </Stagger>
     </section>
   );
 }
