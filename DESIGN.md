@@ -122,16 +122,16 @@ Paleta de un solo acento: navy + azul de marca sobre blanco, con neutros fríos.
 
 ### Secondary
 
-- **Tinte de marca** (`#eef5ff`, `brand-50`/`accent`): fondos suaves de chips activos, badges de rol, hovers (`hover:bg-accent`). La calidez/atención sin saturar.
+- **Tinte de marca** (`#eff6ff`, `brand-50`/`accent`): fondos suaves de chips activos, badges de rol, hovers (`hover:bg-accent`). La calidez/atención sin saturar.
 
 ### Neutral
 
-- **Navy tinta** (`#182838`, `ink-900`/`foreground`): cuerpo y títulos. La tinta principal, nunca negro puro.
-- **Navy secundario** (`#1f2d3d` `ink-800`, `#2a3a4d` `ink-700`): títulos/énfasis alternos.
-- **Gris apagado** (`#64748b`, `muted-foreground`): texto secundario; usar con cuidado para no bajar de AA.
-- **Borde** (`#e5e7eb`, `border`/`input`): líneas y campos.
-- **Blanco** (`#ffffff`, `background`): el lienzo. El fondo ES blanco, no crema.
-- **Anillo de foco** (`#4d97fa`, `ring`/`brand-400`).
+- **Slate tinta** (`#0f172a`, `ink-900`/`foreground`): cuerpo y títulos. La tinta principal, nunca negro puro.
+- **Slate secundario** (`#1e293b` `ink-800`, `#334155` `ink-700`): títulos/énfasis alternos.
+- **Gris apagado** (`#475569`, `muted-foreground`): texto secundario.
+- **Borde** (`#e2e8f0`, `border`/`input`): líneas y campos.
+- **Superficie** (`#ffffff`, `surface`/`card`) sobre **canvas** (`#f8fafc`, `background`): tarjetas blancas sobre un lienzo casi blanco frío. Nunca crema.
+- **Anillo de foco** (`#2563eb`, `ring`/`primary`).
 
 ### Tertiary (estados semánticos)
 
