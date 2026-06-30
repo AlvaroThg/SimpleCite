@@ -20,6 +20,19 @@ import {
 import { useAuth, useRequireAuth } from '@/lib/panel-auth';
 import { getBillingStatus, type BillingStatus } from '@/lib/panel-api';
 import { BrandSpinner } from '@/components/panel/Skeleton';
+import { Avatar } from '@/components/ui/avatar';
+
+/** Marca del shell oscuro: cuadro azul con punto blanco + wordmark. */
+function LogoDot({ className = '' }: { className?: string }) {
+  return (
+    <span
+      className={`relative inline-block size-6 flex-none rounded-[7px] bg-primary ${className}`}
+      aria-hidden
+    >
+      <span className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-white" />
+    </span>
+  );
+}
 
 type Role = 'ADMIN' | 'DOCTOR' | 'STAFF';
 interface NavItem {
@@ -88,7 +101,7 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
 
   if (!session) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+      <div className="flex min-h-screen items-center justify-center bg-canvas">
         <BrandSpinner size={36} />
       </div>
     );
@@ -112,32 +125,24 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
   const onBilling = pathname.startsWith('/panel/billing');
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
-      {/* ── Sidebar (desktop) ── */}
-      <aside className="hidden w-60 flex-shrink-0 flex-col border-r border-gray-200 bg-white md:flex">
-        <div className="flex h-16 items-center gap-2.5 border-b border-gray-100 px-5">
-          <Link href="/panel" className="transition-opacity hover:opacity-80">
-            <Image
-              src="/logo.png"
-              alt="SimpleCite"
-              width={2031}
-              height={774}
-              priority
-              className="h-8 w-auto"
-            />
-          </Link>
-          <span className="rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-semibold text-brand-700">
-            {role}
-          </span>
-        </div>
+    <div className="flex min-h-screen bg-canvas">
+      {/* ── Sidebar oscuro (desktop) ── */}
+      <aside className="hidden w-60 flex-shrink-0 flex-col bg-sidebar text-white/70 md:flex">
+        <Link
+          href="/panel"
+          className="flex h-16 items-center gap-2.5 px-5 text-base font-bold tracking-[-0.01em] text-white transition-opacity hover:opacity-90"
+        >
+          <LogoDot />
+          SimpleCite
+        </Link>
 
-        <nav className="flex-1 space-y-6 overflow-y-auto px-3 py-5">
+        <nav className="flex-1 overflow-y-auto py-2">
           {groups.map((group) => (
-            <div key={group.label}>
-              <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+            <div key={group.label} className="mb-4 last:mb-0">
+              <p className="px-5 pb-1.5 pt-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/40">
                 {group.label}
               </p>
-              <ul className="space-y-0.5">
+              <ul>
                 {group.items.map((item) => {
                   const active = isActive(item.href, pathname);
                   const Icon = item.icon;
@@ -145,15 +150,13 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
                     <li key={item.href}>
                       <Link
                         href={item.href}
-                        className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition ${
+                        className={`mx-2 flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors ${
                           active
-                            ? 'bg-brand-50 text-brand-700'
-                            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                            ? 'border-l-2 border-[var(--blue-400)] bg-white/[0.08] pl-2.5 text-white'
+                            : 'text-white/60 hover:bg-white/5 hover:text-white/90'
                         }`}
                       >
-                        <Icon
-                          className={`size-[18px] ${active ? 'text-brand-600' : 'text-gray-400'}`}
-                        />
+                        <Icon className="size-[18px] flex-none opacity-90" />
                         {item.label}
                       </Link>
                     </li>
@@ -164,27 +167,26 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
           ))}
         </nav>
 
-        <div className="border-t border-gray-100 p-3">
-          <div className="flex items-center justify-between gap-2 rounded-lg px-3 py-2">
-            <div className="min-w-0">
-              <p className="truncate text-sm font-medium text-gray-800">{session.user.name}</p>
-              <p className="truncate text-xs text-gray-400">{session.user.email}</p>
-            </div>
-            <button
-              onClick={logout}
-              aria-label="Cerrar sesión"
-              className="flex-shrink-0 rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600 active:scale-95"
-            >
-              <LogOut className="size-4" />
-            </button>
+        <div className="flex items-center gap-2.5 border-t border-white/[0.08] px-4 py-3.5">
+          <Avatar name={session.user.name} size="sm" className="bg-white/10 !text-white" />
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[13px] leading-tight text-white/85">{session.user.name}</p>
+            <p className="truncate text-[11px] text-white/40">{role}</p>
           </div>
+          <button
+            onClick={logout}
+            aria-label="Cerrar sesión"
+            className="flex-shrink-0 rounded-md p-1.5 text-white/40 transition-colors hover:bg-white/[0.06] hover:text-white/85 active:scale-95"
+          >
+            <LogOut className="size-4" />
+          </button>
         </div>
       </aside>
 
       {/* ── Área principal ── */}
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Barra superior */}
-        <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b border-gray-200 bg-white px-4 md:px-6">
+        <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b border-border bg-surface px-4 md:px-6">
           {/* Logo solo en móvil; en desktop el título de la vista */}
           <Link href="/panel" className="md:hidden">
             <Image
@@ -195,16 +197,16 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
               className="h-8 w-auto"
             />
           </Link>
-          <h1 className="hidden text-base font-semibold text-gray-900 md:block">
+          <h1 className="hidden text-[22px] font-semibold tracking-[-0.01em] text-text-primary md:block">
             {current?.label ?? 'Panel'}
           </h1>
           <div className="flex items-center gap-3 text-sm">
-            <span className="hidden font-medium text-gray-600 sm:inline md:hidden lg:inline">
+            <span className="hidden font-medium text-text-secondary sm:inline md:hidden lg:inline">
               {session.user.name}
             </span>
             <button
               onClick={logout}
-              className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 font-medium text-gray-500 transition-colors hover:bg-red-50 hover:text-red-600 active:scale-95 md:hidden"
+              className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 font-medium text-text-muted transition-colors hover:bg-[var(--danger-bg)] hover:text-danger active:scale-95 md:hidden"
             >
               <LogOut className="size-4" />
               <span className="hidden sm:inline">Salir</span>
@@ -219,7 +221,7 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
       </div>
 
       {/* ── Tabs inferiores (móvil) ── */}
-      <div className="fixed bottom-0 left-0 right-0 z-10 flex overflow-x-auto border-t border-gray-200 bg-white md:hidden">
+      <div className="fixed bottom-0 left-0 right-0 z-10 flex overflow-x-auto border-t border-border bg-surface md:hidden">
         {flatNav.map((item) => {
           const active = isActive(item.href, pathname);
           const Icon = item.icon;
@@ -228,7 +230,7 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
               key={item.href}
               href={item.href}
               className={`flex min-w-[68px] flex-shrink-0 flex-col items-center gap-0.5 py-2 text-[11px] ${
-                active ? 'text-brand-700' : 'text-gray-500'
+                active ? 'text-primary' : 'text-text-muted'
               }`}
             >
               <Icon className="size-5" />

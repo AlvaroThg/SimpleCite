@@ -25,8 +25,44 @@ import { StatusBadge, fmtDateTime, Spinner } from '@/components/panel/ui';
 import { SkeletonList } from '@/components/panel/Skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Button } from '@/components/ui/button';
-import { CalendarCheck, Clock, X, Banknote, QrCode, List, CalendarDays } from 'lucide-react';
+import { Avatar } from '@/components/ui/avatar';
+import { CalendarCheck, Clock, X, Banknote, QrCode, List, CalendarDays, Plus } from 'lucide-react';
 import { AdminCalendar, type AdminEvent } from '@/components/calendar/AdminCalendar';
+
+// ─── Celdas de tabla compartidas (sistema de diseño) ──────────────────
+
+/** Celda de paciente: avatar de iniciales + nombre + teléfono (mono). */
+function PatientCell({ a }: { a: AppointmentListItem }) {
+  return (
+    <div className="flex items-center gap-2.5">
+      <Avatar name={a.patient.name} size="sm" />
+      <div className="min-w-0">
+        <div className="truncate text-sm font-medium text-text-primary">{a.patient.name}</div>
+        <div className="truncate font-mono text-[11.5px] text-text-muted">{a.patient.phone}</div>
+      </div>
+    </div>
+  );
+}
+
+/** Celda de pago: badge QR + monto, o "Efectivo". */
+function PayCell({ a }: { a: AppointmentListItem }) {
+  if (a.paymentMethod === 'CASH') {
+    return <span className="text-text-secondary">Efectivo</span>;
+  }
+  return (
+    <span className="inline-flex items-center gap-1.5 text-text-secondary">
+      <span className="rounded-md border border-border bg-canvas px-1.5 py-px font-mono text-[11px] text-text-muted">
+        QR
+      </span>
+      Bs {a.service.price}
+    </span>
+  );
+}
+
+const TH =
+  'whitespace-nowrap border-b border-border bg-canvas px-4 py-[11px] text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-text-muted';
+const TD =
+  'border-b border-[var(--border-hairline)] px-4 py-3 align-middle text-sm text-text-secondary';
 
 // ─── Types ────────────────────────────────────────────────────────────
 
@@ -179,41 +215,74 @@ function AppointmentsList() {
   };
 
   return (
-    <div className="space-y-5">
-      {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-xl font-bold text-gray-900">Citas</h1>
-        <div className="flex items-center gap-2">
-          {/* Toggle Lista / Calendario */}
-          <div className="flex gap-1 rounded-lg bg-gray-100 p-1">
+    <div className="space-y-4">
+      {/* Toolbar: toggle Lista/Calendario · tabs con contador · Nueva cita */}
+      <div className="flex flex-wrap items-center gap-3">
+        {/* Segmented Lista / Calendario */}
+        <div className="inline-flex rounded-md border border-border bg-surface p-[3px]">
+          {(
+            [
+              ['list', 'Lista', List],
+              ['calendar', 'Calendario', CalendarDays],
+            ] as [typeof view, string, typeof List][]
+          ).map(([key, label, Icon]) => (
+            <button
+              key={key}
+              onClick={() => setView(key)}
+              aria-pressed={view === key}
+              className={`inline-flex items-center gap-1.5 rounded-[6px] px-3.5 py-1.5 text-[13px] font-medium transition-colors ${
+                view === key
+                  ? 'bg-primary text-white'
+                  : 'text-text-secondary hover:text-text-primary'
+              }`}
+            >
+              <Icon className="size-[15px]" />
+              <span className="hidden sm:inline">{label}</span>
+            </button>
+          ))}
+        </div>
+
+        {view === 'list' && (
+          <div className="flex items-center gap-1">
             {(
               [
-                ['list', 'Lista', List],
-                ['calendar', 'Calendario', CalendarDays],
-              ] as [typeof view, string, typeof List][]
-            ).map(([key, label, Icon]) => (
+                ['pendientes', 'Pendientes de pago', pendingItems.length],
+                ['confirmadas', 'Confirmadas', confirmedItems.length],
+              ] as [Tab, string, number][]
+            ).map(([key, label, count]) => (
               <button
                 key={key}
-                onClick={() => setView(key)}
-                aria-pressed={view === key}
-                className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition ${
-                  view === key
-                    ? 'bg-white text-brand-700 shadow-sm'
-                    : 'text-gray-500 hover:text-gray-700'
+                onClick={() => setTab(key)}
+                aria-pressed={tab === key}
+                className={`flex items-center gap-2 border-b-2 px-1 py-1.5 text-sm font-medium transition-colors outline-none ${
+                  tab === key
+                    ? 'border-primary text-text-primary'
+                    : 'border-transparent text-text-muted hover:text-text-secondary'
                 }`}
               >
-                <Icon className="size-4" />
-                <span className="hidden sm:inline">{label}</span>
+                {label}
+                <span
+                  className={`rounded-full border px-[7px] py-px text-[11px] font-semibold ${
+                    tab === key
+                      ? 'border-transparent bg-accent text-primary'
+                      : 'border-border bg-canvas text-text-secondary'
+                  }`}
+                >
+                  {count}
+                </span>
               </button>
             ))}
           </div>
-          <Button onClick={() => openNewAppt()}>+ Nueva Cita</Button>
-        </div>
+        )}
+
+        <Button onClick={() => openNewAppt()} size="sm" className="ml-auto">
+          <Plus className="size-4" /> Nueva cita
+        </Button>
       </div>
 
       {view === 'calendar' ? (
         <>
-          <p className="text-xs text-gray-400">
+          <p className="text-xs text-text-muted">
             Tocá un hueco libre para crear una cita, o arrastrá una cita para reprogramarla.
           </p>
           <AdminCalendar
@@ -223,49 +292,17 @@ function AppointmentsList() {
             onReschedule={handleReschedule}
           />
         </>
+      ) : loading ? (
+        <SkeletonList />
+      ) : tab === 'pendientes' ? (
+        <PendingTab
+          items={pendingItems}
+          approvingId={approvingId}
+          onViewReceipt={setReceiptAppt}
+          onApprove={handleApprove}
+        />
       ) : (
-        <>
-          {/* Tabs */}
-          <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit">
-            {(
-              [
-                ['pendientes', 'Pendientes de Pago'],
-                ['confirmadas', 'Confirmadas'],
-              ] as [Tab, string][]
-            ).map(([key, label]) => (
-              <button
-                key={key}
-                onClick={() => setTab(key)}
-                aria-pressed={tab === key}
-                className={`min-h-11 px-4 rounded-lg text-sm font-medium transition outline-none focus-visible:ring-2 focus-visible:ring-ring/50 ${
-                  tab === key
-                    ? 'bg-white text-gray-900 shadow-sm'
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                {label}
-                {key === 'pendientes' && pendingItems.length > 0 && (
-                  <span className="ml-1.5 bg-amber-500 text-white text-xs px-1.5 py-0.5 rounded-full">
-                    {pendingItems.length}
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
-
-          {loading ? (
-            <SkeletonList />
-          ) : tab === 'pendientes' ? (
-            <PendingTab
-              items={pendingItems}
-              approvingId={approvingId}
-              onViewReceipt={setReceiptAppt}
-              onApprove={handleApprove}
-            />
-          ) : (
-            <ConfirmedTab items={confirmedItems} />
-          )}
-        </>
+        <ConfirmedTab items={confirmedItems} />
       )}
 
       {/* Receipt modal */}
@@ -321,48 +358,58 @@ function PendingTab({
     );
   }
   return (
-    <ul className="space-y-3">
-      {items.map((a) => {
-        const approving = approvingId === a.id;
-        return (
-          <li
-            key={a.id}
-            className="bg-white rounded-xl border border-amber-200 p-4 space-y-3 transition-all hover:border-brand-300 hover:shadow-sm"
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="font-semibold text-gray-900 truncate">{a.patient.name}</p>
-                <p className="text-sm text-gray-500 truncate">
-                  {a.service.name} · {a.doctor.name}
-                </p>
-                <p className="text-sm text-gray-600 mt-0.5">{fmtDateTime(a.startTime)}</p>
-              </div>
-              <StatusBadge status={a.status} />
-            </div>
-            <div className="flex gap-2">
-              {a.receiptUrl ? (
-                <Button variant="outline" className="flex-1 h-11" onClick={() => onViewReceipt(a)}>
-                  Ver Comprobante
-                </Button>
-              ) : (
-                <span className="flex-1 flex items-center justify-center min-h-11 text-sm text-center text-gray-400 border border-dashed border-gray-200 rounded-lg">
-                  Esperando comprobante
-                </span>
-              )}
-              {a.receiptUrl && (
-                <Button
-                  className="flex-1 h-11 bg-green-700 hover:bg-green-800 text-white"
-                  disabled={approving}
-                  onClick={() => onApprove(a.id)}
-                >
-                  {approving ? 'Aprobando…' : 'Aprobar Pago'}
-                </Button>
-              )}
-            </div>
-          </li>
-        );
-      })}
-    </ul>
+    <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-card">
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse">
+          <thead>
+            <tr>
+              <th className={TH}>Paciente</th>
+              <th className={TH}>Servicio</th>
+              <th className={TH}>Doctor</th>
+              <th className={TH}>Fecha y hora</th>
+              <th className={TH}>Pago</th>
+              <th className={TH}>Estado</th>
+              <th className={TH}>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((a) => {
+              const approving = approvingId === a.id;
+              return (
+                <tr key={a.id} className="transition-colors last:[&>td]:border-b-0 hover:bg-canvas">
+                  <td className={`${TD} shadow-[inset_2px_0_0_var(--warning)]`}>
+                    <PatientCell a={a} />
+                  </td>
+                  <td className={TD}>{a.service.name}</td>
+                  <td className={TD}>{a.doctor.name}</td>
+                  <td className={`${TD} whitespace-nowrap`}>{fmtDateTime(a.startTime)}</td>
+                  <td className={TD}>
+                    <PayCell a={a} />
+                  </td>
+                  <td className={TD}>
+                    <StatusBadge status={a.status} />
+                  </td>
+                  <td className={`${TD} whitespace-nowrap`}>
+                    {a.receiptUrl ? (
+                      <div className="flex gap-2">
+                        <Button variant="outline" size="sm" onClick={() => onViewReceipt(a)}>
+                          Comprobante
+                        </Button>
+                        <Button size="sm" disabled={approving} onClick={() => onApprove(a.id)}>
+                          {approving ? 'Aprobando…' : 'Aprobar'}
+                        </Button>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-text-muted">Esperando comprobante</span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 }
 
@@ -379,36 +426,40 @@ function ConfirmedTab({ items }: { items: AppointmentListItem[] }) {
     );
   }
   return (
-    <ul className="space-y-2">
-      {items.map((a) => (
-        <li
-          key={a.id}
-          className="bg-white rounded-xl border border-gray-100 p-4 transition-all hover:border-brand-300 hover:shadow-sm"
-        >
-          <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <p className="font-semibold text-gray-900 truncate">{a.patient.name}</p>
-              <p className="text-sm text-gray-500 truncate">
-                {a.service.name} · {a.doctor.name}
-              </p>
-              <p className="text-sm text-gray-600 mt-0.5">{fmtDateTime(a.startTime)}</p>
-            </div>
-            <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-              <StatusBadge status={a.status} />
-              {a.paymentMethod === 'CASH' ? (
-                <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-50 text-yellow-700 border border-yellow-200">
-                  Por cobrar en clínica
-                </span>
-              ) : (
-                <span className="text-xs px-2 py-0.5 rounded-full bg-green-50 text-green-700 border border-green-200">
-                  QR Pagado
-                </span>
-              )}
-            </div>
-          </div>
-        </li>
-      ))}
-    </ul>
+    <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-card">
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse">
+          <thead>
+            <tr>
+              <th className={TH}>Paciente</th>
+              <th className={TH}>Servicio</th>
+              <th className={TH}>Doctor</th>
+              <th className={TH}>Fecha y hora</th>
+              <th className={TH}>Pago</th>
+              <th className={TH}>Estado</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((a) => (
+              <tr key={a.id} className="transition-colors last:[&>td]:border-b-0 hover:bg-canvas">
+                <td className={TD}>
+                  <PatientCell a={a} />
+                </td>
+                <td className={TD}>{a.service.name}</td>
+                <td className={TD}>{a.doctor.name}</td>
+                <td className={`${TD} whitespace-nowrap`}>{fmtDateTime(a.startTime)}</td>
+                <td className={TD}>
+                  <PayCell a={a} />
+                </td>
+                <td className={TD}>
+                  <StatusBadge status={a.status} />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 }
 
@@ -434,7 +485,7 @@ function ReceiptModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(2,6,23,0.4)] p-4 backdrop-blur-[2px]"
       onClick={onClose}
     >
       <div
@@ -442,13 +493,13 @@ function ReceiptModal({
         role="dialog"
         aria-modal="true"
         aria-label={`Comprobante de pago de ${appt.patient.name}`}
-        className="bg-white rounded-2xl w-full max-w-lg shadow-xl"
+        className="bg-surface-raised rounded-2xl w-full max-w-lg shadow-modal"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <div>
-            <p className="font-semibold text-gray-900">Comprobante de pago</p>
-            <p className="text-sm text-gray-500">{appt.patient.name}</p>
+            <p className="font-semibold text-text-primary">Comprobante de pago</p>
+            <p className="text-sm text-text-muted">{appt.patient.name}</p>
           </div>
           <Button variant="ghost" size="icon" onClick={onClose} aria-label="Cerrar">
             <X className="size-5" />
@@ -459,7 +510,7 @@ function ReceiptModal({
           <img
             src={appt.receiptUrl!}
             alt="Comprobante de pago"
-            className="mx-auto w-full rounded-xl border border-gray-100 bg-gray-50 object-contain max-h-[70vh]"
+            className="mx-auto w-full rounded-xl border border-border bg-canvas object-contain max-h-[70vh]"
           />
         </div>
         <div className="px-5 pb-5 flex gap-3">
@@ -467,7 +518,7 @@ function ReceiptModal({
             Cerrar
           </Button>
           <Button
-            className="flex-1 h-11 bg-green-700 hover:bg-green-800 text-white"
+            className="flex-1 h-11 bg-[var(--success)] hover:bg-[#0ea371] text-white"
             disabled={approving}
             onClick={handleApprove}
           >
@@ -592,16 +643,16 @@ function NewAppointmentModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(2,6,23,0.4)] p-4 backdrop-blur-[2px]">
       <div
         ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-label="Nueva cita"
-        className="bg-white rounded-2xl w-full max-w-md shadow-xl max-h-[90vh] overflow-y-auto"
+        className="bg-surface-raised rounded-2xl w-full max-w-md shadow-modal max-h-[90vh] overflow-y-auto"
       >
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 sticky top-0 bg-white">
-          <p className="font-semibold text-gray-900">Nueva Cita</p>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border sticky top-0 bg-surface-raised">
+          <p className="font-semibold text-text-primary">Nueva Cita</p>
           <Button variant="ghost" size="icon" onClick={onClose} aria-label="Cerrar">
             <X className="size-5" />
           </Button>
@@ -615,9 +666,9 @@ function NewAppointmentModal({
           <form onSubmit={handleSubmit} className="p-5 space-y-4">
             <div className="block">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-gray-700">Paciente</span>
+                <span className="text-sm font-medium text-text-secondary">Paciente</span>
                 {/* Toggle Existente / Nuevo (walk-in) */}
-                <div className="flex gap-1 rounded-lg bg-gray-100 p-0.5 text-xs">
+                <div className="flex gap-1 rounded-md border border-border bg-surface p-[3px] text-xs">
                   {(
                     [
                       ['existing', 'Existente'],
@@ -629,8 +680,10 @@ function NewAppointmentModal({
                       type="button"
                       onClick={() => setPatientMode(k)}
                       aria-pressed={patientMode === k}
-                      className={`rounded-md px-2.5 py-1 font-medium transition ${
-                        patientMode === k ? 'bg-white text-brand-700 shadow-sm' : 'text-gray-500'
+                      className={`rounded-[6px] px-2.5 py-1 font-medium transition-colors ${
+                        patientMode === k
+                          ? 'bg-primary text-white'
+                          : 'text-text-secondary hover:text-text-primary'
                       }`}
                     >
                       {l}
@@ -643,7 +696,7 @@ function NewAppointmentModal({
                 <select
                   value={patientId}
                   onChange={(e) => setPatientId(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                 >
                   <option value="">Seleccionar paciente…</option>
                   {patients.map((p) => (
@@ -653,27 +706,27 @@ function NewAppointmentModal({
                   ))}
                 </select>
               ) : (
-                <div className="mt-1 space-y-2 rounded-lg border border-gray-200 bg-gray-50 p-3">
+                <div className="mt-1 space-y-2 rounded-lg border border-border bg-canvas p-3">
                   <input
                     value={newPatient.name}
                     onChange={(e) => setNewPatient({ ...newPatient, name: e.target.value })}
                     placeholder="Nombre completo"
-                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                    className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                   />
                   <input
                     value={newPatient.phone}
                     onChange={(e) => setNewPatient({ ...newPatient, phone: e.target.value })}
                     placeholder="Teléfono (ej: 59170000000)"
                     inputMode="numeric"
-                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                    className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                   />
                   <input
                     value={newPatient.ci}
                     onChange={(e) => setNewPatient({ ...newPatient, ci: e.target.value })}
                     placeholder="CI (opcional)"
-                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                    className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                   />
-                  <p className="text-xs text-gray-400">
+                  <p className="text-xs text-text-muted">
                     Si el teléfono o CI ya existe, se usará ese paciente (no se duplica).
                   </p>
                 </div>
@@ -681,12 +734,12 @@ function NewAppointmentModal({
             </div>
 
             <label className="block">
-              <span className="text-sm font-medium text-gray-700">Doctor</span>
+              <span className="text-sm font-medium text-text-secondary">Doctor</span>
               <select
                 value={doctorId}
                 onChange={(e) => setDoctorId(e.target.value)}
                 required
-                className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
               >
                 <option value="">Seleccionar doctor…</option>
                 {doctors.map((d) => (
@@ -698,13 +751,13 @@ function NewAppointmentModal({
             </label>
 
             <label className="block">
-              <span className="text-sm font-medium text-gray-700">Servicio</span>
+              <span className="text-sm font-medium text-text-secondary">Servicio</span>
               <select
                 value={serviceId}
                 onChange={(e) => setServiceId(e.target.value)}
                 required
                 disabled={!doctorId || services.length === 0}
-                className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:bg-gray-50 disabled:text-gray-400"
+                className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:bg-canvas disabled:text-text-muted"
               >
                 <option value="">
                   {doctorId ? 'Seleccionar servicio…' : 'Selecciona un doctor primero'}
@@ -720,35 +773,37 @@ function NewAppointmentModal({
 
             <div className="grid grid-cols-2 gap-3">
               <label className="block">
-                <span className="text-sm font-medium text-gray-700">Fecha</span>
+                <span className="text-sm font-medium text-text-secondary">Fecha</span>
                 <input
                   type="date"
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
                   required
                   min={new Date().toISOString().slice(0, 10)}
-                  className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                 />
               </label>
               <label className="block">
-                <span className="text-sm font-medium text-gray-700">Hora</span>
+                <span className="text-sm font-medium text-text-secondary">Hora</span>
                 <input
                   type="time"
                   value={time}
                   onChange={(e) => setTime(e.target.value)}
                   required
-                  className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                 />
               </label>
             </div>
 
             <fieldset>
-              <legend className="text-sm font-medium text-gray-700 mb-2">Método de pago</legend>
+              <legend className="text-sm font-medium text-text-secondary mb-2">
+                Método de pago
+              </legend>
               <div className="flex gap-3">
                 {(['CASH', 'STATIC_QR'] as PaymentMethod[]).map((pm) => (
                   <label
                     key={pm}
-                    className={`flex-1 flex items-center gap-2 border rounded-xl px-3 py-2.5 cursor-pointer transition ${paymentMethod === pm ? 'border-brand-500 bg-accent' : 'border-gray-200 hover:border-gray-300'}`}
+                    className={`flex-1 flex items-center gap-2 border rounded-xl px-3 py-2.5 cursor-pointer transition ${paymentMethod === pm ? 'border-primary bg-accent' : 'border-border hover:border-border-strong'}`}
                   >
                     <input
                       type="radio"
@@ -761,11 +816,11 @@ function NewAppointmentModal({
                     <span className="inline-flex items-center gap-1.5 text-sm">
                       {pm === 'CASH' ? (
                         <>
-                          <Banknote className="size-4 text-gray-400" /> Efectivo
+                          <Banknote className="size-4 text-text-muted" /> Efectivo
                         </>
                       ) : (
                         <>
-                          <QrCode className="size-4 text-gray-400" /> QR bancario
+                          <QrCode className="size-4 text-text-muted" /> QR bancario
                         </>
                       )}
                     </span>
