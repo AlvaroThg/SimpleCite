@@ -1,62 +1,215 @@
 @import 'tailwindcss';
 
-/* Tema de marca SimpleCite (Tailwind v4 @theme). */
+/* ═══════════════════════════════════════════════════════════════════════════
+ * SimpleCite — Sistema de tokens (importado de claude.ai/design "SimpleCite
+ * Redesign"). Una sola capa de variables CSS para color, tipografía, espaciado
+ * 8pt, radios y sombras, con modo claro/oscuro derivado en [data-theme].
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
 @theme {
-  /* Tipografía: Inter como sans por defecto (var inyectada por next/font). */
+  /* Tipografía: Inter como sans (var inyectada por next/font), JetBrains Mono
+   * para datos densos (CI, horas, montos). */
   --font-sans:
     var(--font-inter), ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono:
+    var(--font-jetbrains-mono), 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco,
+    Consolas, 'Liberation Mono', 'Courier New', monospace;
 
-  /* Color de marca: azul SimpleCite (tomado del logo). "Cite" = #0a70f8. */
-  --color-brand-50: #eef5ff;
-  --color-brand-100: #d9e8ff;
-  --color-brand-200: #b6d2ff;
-  --color-brand-300: #90c0f8; /* azul claro del ícono del calendario */
-  --color-brand-400: #4d97fa;
-  --color-brand-500: #0a70f8; /* azul "Cite" */
-  --color-brand-600: #0860dd;
-  --color-brand-700: #084fb8;
-  --color-brand-800: #0c3f8f;
-  --color-brand-900: #102a5c;
+  /* Color de marca: azul SimpleCite re-alineado al primario del rediseño
+   * (#2563EB, blue-600). Escala de la familia blue de Tailwind. */
+  --color-brand-50: #eff6ff;
+  --color-brand-100: #dbeafe;
+  --color-brand-200: #bfdbfe;
+  --color-brand-300: #93c5fd;
+  --color-brand-400: #60a5fa;
+  --color-brand-500: #3b82f6;
+  --color-brand-600: #2563eb; /* primario */
+  --color-brand-700: #1d4ed8; /* hover */
+  --color-brand-800: #1e40af;
+  --color-brand-900: #1e3a8a;
 
-  /* Navy de la marca (texto "Simple" del logo) — para títulos/ink. */
-  --color-ink-700: #2a3a4d;
-  --color-ink-800: #1f2d3d;
-  --color-ink-900: #182838;
+  /* Navy/slate de la marca — para títulos/ink. Re-alineado a la escala slate. */
+  --color-ink-700: #334155;
+  --color-ink-800: #1e293b;
+  --color-ink-900: #0f172a;
+
+  /* Escala tipográfica (clamp para display/h1 responsivos). */
+  --text-display: clamp(40px, 4.6vw, 56px);
+  --text-h1: 32px;
+  --text-h2: 24px;
+  --text-h3: 18px;
+  --text-lead: 19px;
+  --text-caption: 12px;
 }
 
-/* ─────────────────────────────────────────────────────────────────────
- * Tokens de shadcn/ui (Tailwind v4). `primary` = azul de marca SimpleCite
- * para que `bg-primary`, `hover:bg-accent`, etc. usen la identidad del panel.
- * ───────────────────────────────────────────────────────────────────── */
+/* ─────────────────────────────────────────────────────────────────────────
+ * Capa semántica del rediseño + tokens de shadcn/ui (Tailwind v4).
+ * `primary` = azul de marca para que `bg-primary`, `hover:bg-accent`, etc.
+ * usen la identidad del panel.
+ * ───────────────────────────────────────────────────────────────────────── */
 :root {
-  --radius: 0.625rem;
+  /* marca */
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --primary-light: #eff6ff;
+  --blue-400: #60a5fa;
 
-  --background: #ffffff;
-  --foreground: #182838; /* ink-900 */
+  /* superficies */
+  --canvas: #f8fafc; /* fondo de la app */
+  --surface: #ffffff; /* tarjetas / paneles */
+  --surface-raised: #ffffff; /* modales / popovers */
+  --sidebar: #0f172a; /* shell oscuro */
 
-  --card: #ffffff;
-  --card-foreground: #182838;
-  --popover: #ffffff;
-  --popover-foreground: #182838;
+  /* texto */
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
+  --text-disabled: #cbd5e1;
 
-  --primary: #0860dd; /* brand-600 */
+  /* bordes */
+  --border-token: #e2e8f0;
+  --border-strong: #cbd5e1;
+  --border-hairline: rgba(15, 23, 42, 0.06);
+  --focus: 0 0 0 3px rgba(37, 99, 235, 0.15);
+
+  /* semántico */
+  --success: #10b981;
+  --success-bg: #ecfdf5;
+  --warning: #f59e0b;
+  --warning-bg: #fffbeb;
+  --danger: #ef4444;
+  --danger-bg: #fef2f2;
+  --whatsapp: #25d366;
+  --whatsapp-hover: #20b858;
+
+  /* estado de cita — bg / texto / borde */
+  --st-tent-bg: #f5f3ff;
+  --st-tent-tx: #7c3aed;
+  --st-tent-bd: #ddd6fe;
+  --st-pend-bg: #fffbeb;
+  --st-pend-tx: #b45309;
+  --st-pend-bd: #fde68a;
+  --st-conf-bg: #eff6ff;
+  --st-conf-tx: #1d4ed8;
+  --st-conf-bd: #bfdbfe;
+  --st-comp-bg: #ecfdf5;
+  --st-comp-tx: #065f46;
+  --st-comp-bd: #a7f3d0;
+  --st-canc-bg: #f8fafc;
+  --st-canc-tx: #475569;
+  --st-canc-bd: #e2e8f0;
+  --st-nosh-bg: #fef2f2;
+  --st-nosh-tx: #991b1b;
+  --st-nosh-bd: #fecaca;
+
+  /* paleta de avatares (hash determinista → 5 paletas) */
+  --av0-bg: #dbeafe;
+  --av0-tx: #1d4ed8;
+  --av1-bg: #ede9fe;
+  --av1-tx: #6d28d9;
+  --av2-bg: #d1fae5;
+  --av2-tx: #047857;
+  --av3-bg: #fef3c7;
+  --av3-tx: #b45309;
+  --av4-bg: #fce7f3;
+  --av4-tx: #be185d;
+
+  /* radios */
+  --r-ctrl: 8px;
+  --r-card: 12px;
+  --r-lg: 16px;
+  --r-pill: 9999px;
+  --radius: var(--r-card); /* compat shadcn: base = radio de tarjeta */
+
+  /* sombras */
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-modal: 0 20px 60px rgba(0, 0, 0, 0.12), 0 8px 24px rgba(0, 0, 0, 0.08);
+
+  /* ── mapeo de tokens shadcn/ui a la capa semántica ── */
+  --background: var(--canvas);
+  --foreground: var(--text-primary);
+
+  --card: var(--surface);
+  --card-foreground: var(--text-primary);
+  --popover: var(--surface-raised);
+  --popover-foreground: var(--text-primary);
+
   --primary-foreground: #ffffff;
 
   --secondary: #f1f5f9; /* slate-100 */
-  --secondary-foreground: #1f2d3d;
+  --secondary-foreground: var(--text-primary);
 
   --muted: #f1f5f9;
-  --muted-foreground: #64748b; /* slate-500 */
+  --muted-foreground: var(--text-secondary);
 
-  --accent: #eef5ff; /* brand-50 */
-  --accent-foreground: #084fb8; /* brand-700 */
+  --accent: var(--primary-light);
+  --accent-foreground: var(--primary-hover);
 
-  --destructive: #dc2626; /* red-600 */
+  --destructive: var(--danger);
   --destructive-foreground: #ffffff;
 
-  --border: #e5e7eb; /* gray-200 */
-  --input: #e5e7eb;
-  --ring: #4d97fa; /* brand-400 */
+  --border: var(--border-token);
+  --input: var(--border-token);
+  --ring: var(--primary);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+ * Modo oscuro — derivado con overrides en [data-theme="dark"]. Solo se
+ * redefine la capa semántica; los tokens shadcn la heredan por var().
+ * ───────────────────────────────────────────────────────────────────────── */
+[data-theme='dark'] {
+  --canvas: #0b1120;
+  --surface: #0f172a;
+  --surface-raised: #111a2e;
+  --sidebar: #0a0f1c;
+
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --text-disabled: #475569;
+
+  --border-token: #1e293b;
+  --border-strong: #334155;
+  --border-hairline: rgba(255, 255, 255, 0.06);
+  --primary-light: rgba(37, 99, 235, 0.14);
+
+  --st-tent-bg: rgba(124, 58, 237, 0.14);
+  --st-tent-tx: #c4b5fd;
+  --st-tent-bd: rgba(124, 58, 237, 0.35);
+  --st-pend-bg: rgba(180, 83, 9, 0.16);
+  --st-pend-tx: #fcd34d;
+  --st-pend-bd: rgba(180, 83, 9, 0.4);
+  --st-conf-bg: rgba(37, 99, 235, 0.16);
+  --st-conf-tx: #93c5fd;
+  --st-conf-bd: rgba(37, 99, 235, 0.4);
+  --st-comp-bg: rgba(6, 95, 70, 0.18);
+  --st-comp-tx: #6ee7b7;
+  --st-comp-bd: rgba(6, 95, 70, 0.45);
+  --st-canc-bg: rgba(148, 163, 184, 0.1);
+  --st-canc-tx: #94a3b8;
+  --st-canc-bd: rgba(148, 163, 184, 0.25);
+  --st-nosh-bg: rgba(153, 27, 27, 0.18);
+  --st-nosh-tx: #fca5a5;
+  --st-nosh-bd: rgba(153, 27, 27, 0.45);
+
+  --av0-bg: rgba(37, 99, 235, 0.22);
+  --av0-tx: #93c5fd;
+  --av1-bg: rgba(124, 58, 237, 0.22);
+  --av1-tx: #c4b5fd;
+  --av2-bg: rgba(5, 150, 105, 0.22);
+  --av2-tx: #6ee7b7;
+  --av3-bg: rgba(180, 83, 9, 0.22);
+  --av3-tx: #fcd34d;
+  --av4-bg: rgba(190, 24, 93, 0.22);
+  --av4-tx: #f9a8d4;
+
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-modal: 0 20px 60px rgba(0, 0, 0, 0.6), 0 8px 24px rgba(0, 0, 0, 0.5);
+
+  --secondary: #1e293b;
+  --muted: #1e293b;
+  --accent: rgba(37, 99, 235, 0.14);
+  --accent-foreground: #93c5fd;
 }
 
 @theme inline {
@@ -80,10 +233,41 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
 
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  /* superficies y texto del rediseño, expuestos como utilidades Tailwind */
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-sidebar: var(--sidebar);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-text-disabled: var(--text-disabled);
+  --color-border-strong: var(--border-strong);
+
+  /* semántico */
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --color-whatsapp: var(--whatsapp);
+  --color-whatsapp-hover: var(--whatsapp-hover);
+
+  /* radios */
+  --radius-sm: var(--r-ctrl);
+  --radius-md: var(--r-ctrl);
+  --radius-lg: var(--r-card);
+  --radius-xl: var(--r-lg);
+  --radius-2xl: var(--r-lg);
+}
+
+@layer utilities {
+  /* Sombras del rediseño expuestas como utilidades (evita auto-referencia
+   * en @theme). Usar `shadow-card` / `shadow-modal`. */
+  .shadow-card {
+    box-shadow: var(--shadow-card);
+  }
+  .shadow-modal {
+    box-shadow: var(--shadow-modal);
+  }
 }
 
 @layer base {
@@ -92,6 +276,9 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-size: 15px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
   }
   /* Tailwind v4 resetea el cursor de los botones a `default`. Restauramos el
    * puntero en todo elemento clickeable para que "se sientan" como botones. */
