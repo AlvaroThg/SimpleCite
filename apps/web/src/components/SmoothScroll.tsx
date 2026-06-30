@@ -1,17 +1,22 @@
 'use client';
 
 import { useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 import Lenis from 'lenis';
 
 /**
- * Scroll suave global (Lenis), montado una sola vez en el layout raíz. Se
- * desactiva por completo si el usuario prefiere movimiento reducido. No
- * renderiza nada: solo gestiona el RAF de Lenis sobre el scroll de la página.
+ * Scroll suave (Lenis) para las superficies públicas (landing, booking del
+ * tenant). Se omite en el panel del staff (`/panel`), que es denso y tiene sus
+ * propios contenedores de scroll, y se desactiva con prefers-reduced-motion.
+ * No renderiza nada: solo gestiona el RAF de Lenis.
  */
 export function SmoothScroll() {
+  const pathname = usePathname();
+
   useEffect(() => {
     if (
       typeof window === 'undefined' ||
+      pathname?.startsWith('/panel') ||
       window.matchMedia('(prefers-reduced-motion: reduce)').matches
     ) {
       return;
@@ -35,7 +40,7 @@ export function SmoothScroll() {
       cancelAnimationFrame(rafId);
       lenis.destroy();
     };
-  }, []);
+  }, [pathname]);
 
   return null;
 }
