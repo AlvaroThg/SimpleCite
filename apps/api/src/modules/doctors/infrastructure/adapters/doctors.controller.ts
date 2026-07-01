@@ -1,4 +1,14 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, Query } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Delete,
+  Body,
+  Param,
+  Query,
+  BadRequestException,
+} from '@nestjs/common';
 import {
   CreateDoctorSchema,
   UpdateDoctorSchema,
@@ -49,6 +59,30 @@ export class DoctorsController {
     @Body(new ZodValidationPipe(UpdateDoctorSchema)) dto: UpdateDoctorDto,
   ) {
     const doctor = await this.doctorsService.update(tenantId, id, dto);
+    return { success: true, data: doctor };
+  }
+
+  /**
+   * Sube el QR de cobro del doctor a R2 (carpeta por slug del tenant).
+   * Body: { imageBase64: string, mimeType: string }. El frontend lee el archivo
+   * como base64 con FileReader.
+   */
+  @Roles('ADMIN')
+  @Post(':id/qr')
+  async uploadQr(
+    @CurrentUser('tenantId') tenantId: string,
+    @Param('id') id: string,
+    @Body() body: { imageBase64?: string; mimeType?: string },
+  ) {
+    if (!body.imageBase64 || !body.mimeType) {
+      throw new BadRequestException('imageBase64 y mimeType son requeridos');
+    }
+    const doctor = await this.doctorsService.uploadQr(
+      tenantId,
+      id,
+      body.imageBase64,
+      body.mimeType,
+    );
     return { success: true, data: doctor };
   }
 

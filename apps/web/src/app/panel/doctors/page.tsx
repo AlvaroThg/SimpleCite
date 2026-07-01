@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useAuth } from '@/lib/panel-auth';
 import {
   getDoctorsAdmin,
   createDoctor,
   updateDoctor,
+  uploadDoctorQr,
   archiveDoctor,
   getServices,
   getDoctorServices,
@@ -23,7 +24,7 @@ import { SkeletonList } from '@/components/panel/Skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Button } from '@/components/ui/button';
 import { Avatar } from '@/components/ui/avatar';
-import { Stethoscope } from 'lucide-react';
+import { Stethoscope, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 
 /** Iniciales (máx. 2) a partir del nombre del doctor, para el avatar. */
@@ -76,6 +77,35 @@ function Doctors() {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [saving, setSaving] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [uploadingQr, setUploadingQr] = useState(false);
+  const qrInputRef = useRef<HTMLInputElement>(null);
+
+  /** Sube el QR del doctor en edición a R2 y refleja la URL en el borrador. */
+  async function handleQrUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !session || !draft?.id) return;
+    setUploadingQr(true);
+    try {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve((reader.result as string).split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const updated = await uploadDoctorQr(session.token, session.slug, draft.id, {
+        imageBase64: base64,
+        mimeType: file.type,
+      });
+      setDraft((d) => (d ? { ...d, qrUrl: updated.qrUrl ?? '' } : d));
+      await load();
+      toast.success('QR del doctor actualizado.');
+    } catch (err) {
+      toast.error(err instanceof PanelApiError ? err.message : 'No se pudo subir el QR');
+    } finally {
+      setUploadingQr(false);
+      e.target.value = '';
+    }
+  }
 
   const load = useCallback(async () => {
     if (!session) return;
@@ -202,16 +232,45 @@ function Doctors() {
             onChange={(v) => setDraft({ ...draft, bio: v })}
           />
           {draft.id && (
-            <div className="grid grid-cols-1 gap-3 rounded-lg border border-border bg-canvas p-3 sm:grid-cols-2">
-              <div className="sm:col-span-2 text-xs text-text-muted">
+            <div className="space-y-3 rounded-lg border border-border bg-canvas p-3">
+              <div className="text-xs text-text-muted">
                 QR de cobro del doctor (solo aplica si la clínica usa el modo{' '}
                 <strong>Por doctor</strong> en Configuración).
               </div>
-              <Input
-                label="URL del QR (imagen)"
-                value={draft.qrUrl}
-                onChange={(v) => setDraft({ ...draft, qrUrl: v })}
-              />
+              <div className="flex items-center gap-4">
+                <div className="flex size-20 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-surface">
+                  {draft.qrUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={draft.qrUrl}
+                      alt="QR del doctor"
+                      className="size-full object-contain"
+                    />
+                  ) : (
+                    <span className="text-[10px] text-text-muted">Sin QR</span>
+                  )}
+                </div>
+                <div className="space-y-1.5">
+                  <input
+                    ref={qrInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleQrUpload}
+                    className="hidden"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={uploadingQr}
+                    onClick={() => qrInputRef.current?.click()}
+                  >
+                    <Upload className="size-4" />
+                    {uploadingQr ? 'Subiendo…' : draft.qrUrl ? 'Cambiar QR' : 'Subir QR'}
+                  </Button>
+                  <p className="text-[11px] text-text-muted">PNG o JPG de la imagen del QR.</p>
+                </div>
+              </div>
               <Input
                 label="Banco del QR"
                 value={draft.qrLabel}

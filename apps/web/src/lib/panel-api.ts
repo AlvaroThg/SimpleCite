@@ -539,6 +539,13 @@ export const createDoctor = (
 ) => post<{ data: Doctor }>('/api/doctors', t, s, body).then((r) => r.data);
 export const updateDoctor = (t: string, s: string, id: string, body: Record<string, unknown>) =>
   patch<{ data: Doctor }>(`/api/doctors/${id}`, t, s, body).then((r) => r.data);
+/** Sube el QR de cobro del doctor a R2 (carpeta por slug del tenant). */
+export const uploadDoctorQr = (
+  t: string,
+  s: string,
+  id: string,
+  body: { imageBase64: string; mimeType: string },
+) => post<{ data: Doctor }>(`/api/doctors/${id}/qr`, t, s, body).then((r) => r.data);
 export const archiveDoctor = (t: string, s: string, id: string) =>
   del<{ success: boolean }>(`/api/doctors/${id}`, t, s);
 

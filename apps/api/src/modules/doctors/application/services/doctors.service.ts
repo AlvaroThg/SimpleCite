@@ -7,12 +7,41 @@ import {
 import * as bcrypt from 'bcrypt';
 import type { CreateDoctorDto, UpdateDoctorDto } from '@simplecite/shared';
 import { PrismaService } from '../../../../common/database/prisma.service';
+import { StorageService } from '../../../../common/services/storage.service';
 
 const SALT_ROUNDS = 10;
 
 @Injectable()
 export class DoctorsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly storage: StorageService,
+  ) {}
+
+  /**
+   * Sube el QR de cobro del doctor a R2 y guarda la URL en DoctorProfile.qrUrl.
+   * Se organiza en una carpeta por slug del tenant: `<slug>/doctors/<doctorId>/`.
+   */
+  async uploadQr(tenantId: string, doctorId: string, imageBase64: string, mimeType: string) {
+    const doctor = await this.prisma.client.user.findFirst({
+      where: { id: doctorId, tenantId, role: 'DOCTOR' },
+      select: { id: true, tenant: { select: { slug: true } } },
+    });
+    if (!doctor) throw new NotFoundException('Doctor no encontrado');
+
+    const url = await this.storage.uploadImageFromBase64(
+      `${doctor.tenant.slug}/doctors/${doctorId}`,
+      imageBase64,
+      mimeType,
+    );
+
+    const updated = await this.prisma.client.user.update({
+      where: { id: doctorId },
+      data: { doctorProfile: { update: { qrUrl: url } } },
+      include: { doctorProfile: true },
+    });
+    return this.toPublic(updated);
+  }
 
   async create(tenantId: string, dto: CreateDoctorDto) {
     // Email Ãºnico dentro del tenant
