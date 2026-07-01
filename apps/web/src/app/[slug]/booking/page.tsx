@@ -80,6 +80,12 @@ function formatDate(isoStr: string, tz: string) {
   }).format(new Date(isoStr));
 }
 
+/** Resumen inequívoco de un turno: fecha · inicio–fin · duración (en tz del tenant). */
+function slotSummary(startIso: string, endIso: string, tz: string): string {
+  const dur = Math.round((new Date(endIso).getTime() - new Date(startIso).getTime()) / 60000);
+  return `${formatDate(startIso, tz)} · ${formatTime(startIso, tz)}–${formatTime(endIso, tz)} · ${dur} min`;
+}
+
 /** Fecha local (YYYY-MM-DD) de un instante ISO en la timezone del tenant. */
 function localDateStr(isoStr: string, tz: string) {
   return new Intl.DateTimeFormat('en-CA', {
@@ -485,6 +491,17 @@ export default function BookingWizard() {
                     })}
                   </div>
 
+                  {state.selectedService && (
+                    <p className="mb-3 text-sm text-gray-500">
+                      <span className="font-medium text-gray-700">
+                        {state.selectedService.service.name}
+                      </span>{' '}
+                      ·{' '}
+                      {state.selectedService.customDuration ??
+                        state.selectedService.service.duration}{' '}
+                      min · horarios en la zona de la clínica
+                    </p>
+                  )}
                   {state.loading ? (
                     <p className="text-gray-400 text-center py-6 animate-pulse">
                       Buscando horarios...
@@ -504,13 +521,13 @@ export default function BookingWizard() {
                           // Ocupados: inertes (sin hover ni tap) para no malgastar toques.
                           whileTap={!slot.available || reduce ? undefined : { scale: 0.94 }}
                           transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                          className={`min-h-11 rounded-xl py-2 text-sm font-medium border transition ${
+                          className={`min-h-11 rounded-xl px-1 py-2 text-[13px] font-medium border transition ${
                             !slot.available
                               ? 'cursor-not-allowed border-gray-100 bg-gray-100 text-gray-300 opacity-60'
                               : 'bg-white border-gray-200 text-gray-800 hover:border-blue-400 hover:shadow-sm'
                           }`}
                         >
-                          {formatTime(slot.startTime, tz)}
+                          {formatTime(slot.startTime, tz)}–{formatTime(slot.endTime, tz)}
                         </motion.button>
                       ))}
                     </div>
@@ -523,10 +540,8 @@ export default function BookingWizard() {
           {/* ── Paso 4: Datos del paciente + teléfono ── */}
           {state.step === 'patient-info' && state.selectedSlot && (
             <StepCard title="Tus datos" onBack={() => set({ step: 'select-slot' })}>
-              <div className="bg-blue-50 rounded-xl p-3 mb-5 text-sm text-blue-800">
-                <span className="font-medium">{formatDate(state.selectedSlot.startTime, tz)}</span>{' '}
-                a las{' '}
-                <span className="font-medium">{formatTime(state.selectedSlot.startTime, tz)}</span>
+              <div className="bg-blue-50 rounded-xl p-3 mb-5 text-sm font-medium text-blue-800">
+                {slotSummary(state.selectedSlot.startTime, state.selectedSlot.endTime, tz)}
               </div>
 
               <div className="space-y-4">
@@ -572,9 +587,11 @@ export default function BookingWizard() {
           {state.step === 'payment-method' && state.selectedSlot && (
             <StepCard title="¿Cómo deseas pagar?">
               <div className="bg-blue-50 rounded-xl p-3 mb-5 text-sm text-blue-800">
-                <span className="font-medium">{state.selectedDoctor?.name}</span> ·{' '}
-                {formatDate(state.selectedSlot.startTime, tz)} a las{' '}
-                {formatTime(state.selectedSlot.startTime, tz)}
+                <span className="font-medium">{state.selectedDoctor?.name}</span>
+                <br />
+                <span className="font-medium">
+                  {slotSummary(state.selectedSlot.startTime, state.selectedSlot.endTime, tz)}
+                </span>
               </div>
 
               <div className="space-y-3">
@@ -622,16 +639,11 @@ export default function BookingWizard() {
                   {state.chosenMethod === 'STATIC_QR' ? '¡Cita registrada!' : '¡Cita confirmada!'}
                 </h2>
                 <p className="text-gray-600">
-                  Tu cita con <span className="font-semibold">{state.selectedDoctor?.name}</span> es
-                  el{' '}
+                  Tu cita con <span className="font-semibold">{state.selectedDoctor?.name}</span>:
+                  <br />
                   <span className="font-semibold">
-                    {formatDate(state.selectedSlot.startTime, tz)}
-                  </span>{' '}
-                  a las{' '}
-                  <span className="font-semibold">
-                    {formatTime(state.selectedSlot.startTime, tz)}
+                    {slotSummary(state.selectedSlot.startTime, state.selectedSlot.endTime, tz)}
                   </span>
-                  .
                 </p>
                 {state.chosenMethod === 'STATIC_QR' ? (
                   qrBanks.length > 0 ? (

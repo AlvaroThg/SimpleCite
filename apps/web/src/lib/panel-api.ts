@@ -260,8 +260,13 @@ export async function getPatientHistory(
   token: string,
   slug: string,
   patientId: string,
+  opts?: { doctorId?: string; cursor?: string },
 ): Promise<PatientHistory> {
-  const res = await fetch(`${BASE}/api/patients/${patientId}/history`, {
+  const qs = new URLSearchParams();
+  if (opts?.doctorId) qs.set('doctorId', opts.doctorId);
+  if (opts?.cursor) qs.set('cursor', opts.cursor);
+  const suffix = qs.toString() ? `?${qs.toString()}` : '';
+  const res = await fetch(`${BASE}/api/patients/${patientId}/history${suffix}`, {
     headers: authHeaders(token, slug),
   });
   const json = await handle<{ data: PatientHistory }>(res);

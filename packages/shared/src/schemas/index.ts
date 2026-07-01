@@ -294,6 +294,8 @@ export const PatientHistoryQuerySchema = z.object({
   to: z.string().datetime().optional(),
   cursor: z.string().uuid().optional(),
   limit: z.coerce.number().int().positive().max(100).optional(),
+  /// Filtra las citas del historial por doctor (el resto del historial no cambia).
+  doctorId: z.string().uuid().optional(),
 });
 export type PatientHistoryQueryDto = z.infer<typeof PatientHistoryQuerySchema>;
 

@@ -81,7 +81,12 @@ export class PatientsService {
 
     // ── Citas: visibles para cualquier rol autenticado (dato de agenda) ──
     const apptRows = await this.prisma.client.appointment.findMany({
-      where: { tenantId: ctx.tenantId, patientId, ...dateRange },
+      where: {
+        tenantId: ctx.tenantId,
+        patientId,
+        ...dateRange,
+        ...(query.doctorId && { doctorId: query.doctorId }),
+      },
       select: {
         id: true,
         startTime: true,
