@@ -80,6 +80,11 @@ enum PaymentMethod {
   STATIC_QR /// QR bancario estático — paciente envía comprobante por WhatsApp
 }
 
+enum QrAssignmentMode {
+  SHARED /// Un único QR del tenant para toda la clínica (default)
+  PER_DOCTOR /// Cada doctor tiene su propio QR; el booking muestra el del doctor de la cita
+}
+
 enum ProductCategory {
   MEDICATION /// Medicamento
   SUPPLY /// Insumo / material
@@ -106,6 +111,9 @@ model Tenant {
   staticQrLabel  String? /// Nombre del banco del QR principal (ej. "Banco Unión")
   staticQrUrl2   String? /// URL del segundo QR (banco alternativo)
   staticQrLabel2 String? /// Nombre del banco del segundo QR
+
+  /// Cómo se asigna el QR de cobro: compartido (tenant) o por doctor.
+  qrAssignmentMode QrAssignmentMode @default(SHARED)
 
   // ─── Personalización de la landing pública (editable por el admin) ───
   secondaryColor   String? /// Color secundario de la paleta (hex). Acentos/gradientes.
@@ -192,6 +200,10 @@ model DoctorProfile {
   specialty     String /// Ej: "Medicina General", "Cardiología"
   licenseNumber String? /// Matrícula profesional
   bio           String? @db.Text
+
+  /// QR bancario propio del doctor (solo aplica si el tenant usa PER_DOCTOR).
+  qrUrl   String?
+  qrLabel String? /// Nombre del banco del QR del doctor
 
   userId   String @unique
   user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)

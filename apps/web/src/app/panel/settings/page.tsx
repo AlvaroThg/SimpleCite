@@ -94,6 +94,7 @@ function Branding({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantConf
   const [ctaSubtitle, setCtaSubtitle] = useState(cfg.ctaSubtitle ?? '');
   const [qrLabel, setQrLabel] = useState(cfg.staticQrLabel ?? '');
   const [qrLabel2, setQrLabel2] = useState(cfg.staticQrLabel2 ?? '');
+  const [qrMode, setQrMode] = useState<'SHARED' | 'PER_DOCTOR'>(cfg.qrAssignmentMode ?? 'SHARED');
   const [saving, setSaving] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [uploadingQr, setUploadingQr] = useState(false);
@@ -114,6 +115,7 @@ function Branding({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantConf
         secondaryColor: secondaryColor || null,
         staticQrLabel: qrLabel.trim() || null,
         staticQrLabel2: qrLabel2.trim() || null,
+        qrAssignmentMode: qrMode,
         heroTitle: heroTitle.trim() || null,
         heroSubtitle: heroSubtitle.trim() || null,
         servicesTitle: servicesTitle.trim() || null,
@@ -264,9 +266,41 @@ function Branding({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantConf
       <div className="border-t border-border pt-4">
         <p className="text-sm font-semibold text-text-secondary mb-1">QR bancarios de pago</p>
         <p className="text-xs text-text-muted mb-3">
-          El paciente verá el primer QR al pagar y podrá ver el segundo como alternativa. Escribe el
-          nombre del banco de cada uno.
+          Elige cómo se asigna el QR de cobro: uno compartido para toda la clínica, o el QR propio
+          de cada doctor.
         </p>
+
+        {/* Modo de asignación del QR */}
+        <div className="mb-4 inline-flex rounded-lg border border-border bg-canvas p-1">
+          {(
+            [
+              ['SHARED', 'Compartido'],
+              ['PER_DOCTOR', 'Por doctor'],
+            ] as ['SHARED' | 'PER_DOCTOR', string][]
+          ).map(([mode, label]) => (
+            <button
+              key={mode}
+              type="button"
+              onClick={() => setQrMode(mode)}
+              aria-pressed={qrMode === mode}
+              className={`rounded-md px-3.5 py-1.5 text-sm font-medium transition-colors ${
+                qrMode === mode
+                  ? 'bg-primary text-white'
+                  : 'text-text-secondary hover:text-text-primary'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        {qrMode === 'PER_DOCTOR' && (
+          <p className="mb-3 rounded-lg border border-border bg-canvas px-3 py-2 text-xs text-text-muted">
+            El QR de cada doctor se configura en <strong>Doctores</strong>. El paciente verá el QR
+            del doctor de su cita; si un doctor no tiene QR propio, se usa el QR compartido de
+            abajo.
+          </p>
+        )}
+
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
           {/* QR principal */}
           <div className="space-y-3">

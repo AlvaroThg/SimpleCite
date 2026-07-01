@@ -87,6 +87,8 @@ export class DoctorsService {
             ...(dto.specialty !== undefined && { specialty: dto.specialty }),
             ...(dto.licenseNumber !== undefined && { licenseNumber: dto.licenseNumber }),
             ...(dto.bio !== undefined && { bio: dto.bio }),
+            ...(dto.qrUrl !== undefined && { qrUrl: dto.qrUrl }),
+            ...(dto.qrLabel !== undefined && { qrLabel: dto.qrLabel }),
           },
         },
       },
@@ -125,6 +127,8 @@ export class DoctorsService {
       specialty: string;
       licenseNumber: string | null;
       bio: string | null;
+      qrUrl?: string | null;
+      qrLabel?: string | null;
     } | null;
   }) {
     return {
@@ -136,6 +140,8 @@ export class DoctorsService {
       specialty: d.doctorProfile?.specialty ?? null,
       licenseNumber: d.doctorProfile?.licenseNumber ?? null,
       bio: d.doctorProfile?.bio ?? null,
+      qrUrl: d.doctorProfile?.qrUrl ?? null,
+      qrLabel: d.doctorProfile?.qrLabel ?? null,
     };
   }
 }

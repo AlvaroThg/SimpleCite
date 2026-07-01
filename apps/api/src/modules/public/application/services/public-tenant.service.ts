@@ -39,6 +39,7 @@ export class PublicTenantService {
         staticQrLabel: true,
         staticQrUrl2: true,
         staticQrLabel2: true,
+        qrAssignmentMode: true,
         timezone: true,
         whatsappEnabled: true,
         status: true,
@@ -68,6 +69,7 @@ export class PublicTenantService {
       staticQrLabel: tenant.staticQrLabel,
       staticQrUrl2: tenant.staticQrUrl2,
       staticQrLabel2: tenant.staticQrLabel2,
+      qrAssignmentMode: tenant.qrAssignmentMode,
       timezone: tenant.timezone,
       whatsappEnabled: tenant.whatsappEnabled,
     };
@@ -84,7 +86,7 @@ export class PublicTenantService {
         id: true,
         name: true,
         doctorProfile: {
-          select: { specialty: true, bio: true },
+          select: { specialty: true, bio: true, qrUrl: true, qrLabel: true },
         },
         doctorServices: {
           where: { isActive: true },

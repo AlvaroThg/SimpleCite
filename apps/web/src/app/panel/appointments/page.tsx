@@ -402,7 +402,11 @@ function PendingTab({
                         </Button>
                       </div>
                     ) : (
-                      <span className="text-xs text-text-muted">Esperando comprobante</span>
+                      // Sin comprobante (flujo sin WhatsApp): el staff confirma de buena
+                      // fe que recibió el pago (efectivo, o QR revisado en su banco).
+                      <Button size="sm" disabled={approving} onClick={() => onApprove(a.id)}>
+                        {approving ? 'Confirmando…' : 'Confirmar pago recibido'}
+                      </Button>
                     )}
                   </td>
                 </tr>

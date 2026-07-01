@@ -196,22 +196,35 @@ export default function BookingWizard() {
   const tz = state.tenant?.timezone ?? 'America/La_Paz';
   const daySlots = state.slots.filter((s) => localDateStr(s.startTime, tz) === state.selectedDate);
 
-  // QR bancarios configurados por la clínica (1 o 2). El paciente ve el primero
-  // y puede cambiar al segundo si su banco es otro.
+  // QR bancarios a mostrar al pagar. En modo PER_DOCTOR se usa el QR del doctor
+  // de la cita; si el doctor no tiene QR propio, cae al QR del tenant. En modo
+  // SHARED (default) se usan los 1-2 QR de la clínica.
   const qrBanks: BankQr[] = [];
-  if (state.tenant?.staticQrUrl) {
+  const perDoctorQr =
+    state.tenant?.qrAssignmentMode === 'PER_DOCTOR'
+      ? state.selectedDoctor?.doctorProfile?.qrUrl
+      : null;
+  if (perDoctorQr) {
     qrBanks.push({
-      id: 'qr1',
-      name: state.tenant.staticQrLabel || 'Banco',
-      qrUrl: state.tenant.staticQrUrl,
+      id: 'doctor-qr',
+      name: state.selectedDoctor?.doctorProfile?.qrLabel || state.selectedDoctor?.name || 'Banco',
+      qrUrl: perDoctorQr,
     });
-  }
-  if (state.tenant?.staticQrUrl2) {
-    qrBanks.push({
-      id: 'qr2',
-      name: state.tenant.staticQrLabel2 || 'Otro banco',
-      qrUrl: state.tenant.staticQrUrl2,
-    });
+  } else {
+    if (state.tenant?.staticQrUrl) {
+      qrBanks.push({
+        id: 'qr1',
+        name: state.tenant.staticQrLabel || 'Banco',
+        qrUrl: state.tenant.staticQrUrl,
+      });
+    }
+    if (state.tenant?.staticQrUrl2) {
+      qrBanks.push({
+        id: 'qr2',
+        name: state.tenant.staticQrLabel2 || 'Otro banco',
+        qrUrl: state.tenant.staticQrUrl2,
+      });
+    }
   }
 
   // ─── Acciones ──────────────────────────────────────────────────────

@@ -52,6 +52,8 @@ type Draft = {
   specialty: string;
   licenseNumber: string;
   bio: string;
+  qrUrl: string;
+  qrLabel: string;
   isActive: boolean;
 };
 const empty: Draft = {
@@ -61,6 +63,8 @@ const empty: Draft = {
   specialty: '',
   licenseNumber: '',
   bio: '',
+  qrUrl: '',
+  qrLabel: '',
   isActive: true,
 };
 
@@ -100,6 +104,8 @@ function Doctors() {
           specialty: draft.specialty.trim(),
           licenseNumber: draft.licenseNumber.trim() || null,
           bio: draft.bio.trim() || null,
+          qrUrl: draft.qrUrl.trim() || null,
+          qrLabel: draft.qrLabel.trim() || null,
           isActive: draft.isActive,
         });
       } else {
@@ -196,6 +202,24 @@ function Doctors() {
             onChange={(v) => setDraft({ ...draft, bio: v })}
           />
           {draft.id && (
+            <div className="grid grid-cols-1 gap-3 rounded-lg border border-border bg-canvas p-3 sm:grid-cols-2">
+              <div className="sm:col-span-2 text-xs text-text-muted">
+                QR de cobro del doctor (solo aplica si la clínica usa el modo{' '}
+                <strong>Por doctor</strong> en Configuración).
+              </div>
+              <Input
+                label="URL del QR (imagen)"
+                value={draft.qrUrl}
+                onChange={(v) => setDraft({ ...draft, qrUrl: v })}
+              />
+              <Input
+                label="Banco del QR"
+                value={draft.qrLabel}
+                onChange={(v) => setDraft({ ...draft, qrLabel: v })}
+              />
+            </div>
+          )}
+          {draft.id && (
             <label className="flex items-center gap-2 text-sm text-text-secondary">
               <input
                 type="checkbox"
@@ -269,6 +293,8 @@ function Doctors() {
                         specialty: d.specialty ?? '',
                         licenseNumber: d.licenseNumber ?? '',
                         bio: d.bio ?? '',
+                        qrUrl: d.qrUrl ?? '',
+                        qrLabel: d.qrLabel ?? '',
                         isActive: d.isActive,
                       })
                     }

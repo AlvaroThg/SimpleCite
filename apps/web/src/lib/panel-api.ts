@@ -444,6 +444,7 @@ export interface TenantConfig {
   staticQrLabel: string | null;
   staticQrUrl2: string | null;
   staticQrLabel2: string | null;
+  qrAssignmentMode: 'SHARED' | 'PER_DOCTOR';
   heroImageUrl: string | null;
   heroTitle: string | null;
   heroSubtitle: string | null;
@@ -473,6 +474,7 @@ export const updateTenantBranding = (
     staticQrLabel?: string | null;
     staticQrUrl2?: string | null;
     staticQrLabel2?: string | null;
+    qrAssignmentMode?: 'SHARED' | 'PER_DOCTOR';
     heroImageUrl?: string | null;
     heroTitle?: string | null;
     heroSubtitle?: string | null;
@@ -518,6 +520,8 @@ export interface Doctor {
   specialty: string | null;
   licenseNumber: string | null;
   bio: string | null;
+  qrUrl: string | null;
+  qrLabel: string | null;
 }
 export const getDoctorsAdmin = (t: string, s: string) =>
   get<{ data: Doctor[] }>('/api/doctors', t, s).then((r) => r.data);

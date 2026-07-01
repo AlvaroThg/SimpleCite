@@ -38,6 +38,7 @@ export interface TenantInfo {
   staticQrLabel: string | null;
   staticQrUrl2: string | null;
   staticQrLabel2: string | null;
+  qrAssignmentMode: 'SHARED' | 'PER_DOCTOR';
   timezone: string;
   whatsappEnabled: boolean;
 }
@@ -45,7 +46,12 @@ export interface TenantInfo {
 export interface DoctorWithServices {
   id: string;
   name: string;
-  doctorProfile: { specialty: string; bio: string | null } | null;
+  doctorProfile: {
+    specialty: string;
+    bio: string | null;
+    qrUrl?: string | null;
+    qrLabel?: string | null;
+  } | null;
   doctorServices: {
     id: string;
     customDuration: number | null;

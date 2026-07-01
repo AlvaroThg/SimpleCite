@@ -84,6 +84,7 @@ export const UpdateTenantBrandingSchema = z
     staticQrLabel: z.string().max(60).nullable().optional(),
     staticQrUrl2: z.string().url('URL de QR inválida').max(500).nullable().optional(),
     staticQrLabel2: z.string().max(60).nullable().optional(),
+    qrAssignmentMode: z.enum(['SHARED', 'PER_DOCTOR']).optional(),
     heroImageUrl: z.string().url('URL de imagen inválida').max(500).nullable().optional(),
     heroTitle: z.string().max(120).nullable().optional(),
     heroSubtitle: z.string().max(300).nullable().optional(),
@@ -117,6 +118,9 @@ export const UpdateDoctorSchema = z.object({
   licenseNumber: z.string().max(50).nullable().optional(),
   bio: z.string().max(2000).nullable().optional(),
   isActive: z.boolean().optional(),
+  /// QR bancario propio del doctor (modo PER_DOCTOR).
+  qrUrl: z.string().url('URL de QR inválida').max(500).nullable().optional(),
+  qrLabel: z.string().max(60).nullable().optional(),
 });
 export type UpdateDoctorDto = z.infer<typeof UpdateDoctorSchema>;
 
@@ -451,6 +455,7 @@ export const PublicTenantInfoSchema = z.object({
   staticQrLabel: z.string().nullable(),
   staticQrUrl2: z.string().nullable(),
   staticQrLabel2: z.string().nullable(),
+  qrAssignmentMode: z.enum(['SHARED', 'PER_DOCTOR']),
   timezone: z.string(),
   whatsappEnabled: z.boolean(),
 });

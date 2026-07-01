@@ -16,6 +16,7 @@ export interface TenantConfig {
   staticQrLabel: string | null;
   staticQrUrl2: string | null;
   staticQrLabel2: string | null;
+  qrAssignmentMode: 'SHARED' | 'PER_DOCTOR';
   heroImageUrl: string | null;
   heroTitle: string | null;
   heroSubtitle: string | null;
@@ -78,6 +79,7 @@ export class TenantService implements TenantServicePort {
         staticQrLabel: true,
         staticQrUrl2: true,
         staticQrLabel2: true,
+        qrAssignmentMode: true,
         heroImageUrl: true,
         heroTitle: true,
         heroSubtitle: true,
@@ -111,6 +113,7 @@ export class TenantService implements TenantServicePort {
         ...(dto.staticQrLabel !== undefined && { staticQrLabel: dto.staticQrLabel }),
         ...(dto.staticQrUrl2 !== undefined && { staticQrUrl2: dto.staticQrUrl2 }),
         ...(dto.staticQrLabel2 !== undefined && { staticQrLabel2: dto.staticQrLabel2 }),
+        ...(dto.qrAssignmentMode !== undefined && { qrAssignmentMode: dto.qrAssignmentMode }),
         ...(dto.heroImageUrl !== undefined && { heroImageUrl: dto.heroImageUrl }),
         ...(dto.heroTitle !== undefined && { heroTitle: dto.heroTitle }),
         ...(dto.heroSubtitle !== undefined && { heroSubtitle: dto.heroSubtitle }),
