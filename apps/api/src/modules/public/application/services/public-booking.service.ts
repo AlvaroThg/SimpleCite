@@ -72,7 +72,7 @@ export class PublicBookingService {
       }),
       this.prisma.client.service.findFirst({
         where: { id: dto.serviceId, tenantId, isActive: true },
-        select: { id: true, duration: true },
+        select: { id: true, duration: true, price: true },
       }),
       this.prisma.client.doctorService.findFirst({
         where: {
@@ -81,7 +81,7 @@ export class PublicBookingService {
           tenantId,
           isActive: true,
         },
-        select: { customDuration: true },
+        select: { customDuration: true, customPrice: true },
       }),
     ]);
 
@@ -90,6 +90,8 @@ export class PublicBookingService {
     if (!link) throw new NotFoundException('El doctor no ofrece este servicio');
 
     const duration = link.customDuration ?? service.duration;
+    // Congela el monto cobrado: override del doctor ?? precio del servicio.
+    const price = link.customPrice ?? service.price;
     const startTime = new Date(dto.startTime);
     const endTime = new Date(startTime.getTime() + duration * 60_000);
 
@@ -121,6 +123,7 @@ export class PublicBookingService {
           endTime,
           status: 'TENTATIVE',
           expiresAt,
+          price,
           cancellationToken: generateCancellationToken(),
         },
         select: { id: true, expiresAt: true },

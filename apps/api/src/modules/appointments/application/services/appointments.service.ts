@@ -58,7 +58,7 @@ export class AppointmentsService {
       }),
       this.prisma.client.doctorService.findFirst({
         where: { doctorId: dto.doctorId, serviceId: dto.serviceId, isActive: true },
-        select: { id: true },
+        select: { id: true, customPrice: true, service: { select: { price: true } } },
       }),
     ]);
     if (!patient) throw new NotFoundException('Paciente no encontrado');
@@ -66,6 +66,8 @@ export class AppointmentsService {
     if (!doctorService) {
       throw new BadRequestException('Este doctor no ofrece el servicio solicitado');
     }
+    // Congela el monto cobrado: override del doctor ?? precio del servicio.
+    const price = doctorService.customPrice ?? doctorService.service.price;
 
     const start = new Date(dto.startTime);
     const end = new Date(dto.endTime);
@@ -87,6 +89,7 @@ export class AppointmentsService {
           endTime: end,
           paymentMethod,
           status,
+          price,
           cancellationToken: generateCancellationToken(),
         },
         include: {

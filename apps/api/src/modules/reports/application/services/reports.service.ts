@@ -62,7 +62,7 @@ export class ReportsService {
           startTime: { gte: monthStart, lte: monthEnd },
           OR: [{ isPaid: true }, { status: 'COMPLETED' }],
         },
-        select: { service: { select: { price: true } } },
+        select: { price: true, service: { select: { price: true } } },
       }),
       // Inasistencias (últimos 30 días)
       this.prisma.client.appointment.count({
@@ -88,7 +88,10 @@ export class ReportsService {
 
     const totalCerradas = noShow + completed;
     const tasaInasistencia = totalCerradas > 0 ? Math.round((noShow / totalCerradas) * 100) : 0;
-    const ingresosMes = ingresoAppts.reduce((sum, a) => sum + Number(a.service.price), 0);
+    const ingresosMes = ingresoAppts.reduce(
+      (sum, a) => sum + Number(a.price ?? a.service.price),
+      0,
+    );
 
     return {
       citasHoy,
@@ -127,6 +130,7 @@ export class ReportsService {
         status: true,
         isPaid: true,
         doctorId: true,
+        price: true,
         doctor: { select: { name: true } },
         service: { select: { price: true } },
       },
@@ -137,7 +141,8 @@ export class ReportsService {
     const totals = { income: 0, completed: 0, cancelled: 0, noShow: 0, total: appts.length };
 
     for (const a of appts) {
-      const price = Number(a.service.price);
+      // Monto congelado en la cita; legacy (null) → precio actual del servicio.
+      const price = Number(a.price ?? a.service.price);
       const isRevenue = a.isPaid || a.status === 'COMPLETED';
       const row: ReportDoctorRow = byDoctor.get(a.doctorId) ?? {
         doctorId: a.doctorId,

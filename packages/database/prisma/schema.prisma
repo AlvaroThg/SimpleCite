@@ -315,6 +315,11 @@ model Appointment {
   /// URL del comprobante de pago enviado por el paciente vía WhatsApp.
   receiptUrl    String?
 
+  /// Monto cobrado por esta cita, congelado al crearla: customPrice del doctor
+  /// para el servicio ?? precio del servicio. Fuente de verdad para reportes.
+  /// Null en citas legacy → los reportes caen al precio actual del servicio.
+  price Decimal? @db.Decimal(10, 2)
+
   /// Token criptográfico para cancelación por magic link enviado por WhatsApp.
   /// Se genera al crear la cita (crypto.randomBytes). Único; null en citas
   /// legacy o cuando no aplica cancelación self-service.

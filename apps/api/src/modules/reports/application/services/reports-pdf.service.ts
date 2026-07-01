@@ -164,7 +164,7 @@ export class ReportsPdfService {
           },
         },
         {
-          text: 'Ingreso = precio del servicio de citas cobradas o completadas. No incluye overrides de precio por doctor.',
+          text: 'Ingreso = monto cobrado por cita (congelado al reservar), sobre citas cobradas o completadas.',
           fontSize: 8,
           italics: true,
           color: '#94a3b8',
