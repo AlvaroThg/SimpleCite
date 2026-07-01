@@ -18,6 +18,7 @@ import { readableOn } from '@/lib/tenant-color';
 import { BookingCalendar } from '@/components/calendar/BookingCalendar';
 import { PaymentQRSelector, type BankQr } from '@/components/PaymentQRSelector';
 import { TurnstileWidget } from '@/components/TurnstileWidget';
+import { PhoneField } from '@/components/PhoneField';
 
 // ─── Types ────────────────────────────────────────────────────────────
 
@@ -558,14 +559,12 @@ export default function BookingWizard() {
                   onChange={(v) => set({ patientCi: v })}
                   placeholder="Ej: 1234567"
                 />
-                <Field
-                  label="Número de teléfono"
-                  value={state.phone}
-                  onChange={(v) => set({ phone: v })}
-                  placeholder="Ej: 59170000000"
-                  type="tel"
-                  required
-                />
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-text-secondary">
+                    Número de teléfono<span className="ml-1 text-red-500">*</span>
+                  </label>
+                  <PhoneField value={state.phone} onChange={(v) => set({ phone: v })} />
+                </div>
                 <p className="text-xs text-text-muted">
                   Lo usaremos para coordinar tu cita. No se comparte con terceros.
                 </p>

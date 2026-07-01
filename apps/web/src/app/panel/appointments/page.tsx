@@ -26,6 +26,7 @@ import { SkeletonList } from '@/components/panel/Skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Button } from '@/components/ui/button';
 import { Avatar } from '@/components/ui/avatar';
+import { PhoneField } from '@/components/PhoneField';
 import { CalendarCheck, Clock, X, Banknote, QrCode, List, CalendarDays, Plus } from 'lucide-react';
 import { AdminCalendar, type AdminEvent } from '@/components/calendar/AdminCalendar';
 
@@ -719,12 +720,9 @@ function NewAppointmentModal({
                     placeholder="Nombre completo"
                     className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                   />
-                  <input
+                  <PhoneField
                     value={newPatient.phone}
-                    onChange={(e) => setNewPatient({ ...newPatient, phone: e.target.value })}
-                    placeholder="Teléfono (ej: 59170000000)"
-                    inputMode="numeric"
-                    className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                    onChange={(v) => setNewPatient({ ...newPatient, phone: v })}
                   />
                   <input
                     value={newPatient.ci}
