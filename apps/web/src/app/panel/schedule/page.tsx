@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { CalendarDays, CalendarOff, Plus, Trash2 } from 'lucide-react';
+import { CalendarDays, CalendarOff, Coffee, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/lib/panel-auth';
 import {
@@ -37,9 +37,13 @@ const DAYS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', '
 // Orden de visualización: Lun→Dom (más natural que Dom→Sáb).
 const DISPLAY_ORDER = [1, 2, 3, 4, 5, 6, 0];
 
-/** Estado por día: habilitado + rango HH:MM. Una franja por día (lo común). */
-type DayState = { enabled: boolean; start: string; end: string };
-const defaultDay = (): DayState => ({ enabled: false, start: '09:00', end: '17:00' });
+/**
+ * Estado por día: habilitado + una o más franjas HH:MM. Varias franjas
+ * representan cortes intermedios (ej. 09:00–12:00 + 15:00–19:00 = almuerzo).
+ */
+type Range = { start: string; end: string };
+type DayState = { enabled: boolean; ranges: Range[] };
+const defaultDay = (): DayState => ({ enabled: false, ranges: [{ start: '09:00', end: '17:00' }] });
 
 function toMin(hhmm: string): number {
   const [h, m] = hhmm.split(':').map(Number);
@@ -88,12 +92,16 @@ function Schedule() {
         getBlocks(session.token, session.slug, doctorId),
       ]);
       const next = Array.from({ length: 7 }, defaultDay);
+      // Agrupar reglas por día → varias franjas por día (ya vienen ordenadas).
+      const byDay: Record<number, Range[]> = {};
       for (const r of rules) {
-        next[r.dayOfWeek] = {
-          enabled: true,
+        (byDay[r.dayOfWeek] ??= []).push({
           start: toHHMM(r.startMinute),
           end: toHHMM(r.endMinute),
-        };
+        });
+      }
+      for (let i = 0; i < 7; i++) {
+        if (byDay[i]?.length) next[i] = { enabled: true, ranges: byDay[i] };
       }
       setDays(next);
       setBlocks(blks);
@@ -109,25 +117,73 @@ function Schedule() {
   function setDay(i: number, patch: Partial<DayState>) {
     setDays((prev) => prev.map((d, idx) => (idx === i ? { ...d, ...patch } : d)));
   }
+  function setRange(i: number, r: number, patch: Partial<Range>) {
+    setDays((prev) =>
+      prev.map((d, idx) =>
+        idx === i
+          ? { ...d, ranges: d.ranges.map((rg, ri) => (ri === r ? { ...rg, ...patch } : rg)) }
+          : d,
+      ),
+    );
+  }
+  function addRange(i: number) {
+    setDays((prev) =>
+      prev.map((d, idx) => {
+        if (idx !== i) return d;
+        // Nueva franja por defecto: arranca 1h después del fin de la última.
+        const last = d.ranges[d.ranges.length - 1];
+        const startMin = Math.min(toMin(last?.end ?? '13:00') + 60, 1380);
+        return {
+          ...d,
+          ranges: [
+            ...d.ranges,
+            { start: toHHMM(startMin), end: toHHMM(Math.min(startMin + 180, 1439)) },
+          ],
+        };
+      }),
+    );
+  }
+  function removeRange(i: number, r: number) {
+    setDays((prev) =>
+      prev.map((d, idx) =>
+        idx === i ? { ...d, ranges: d.ranges.filter((_, ri) => ri !== r) } : d,
+      ),
+    );
+  }
 
   async function saveRules() {
     if (!session || !doctorId) return;
     setSavingRules(true);
     try {
-      const rules = days
-        .map((d, i) => ({ d, i }))
-        .filter(({ d }) => d.enabled)
-        .map(({ d, i }) => ({
-          dayOfWeek: i,
-          startMinute: toMin(d.start),
-          endMinute: toMin(d.end),
-        }));
-      // Validación local: end > start.
+      const rules = days.flatMap((d, i) =>
+        d.enabled
+          ? d.ranges.map((r) => ({
+              dayOfWeek: i,
+              startMinute: toMin(r.start),
+              endMinute: toMin(r.end),
+            }))
+          : [],
+      );
+      // Validación local: cada franja fin > inicio.
       const bad = rules.find((r) => r.endMinute <= r.startMinute);
       if (bad) {
-        toast.error(`El día ${DAYS[bad.dayOfWeek]} tiene fin antes o igual al inicio.`);
+        toast.error(`El día ${DAYS[bad.dayOfWeek]} tiene una franja con fin ≤ inicio.`);
         setSavingRules(false);
         return;
+      }
+      // Validación local: franjas del mismo día no se solapan (el backend también
+      // lo valida, pero avisamos antes con un mensaje claro).
+      for (let i = 0; i < 7; i++) {
+        const dayRanges = rules
+          .filter((r) => r.dayOfWeek === i)
+          .sort((a, b) => a.startMinute - b.startMinute);
+        for (let k = 1; k < dayRanges.length; k++) {
+          if (dayRanges[k].startMinute < dayRanges[k - 1].endMinute) {
+            toast.error(`El día ${DAYS[i]} tiene franjas que se solapan.`);
+            setSavingRules(false);
+            return;
+          }
+        }
       }
       await replaceRules(session.token, session.slug, doctorId, rules);
       toast.success('Horario guardado.');
@@ -221,7 +277,8 @@ function Schedule() {
             <CardHeader>
               <CardTitle>Disponibilidad semanal</CardTitle>
               <CardDescription>
-                Activa los días que atiende el doctor y define el rango horario de cada uno.
+                Activa los días que atiende el doctor y define sus franjas. Usa “Añadir franja” para
+                un corte a media jornada (ej. almuerzo): 09:00–12:00 y 15:00–19:00.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -270,25 +327,57 @@ function Schedule() {
 
                       <div
                         className={cn(
-                          'mt-3 flex items-center gap-2 transition-opacity',
+                          'mt-3 space-y-2 transition-opacity',
                           d.enabled ? 'opacity-100' : 'pointer-events-none opacity-40',
                         )}
                       >
-                        <Input
-                          type="time"
-                          value={d.start}
+                        {d.ranges.map((rg, ri) => (
+                          <div key={ri}>
+                            <div className="flex items-center gap-2">
+                              <Input
+                                type="time"
+                                value={rg.start}
+                                disabled={!d.enabled}
+                                onChange={(e) => setRange(i, ri, { start: e.target.value })}
+                                className="h-9 bg-surface"
+                              />
+                              <span className="text-sm text-muted-foreground">a</span>
+                              <Input
+                                type="time"
+                                value={rg.end}
+                                disabled={!d.enabled}
+                                onChange={(e) => setRange(i, ri, { end: e.target.value })}
+                                className="h-9 bg-surface"
+                              />
+                              {d.ranges.length > 1 && (
+                                <button
+                                  type="button"
+                                  onClick={() => removeRange(i, ri)}
+                                  aria-label="Quitar franja"
+                                  className="flex-shrink-0 rounded-lg p-2 text-text-muted transition-colors hover:bg-red-50 hover:text-red-600"
+                                >
+                                  <Trash2 className="size-4" />
+                                </button>
+                              )}
+                            </div>
+                            {/* Descanso: hueco entre esta franja y la siguiente. */}
+                            {ri < d.ranges.length - 1 &&
+                              toMin(d.ranges[ri + 1].start) > toMin(rg.end) && (
+                                <div className="my-1 flex items-center gap-1.5 pl-1 text-xs font-medium text-text-muted">
+                                  <Coffee className="size-3.5" />
+                                  Descanso {rg.end}–{d.ranges[ri + 1].start}
+                                </div>
+                              )}
+                          </div>
+                        ))}
+                        <button
+                          type="button"
+                          onClick={() => addRange(i)}
                           disabled={!d.enabled}
-                          onChange={(e) => setDay(i, { start: e.target.value })}
-                          className="h-9 bg-surface"
-                        />
-                        <span className="text-sm text-muted-foreground">a</span>
-                        <Input
-                          type="time"
-                          value={d.end}
-                          disabled={!d.enabled}
-                          onChange={(e) => setDay(i, { end: e.target.value })}
-                          className="h-9 bg-surface"
-                        />
+                          className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-primary transition-colors hover:bg-accent disabled:opacity-50"
+                        >
+                          <Plus className="size-3.5" /> Añadir franja
+                        </button>
                       </div>
                     </div>
                   );
