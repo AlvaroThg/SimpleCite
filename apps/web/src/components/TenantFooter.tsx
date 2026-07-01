@@ -18,6 +18,35 @@ interface Props {
   whatsappContact: string | null;
 }
 
+type IconCmp = React.ComponentType<{ className?: string }>;
+
+// lucide-react removió los íconos de marca (Facebook/Instagram) → SVG inline.
+function FacebookIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M22 12a10 10 0 1 0-11.56 9.88v-6.99H7.9V12h2.54V9.8c0-2.5 1.49-3.89 3.78-3.89 1.09 0 2.23.2 2.23.2v2.46h-1.26c-1.24 0-1.63.77-1.63 1.56V12h2.78l-.45 2.89h-2.33v6.99A10 10 0 0 0 22 12z" />
+    </svg>
+  );
+}
+function InstagramIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <rect x="2" y="2" width="20" height="20" rx="5" />
+      <circle cx="12" cy="12" r="4" />
+      <line x1="17.5" y1="6.5" x2="17.51" y2="6.5" />
+    </svg>
+  );
+}
+
 /**
  * Footer público de la clínica en columnas: contacto real de la clínica +
  * bloque "Powered by SimpleCite" con enlaces del producto. Sin formularios de
@@ -60,6 +89,12 @@ export function TenantFooter({
 
   const linkCls = 'transition-colors hover:text-text-primary';
 
+  const socials = [
+    waLink && { href: waLink, label: 'WhatsApp', Icon: MessageCircle as IconCmp },
+    facebookUrl && { href: facebookUrl, label: 'Facebook', Icon: FacebookIcon as IconCmp },
+    instagramUrl && { href: instagramUrl, label: 'Instagram', Icon: InstagramIcon as IconCmp },
+  ].filter(Boolean) as { href: string; label: string; Icon: IconCmp }[];
+
   return (
     <footer className="border-t border-border bg-surface">
       <div className="mx-auto max-w-4xl px-4 py-10">
@@ -83,36 +118,26 @@ export function TenantFooter({
           {/* Contacto de la clínica */}
           <div>
             <p className="text-xs font-semibold uppercase tracking-wider text-text-muted">
-              Contacto
+              Síguenos
             </p>
-            <ul className="mt-3 space-y-2 text-sm text-text-secondary">
-              {waLink && (
-                <li>
+            {socials.length > 0 ? (
+              <div className="mt-3 flex items-center gap-2">
+                {socials.map(({ href, label, Icon }) => (
                   <a
-                    href={waLink}
+                    key={label}
+                    href={href}
                     target="_blank"
                     rel="noreferrer"
-                    className={`inline-flex items-center gap-1.5 ${linkCls}`}
+                    aria-label={label}
+                    className="flex size-9 items-center justify-center rounded-full bg-muted text-text-secondary transition-colors hover:text-text-primary"
                   >
-                    <MessageCircle className="size-4" /> Escríbenos por WhatsApp
+                    <Icon className="size-4" />
                   </a>
-                </li>
-              )}
-              {facebookUrl && (
-                <li>
-                  <a href={facebookUrl} target="_blank" rel="noreferrer" className={linkCls}>
-                    Facebook
-                  </a>
-                </li>
-              )}
-              {instagramUrl && (
-                <li>
-                  <a href={instagramUrl} target="_blank" rel="noreferrer" className={linkCls}>
-                    Instagram
-                  </a>
-                </li>
-              )}
-            </ul>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-3 text-sm text-text-muted">—</p>
+            )}
           </div>
 
           {/* SimpleCite */}
