@@ -299,10 +299,16 @@
   .animate-qr-wait {
     animation: qr-wait 2.4s ease-in-out infinite;
   }
+  /* Flotación del iPhone del hero (±8px, 5s). */
+  .animate-iphone-float {
+    animation: iphone-float 5s ease-in-out infinite;
+    will-change: transform;
+  }
   @media (prefers-reduced-motion: reduce) {
     .animate-breathe,
     .animate-pulse-dot,
-    .animate-qr-wait {
+    .animate-qr-wait,
+    .animate-iphone-float {
       animation: none;
     }
   }
@@ -326,6 +332,15 @@
   50% {
     opacity: 0.45;
     transform: scale(0.82);
+  }
+}
+@keyframes iphone-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
   }
 }
 @keyframes qr-wait {

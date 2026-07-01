@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { Reveal, Stagger, StaggerItem, ScrollCue } from '@/components/landing/motion';
+import { IPhoneMockup } from '@/components/landing/IPhoneMockup';
 
 // Número de WhatsApp de ventas (E.164 sin '+').
 const WA_NUMBER = '59161869814';
@@ -9,7 +10,7 @@ const CTA_MSG = 'Hola, quiero probar SimpleCite para mi consultorio.';
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-white text-gray-900">
+    <div className="min-h-screen bg-surface text-text-primary">
       <Nav />
       <Hero />
       <ProblemSolution />
@@ -24,7 +25,7 @@ export default function LandingPage() {
 // ─── Nav ──────────────────────────────────────────────────────────────
 function Nav() {
   return (
-    <header className="sticky top-0 z-20 bg-white/80 backdrop-blur border-b border-gray-100">
+    <header className="sticky top-0 z-20 bg-surface/80 backdrop-blur border-b border-border">
       <div className="max-w-6xl mx-auto px-5 h-24 flex items-center justify-between">
         <Image
           src="/logo.png"
@@ -35,7 +36,10 @@ function Nav() {
           className="h-20 w-auto"
         />
         <nav className="flex items-center gap-3 text-sm">
-          <Link href="/panel/login" className="text-gray-600 hover:text-gray-900 font-medium px-2">
+          <Link
+            href="/panel/login"
+            className="text-text-secondary hover:text-text-primary font-medium px-2"
+          >
             Ingresar
           </Link>
           <a
@@ -58,13 +62,13 @@ function Hero() {
         <span className="inline-block text-xs font-semibold text-brand-700 bg-brand-50 rounded-full px-3 py-1 mb-5">
           Hecho para clínicas y consultorios en Bolivia 🇧🇴
         </span>
-        <h1 className="text-4xl sm:text-5xl font-extrabold leading-tight tracking-tight">
-          Automatiza tus citas y cobra por QR{' '}
-          <span className="text-brand-600">sin salir de WhatsApp.</span>
+        <h1 className="text-4xl sm:text-[56px] font-extrabold leading-[1.05] tracking-[-0.03em] text-text-primary">
+          Tu agenda médica, <span className="text-brand-600">sin inasistencias.</span>
         </h1>
-        <p className="mt-5 text-lg text-gray-600 max-w-xl">
-          Tus pacientes reservan online, confirman por WhatsApp y pagan con QR bancario. Tu agenda
-          se llena sola y reduces las inasistencias con recordatorios automáticos.
+        <p className="mt-5 text-lg text-text-secondary max-w-xl">
+          Tus pacientes reservan en línea y pagan por adelantado con QR bancario. El pago anticipado
+          asegura el compromiso y tu equipo gestiona todo desde un panel que entiende en cinco
+          minutos.
         </p>
         <div className="mt-8 flex flex-col sm:flex-row gap-3">
           <a
@@ -75,12 +79,12 @@ function Hero() {
           </a>
           <a
             href="#como-funciona"
-            className="px-7 py-3.5 rounded-2xl border border-gray-200 text-gray-700 font-semibold text-lg text-center hover:bg-gray-50 transition"
+            className="px-7 py-3.5 rounded-2xl border border-border text-text-secondary font-semibold text-lg text-center hover:bg-canvas transition"
           >
             Ver cómo funciona
           </a>
         </div>
-        <p className="mt-4 text-sm text-gray-400">
+        <p className="mt-4 text-sm text-text-muted">
           Sin tarjeta de crédito · Configuración en minutos
         </p>
         <div className="mt-10 hidden lg:block">
@@ -88,93 +92,34 @@ function Hero() {
         </div>
       </div>
 
-      {/* Mockup con glow radial de marca detrás + respiración sutil. */}
-      <div className="relative mx-auto">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute left-1/2 top-1/2 -z-10 h-[420px] w-[420px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-brand-500/20 blur-[90px]"
-        />
-        <div className="animate-breathe">
-          <PhoneMockup />
-        </div>
+      {/* iPhone con el panel de citas: muestra el valor para la clínica. */}
+      <div className="mt-8 lg:mt-0">
+        <IPhoneMockup />
       </div>
     </section>
-  );
-}
-
-/** Mockup de celular mostrando el bot de WhatsApp (puro CSS). */
-function PhoneMockup() {
-  return (
-    <div className="relative mx-auto w-[280px]">
-      <div className="rounded-[2.5rem] border-[10px] border-gray-900 bg-gray-900 shadow-2xl overflow-hidden">
-        {/* Barra superior estilo WhatsApp */}
-        <div className="bg-brand-700 text-white px-4 py-3 flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-sm">
-            🏥
-          </div>
-          <div className="leading-tight">
-            <p className="text-sm font-semibold">Clínica Tarija</p>
-            <p className="flex items-center gap-1.5 text-[10px] text-white/70">
-              <span className="animate-pulse-dot inline-block size-1.5 rounded-full bg-green-400" />
-              en línea
-            </p>
-          </div>
-        </div>
-        {/* Chat */}
-        <div className="bg-[#e7ded5] px-3 py-4 space-y-2 h-[420px] text-[13px]">
-          <Bubble side="in">
-            ¡Hola! 👋 Soy el asistente de la Clínica. ¿Con qué doctor deseas tu cita?
-          </Bubble>
-          <Bubble side="out">Con el Dr. Rodríguez</Bubble>
-          <Bubble side="in">Genial. ¿Qué día prefieres? *1.* Hoy · *2.* Mañana</Bubble>
-          <Bubble side="out">2</Bubble>
-          <Bubble side="in">🕐 Horarios: *1.* 09:00 · *2.* 10:30 · *3.* 15:00</Bubble>
-          <Bubble side="out">2</Bubble>
-          <Bubble side="in">
-            ✅ ¡Listo! Escanea el QR de pago y envíanos el comprobante.{' '}
-            <span className="inline-block mt-1">📲 Bs 80</span>
-          </Bubble>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function Bubble({ side, children }: { side: 'in' | 'out'; children: React.ReactNode }) {
-  const isOut = side === 'out';
-  return (
-    <div className={`flex ${isOut ? 'justify-end' : 'justify-start'}`}>
-      <div
-        className={`max-w-[80%] rounded-2xl px-3 py-2 shadow-sm ${
-          isOut ? 'bg-[#d9fdd3] rounded-tr-sm' : 'bg-white rounded-tl-sm'
-        }`}
-      >
-        {children}
-      </div>
-    </div>
   );
 }
 
 // ─── Problema vs Solución ─────────────────────────────────────────────
 function ProblemSolution() {
   return (
-    <section className="bg-gray-50 border-y border-gray-100">
+    <section className="bg-canvas border-y border-border">
       <div className="max-w-6xl mx-auto px-5 py-20 grid md:grid-cols-2 gap-8">
-        <Reveal className="bg-white rounded-3xl p-8 border border-gray-100">
+        <Reveal className="bg-surface rounded-3xl p-8 border border-border">
           <span className="text-3xl">😟</span>
           <h3 className="mt-3 text-xl font-bold">Cada paciente que no asiste, es dinero perdido</h3>
-          <p className="mt-3 text-gray-600 leading-relaxed">
+          <p className="mt-3 text-text-secondary leading-relaxed">
             Las llamadas para confirmar consumen tiempo de tu recepción. Los pacientes olvidan la
             cita, no avisan, y ese horario queda vacío. Sin pago anticipado, no hay compromiso.
           </p>
         </Reveal>
-        <Reveal delay={0.1} className="bg-white rounded-3xl p-8 border-2 border-brand-200">
+        <Reveal delay={0.1} className="bg-surface rounded-3xl p-8 border-2 border-brand-200">
           <span className="text-3xl">✅</span>
           <h3 className="mt-3 text-xl font-bold">SimpleCite lo resuelve por ti</h3>
-          <ul className="mt-3 space-y-2 text-gray-700">
-            <li>• Recordatorios automáticos por WhatsApp → menos inasistencias.</li>
+          <ul className="mt-3 space-y-2 text-text-secondary">
+            <li>• Reserva en línea 24/7 → el paciente elige doctor, servicio y horario.</li>
             <li>• Pago por QR bancario al reservar → compromiso real del paciente.</li>
-            <li>• Confirmación instantánea → tu recepción deja de llamar.</li>
+            <li>• Panel para todo el equipo → agenda, pacientes e historias en un solo lugar.</li>
           </ul>
         </Reveal>
       </div>
@@ -192,19 +137,19 @@ function HowItWorks() {
     },
     {
       n: '2',
-      t: 'Confirma y paga por QR bancario',
-      d: 'Recibe el QR por WhatsApp y paga al instante. La cita queda asegurada.',
+      t: 'Paga por QR bancario',
+      d: 'Escanea el QR de tu banco y paga al instante. La cita queda asegurada.',
     },
     {
       n: '3',
       t: 'Tu calendario se actualiza solo',
-      d: 'La agenda se llena automáticamente y todos reciben recordatorios.',
+      d: 'La agenda se llena automáticamente y tu equipo la ve en tiempo real.',
     },
   ];
   return (
     <section id="como-funciona" className="max-w-6xl mx-auto px-5 py-20">
       <h2 className="text-3xl font-bold text-center">Cómo funciona</h2>
-      <p className="text-center text-gray-500 mt-2">En 3 pasos, sin complicaciones.</p>
+      <p className="text-center text-text-muted mt-2">En 3 pasos, sin complicaciones.</p>
       <Stagger className="mt-12 grid md:grid-cols-3 gap-6">
         {steps.map((s) => (
           <StaggerItem key={s.n} className="text-center">
@@ -212,7 +157,7 @@ function HowItWorks() {
               {s.n}
             </div>
             <h3 className="mt-4 font-semibold text-lg">{s.t}</h3>
-            <p className="mt-2 text-gray-600 text-sm leading-relaxed">{s.d}</p>
+            <p className="mt-2 text-text-secondary text-sm leading-relaxed">{s.d}</p>
           </StaggerItem>
         ))}
       </Stagger>
@@ -223,13 +168,13 @@ function HowItWorks() {
 // ─── Testimonios ──────────────────────────────────────────────────────
 function Testimonials() {
   return (
-    <section className="bg-gray-50 border-y border-gray-100">
+    <section className="bg-canvas border-y border-border">
       <div className="max-w-6xl mx-auto px-5 py-20">
         <h2 className="text-3xl font-bold text-center">Lo que dicen los doctores</h2>
         <div className="mt-12 flex flex-col items-center justify-center gap-3 text-center py-10">
           <span className="text-5xl">🩺</span>
-          <p className="text-lg font-semibold text-gray-700">¡No hay clientes aún!</p>
-          <p className="text-gray-400 text-sm">Sé el primero.</p>
+          <p className="text-lg font-semibold text-text-secondary">¡No hay clientes aún!</p>
+          <p className="text-text-muted text-sm">Sé el primero.</p>
         </div>
       </div>
     </section>
@@ -241,10 +186,10 @@ function Testimonials() {
 function Card({ children, featured = false }: { children: React.ReactNode; featured?: boolean }) {
   return (
     <div
-      className={`relative bg-white rounded-2xl border flex flex-col ${
+      className={`relative bg-surface rounded-2xl border flex flex-col ${
         featured
           ? 'border-brand-500 shadow-2xl ring-1 ring-brand-200 md:-translate-y-3'
-          : 'border-gray-200 shadow-sm'
+          : 'border-border shadow-sm'
       }`}
     >
       {children}
@@ -283,8 +228,8 @@ function Button({
 }) {
   const styles = {
     default: 'bg-brand-600 text-white hover:bg-brand-700',
-    outline: 'border border-gray-300 text-gray-700 hover:bg-gray-50',
-    secondary: 'bg-gray-100 text-gray-700 hover:bg-gray-200',
+    outline: 'border border-border-strong text-text-secondary hover:bg-canvas',
+    secondary: 'bg-muted text-text-secondary hover:bg-muted',
   };
   return (
     <a
@@ -307,7 +252,7 @@ function Pricing() {
       badge: null,
       buttonLabel: 'Obtener Básico',
       buttonVariant: 'outline' as const,
-      checkColor: 'text-gray-400',
+      checkColor: 'text-text-muted',
       features: [
         'Agenda digital en la nube',
         'Web Booking público (Subdominio propio)',
@@ -327,11 +272,11 @@ function Pricing() {
       checkColor: 'text-brand-500',
       features: [
         'Todo lo del plan Básico, más:',
-        'Bot de WhatsApp Propio (Bot 24/7)',
-        'Confirmaciones y recordatorios automáticos',
         'Cobro por QR estático (Cero comisiones)',
-        'Recepción de comprobantes en el panel',
-        'Soporte prioritario por WhatsApp',
+        'Confirmación de pago manual desde el panel',
+        'Reportes de ingresos por doctor',
+        'Bot de WhatsApp Propio (próximamente)',
+        'Recordatorios automáticos (próximamente)',
       ],
     },
     {
@@ -342,7 +287,7 @@ function Pricing() {
       badge: null,
       buttonLabel: 'Obtener Clínica',
       buttonVariant: 'secondary' as const,
-      checkColor: 'text-gray-400',
+      checkColor: 'text-text-muted',
       features: [
         'Todo lo del plan Profesional, más:',
         'Multiusuario (Cuentas para Doctores y Staff)',
@@ -356,7 +301,7 @@ function Pricing() {
   return (
     <section id="precios" className="max-w-6xl mx-auto px-5 py-20">
       <h2 className="text-3xl font-bold text-center">Planes simples, sin sorpresas</h2>
-      <p className="text-center text-gray-500 mt-2">
+      <p className="text-center text-text-muted mt-2">
         Elige el que crece contigo. Precios en USD/mes.
       </p>
 
@@ -369,12 +314,12 @@ function Pricing() {
                   <Badge>{p.badge}</Badge>
                 </div>
               )}
-              <h3 className="text-xl font-bold text-gray-900">{p.name}</h3>
+              <h3 className="text-xl font-bold text-text-primary">{p.name}</h3>
               <div className="mt-1 flex items-end gap-1">
-                <span className="text-4xl font-extrabold text-gray-900">${p.price}</span>
-                <span className="text-gray-400 mb-1 text-sm">USD / mes</span>
+                <span className="text-4xl font-extrabold text-text-primary">${p.price}</span>
+                <span className="text-text-muted mb-1 text-sm">USD / mes</span>
               </div>
-              <p className="mt-2 text-sm text-gray-500 leading-snug">{p.tagline}</p>
+              <p className="mt-2 text-sm text-text-muted leading-snug">{p.tagline}</p>
             </CardHeader>
 
             <CardContent>
@@ -382,12 +327,14 @@ function Pricing() {
                 {p.features.map((f, i) => (
                   <li key={i} className="flex items-start gap-2">
                     {f.startsWith('Todo') ? (
-                      <span className="text-gray-400 mt-0.5 font-bold">›</span>
+                      <span className="text-text-muted mt-0.5 font-bold">›</span>
                     ) : (
                       <span className={`${p.checkColor} mt-0.5`}>✓</span>
                     )}
                     <span
-                      className={f.startsWith('Todo') ? 'text-gray-500 italic' : 'text-gray-700'}
+                      className={
+                        f.startsWith('Todo') ? 'text-text-muted italic' : 'text-text-secondary'
+                      }
                     >
                       {f}
                     </span>
@@ -408,7 +355,7 @@ function Pricing() {
         ))}
       </div>
 
-      <p className="mt-6 text-center text-sm text-gray-400 italic">
+      <p className="mt-6 text-center text-sm text-text-muted italic">
         cambio dólar a bolivianos: 9.72 bs
       </p>
     </section>
@@ -418,7 +365,7 @@ function Pricing() {
 // ─── Footer ───────────────────────────────────────────────────────────
 function Footer() {
   return (
-    <footer className="bg-gray-900 text-gray-300">
+    <footer className="bg-gray-900 text-white/60">
       <div className="max-w-6xl mx-auto px-5 py-12 flex flex-col sm:flex-row justify-between gap-6">
         <div>
           <Image
@@ -431,8 +378,8 @@ function Footer() {
           <p className="mt-3 text-sm text-brand-300">
             Gestiona citas. Atiende mejor. Hazlo simple.
           </p>
-          <p className="mt-1 text-sm text-gray-400 max-w-xs">
-            Agenda médica y cobros por WhatsApp para Bolivia.
+          <p className="mt-1 text-sm text-white/50 max-w-xs">
+            Agenda médica y cobro por QR para clínicas en Bolivia.
           </p>
         </div>
         <div className="flex flex-col gap-2 text-sm">
@@ -440,7 +387,7 @@ function Footer() {
             href={waLink('Hola, tengo una consulta sobre SimpleCite.')}
             className="hover:text-white"
           >
-            Contacto por WhatsApp
+            Contáctanos
           </a>
           <Link href="/panel/login" className="hover:text-white">
             Ingresar al panel
@@ -450,7 +397,7 @@ function Footer() {
           </a>
         </div>
       </div>
-      <div className="border-t border-white/10 py-4 text-center text-xs text-gray-500">
+      <div className="border-t border-white/10 py-4 text-center text-xs text-white/40">
         © {new Date().getFullYear()} SimpleCite · Tarija, Bolivia
       </div>
     </footer>
