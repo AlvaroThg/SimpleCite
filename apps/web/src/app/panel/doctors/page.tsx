@@ -12,6 +12,7 @@ import {
   getDoctorServices,
   assignServiceToDoctor,
   unassignServiceFromDoctor,
+  updateDoctorService,
   createService,
   PanelApiError,
   type Doctor,
@@ -380,6 +381,76 @@ function Doctors() {
   );
 }
 
+/** Fila de servicio asignado: override opcional de duración/precio para el doctor. */
+function DoctorServiceRow({
+  link,
+  onRemove,
+  onSaved,
+}: {
+  link: DoctorServiceLink;
+  onRemove: () => void;
+  onSaved: () => void;
+}) {
+  const { session } = useAuth();
+  const initialDur = link.customDuration != null ? String(link.customDuration) : '';
+  const initialPrice = link.customPrice != null ? String(link.customPrice) : '';
+  const [dur, setDur] = useState(initialDur);
+  const [price, setPrice] = useState(initialPrice);
+  const [saving, setSaving] = useState(false);
+  const dirty = dur !== initialDur || price !== initialPrice;
+
+  async function save() {
+    if (!session) return;
+    setSaving(true);
+    try {
+      await updateDoctorService(session.token, session.slug, link.id, {
+        customDuration: dur.trim() === '' ? null : Number(dur),
+        customPrice: price.trim() === '' ? null : Number(price),
+      });
+      toast.success('Override guardado.');
+      onSaved();
+    } catch (e) {
+      toast.error(e instanceof PanelApiError ? e.message : 'No se pudo guardar el override');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <li className="rounded-lg border border-border bg-surface p-3">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-sm font-medium text-text-primary">{link.service.name}</span>
+        <button
+          onClick={onRemove}
+          className="text-xs text-red-500 transition-colors hover:text-red-700"
+        >
+          Quitar
+        </button>
+      </div>
+      <div className="mt-2 grid grid-cols-2 gap-2">
+        <Input
+          label={`Duración (default ${link.service.duration} min)`}
+          type="number"
+          value={dur}
+          onChange={setDur}
+        />
+        <Input
+          label={`Precio Bs (default ${Number(link.service.price).toFixed(0)})`}
+          type="number"
+          value={price}
+          onChange={setPrice}
+        />
+      </div>
+      <div className="mt-2 flex items-center justify-between gap-2">
+        <span className="text-[11px] text-text-muted">Vacío = usa el valor del servicio.</span>
+        <Button size="sm" variant="outline" disabled={!dirty || saving} onClick={save}>
+          {saving ? 'Guardando…' : 'Guardar'}
+        </Button>
+      </div>
+    </li>
+  );
+}
+
 /** Sub-panel: servicios asignados a un doctor + añadir/quitar del catálogo. */
 function DoctorServices({ doctorId }: { doctorId: string }) {
   const { session } = useAuth();
@@ -488,23 +559,16 @@ function DoctorServices({ doctorId }: { doctorId: string }) {
             {links.length === 0 ? (
               <p className="text-sm text-text-muted">Ninguno todavía.</p>
             ) : (
-              <div className="flex flex-wrap gap-2">
+              <ul className="space-y-2">
                 {links.map((l) => (
-                  <span
+                  <DoctorServiceRow
                     key={l.id}
-                    className="inline-flex items-center gap-1.5 bg-brand-50 text-brand-700 text-sm rounded-full pl-3 pr-1.5 py-1"
-                  >
-                    {l.service.name}
-                    <button
-                      onClick={() => remove(l.id)}
-                      className="w-5 h-5 rounded-full hover:bg-brand-100 text-brand-500"
-                      aria-label="Quitar"
-                    >
-                      ×
-                    </button>
-                  </span>
+                    link={l}
+                    onRemove={() => remove(l.id)}
+                    onSaved={load}
+                  />
                 ))}
-              </div>
+              </ul>
             )}
           </div>
           {available.length > 0 && (

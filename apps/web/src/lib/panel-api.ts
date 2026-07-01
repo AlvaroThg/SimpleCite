@@ -575,6 +575,16 @@ export const assignServiceToDoctor = (
   );
 export const unassignServiceFromDoctor = (t: string, s: string, linkId: string) =>
   del<{ success: boolean }>(`/api/services/assignments/${linkId}`, t, s);
+/** Override de duración/precio del servicio para un doctor concreto (null = usa el default). */
+export const updateDoctorService = (
+  t: string,
+  s: string,
+  linkId: string,
+  body: { customDuration?: number | null; customPrice?: number | null },
+) =>
+  patch<{ data: DoctorServiceLink }>(`/api/services/assignments/${linkId}`, t, s, body).then(
+    (r) => r.data,
+  );
 
 // ─── Servicios ────────────────────────────────────────────────────────
 
