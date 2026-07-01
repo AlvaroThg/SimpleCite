@@ -285,7 +285,7 @@ export default function BookingWizard() {
 
   if (state.loading && state.step === 'select-doctor') {
     return (
-      <div className="flex flex-col items-center justify-center gap-3 min-h-[60vh] text-gray-400">
+      <div className="flex flex-col items-center justify-center gap-3 min-h-[60vh] text-text-muted">
         <svg
           className="animate-spin"
           style={{ color: primary }}
@@ -345,10 +345,10 @@ export default function BookingWizard() {
           {state.step === 'select-doctor' && (
             <>
               <section className="space-y-3 py-2 text-center">
-                <h1 className="text-3xl font-bold text-gray-900">
+                <h1 className="text-3xl font-bold text-text-primary">
                   Reserva tu cita{state.tenant ? ` en ${state.tenant.name}` : ''}
                 </h1>
-                <p className="mx-auto max-w-md text-gray-500">
+                <p className="mx-auto max-w-md text-text-muted">
                   Agenda online en menos de un minuto. Elige a tu especialista y tu horario; la
                   clínica confirma tu cita.
                 </p>
@@ -362,18 +362,18 @@ export default function BookingWizard() {
                       onClick={() =>
                         set({ selectedDoctor: doc, selectedService: null, step: 'select-service' })
                       }
-                      className="group flex items-center gap-4 rounded-2xl border border-gray-200 bg-white p-4 text-left transition-all hover:-translate-y-0.5 hover:border-blue-400 hover:shadow-md"
+                      className="group flex items-center gap-4 rounded-2xl border border-border bg-surface p-4 text-left transition-all hover:-translate-y-0.5 hover:border-primary hover:shadow-md"
                     >
                       <Avatar name={doc.name} color={primary} />
                       <div className="min-w-0">
-                        <p className="truncate font-semibold text-gray-900">{doc.name}</p>
+                        <p className="truncate font-semibold text-text-primary">{doc.name}</p>
                         {doc.doctorProfile?.specialty && (
-                          <p className="truncate text-sm text-gray-500">
+                          <p className="truncate text-sm text-text-muted">
                             {doc.doctorProfile.specialty}
                           </p>
                         )}
                         {doc.doctorServices.length > 0 && (
-                          <p className="mt-0.5 text-xs text-gray-400">
+                          <p className="mt-0.5 text-xs text-text-muted">
                             {doc.doctorServices.length} servicio
                             {doc.doctorServices.length > 1 ? 's' : ''}
                           </p>
@@ -397,13 +397,13 @@ export default function BookingWizard() {
                   <button
                     key={ds.id}
                     onClick={() => set({ selectedService: ds, step: 'select-slot' })}
-                    className="w-full text-left bg-white border border-gray-200 rounded-xl p-4 hover:border-blue-400 hover:shadow-sm transition"
+                    className="w-full text-left bg-surface border border-border rounded-xl p-4 hover:border-primary hover:shadow-sm transition"
                   >
-                    <p className="font-semibold text-gray-900">{ds.service.name}</p>
+                    <p className="font-semibold text-text-primary">{ds.service.name}</p>
                     {ds.service.description && (
-                      <p className="text-sm text-gray-500 mt-1">{ds.service.description}</p>
+                      <p className="text-sm text-text-muted mt-1">{ds.service.description}</p>
                     )}
-                    <p className="text-sm text-gray-500 mt-1">
+                    <p className="text-sm text-text-muted mt-1">
                       Bs {Number(ds.customPrice ?? ds.service.price).toFixed(0)} ·{' '}
                       {ds.customDuration ?? ds.service.duration} min
                     </p>
@@ -420,7 +420,7 @@ export default function BookingWizard() {
               onBack={() => set({ step: 'select-service' })}
             >
               {/* Toggle Lista / Calendario */}
-              <div className="mb-4 flex w-fit gap-1 rounded-lg bg-gray-100 p-1">
+              <div className="mb-4 flex w-fit gap-1 rounded-lg bg-muted p-1">
                 {(
                   [
                     ['list', 'Lista'],
@@ -433,8 +433,8 @@ export default function BookingWizard() {
                     aria-pressed={slotView === k}
                     className={`min-h-9 rounded-md px-3 py-1.5 text-sm font-medium transition ${
                       slotView === k
-                        ? 'bg-white text-gray-900 shadow-sm'
-                        : 'text-gray-500 hover:text-gray-700'
+                        ? 'bg-surface text-text-primary shadow-sm'
+                        : 'text-text-muted hover:text-text-secondary'
                     }`}
                   >
                     {l}
@@ -478,8 +478,8 @@ export default function BookingWizard() {
                             isSelected
                               ? 'text-white border-transparent'
                               : disabled
-                                ? 'cursor-not-allowed border-gray-100 bg-gray-50 text-gray-300 opacity-60'
-                                : 'bg-white border-gray-200 text-gray-700 hover:border-blue-400'
+                                ? 'cursor-not-allowed border-border bg-canvas text-text-disabled opacity-60'
+                                : 'bg-surface border-border text-text-secondary hover:border-primary'
                           }`}
                           style={
                             isSelected ? { backgroundColor: primary, borderColor: primary } : {}
@@ -492,8 +492,8 @@ export default function BookingWizard() {
                   </div>
 
                   {state.selectedService && (
-                    <p className="mb-3 text-sm text-gray-500">
-                      <span className="font-medium text-gray-700">
+                    <p className="mb-3 text-sm text-text-muted">
+                      <span className="font-medium text-text-secondary">
                         {state.selectedService.service.name}
                       </span>{' '}
                       ·{' '}
@@ -503,11 +503,11 @@ export default function BookingWizard() {
                     </p>
                   )}
                   {state.loading ? (
-                    <p className="text-gray-400 text-center py-6 animate-pulse">
+                    <p className="text-text-muted text-center py-6 animate-pulse">
                       Buscando horarios...
                     </p>
                   ) : daySlots.length === 0 ? (
-                    <p className="text-gray-500 text-center py-6">
+                    <p className="text-text-muted text-center py-6">
                       No hay turnos disponibles este día. Elige otro.
                     </p>
                   ) : (
@@ -523,8 +523,8 @@ export default function BookingWizard() {
                           transition={{ type: 'spring', stiffness: 500, damping: 30 }}
                           className={`min-h-11 rounded-xl px-1 py-2 text-[13px] font-medium border transition ${
                             !slot.available
-                              ? 'cursor-not-allowed border-gray-100 bg-gray-100 text-gray-300 opacity-60'
-                              : 'bg-white border-gray-200 text-gray-800 hover:border-blue-400 hover:shadow-sm'
+                              ? 'cursor-not-allowed border-border bg-muted text-text-disabled opacity-60'
+                              : 'bg-surface border-border text-text-primary hover:border-primary hover:shadow-sm'
                           }`}
                         >
                           {formatTime(slot.startTime, tz)}–{formatTime(slot.endTime, tz)}
@@ -540,7 +540,7 @@ export default function BookingWizard() {
           {/* ── Paso 4: Datos del paciente + teléfono ── */}
           {state.step === 'patient-info' && state.selectedSlot && (
             <StepCard title="Tus datos" onBack={() => set({ step: 'select-slot' })}>
-              <div className="bg-blue-50 rounded-xl p-3 mb-5 text-sm font-medium text-blue-800">
+              <div className="bg-accent rounded-xl p-3 mb-5 text-sm font-medium text-accent-foreground">
                 {slotSummary(state.selectedSlot.startTime, state.selectedSlot.endTime, tz)}
               </div>
 
@@ -566,7 +566,7 @@ export default function BookingWizard() {
                   type="tel"
                   required
                 />
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-text-muted">
                   Lo usaremos para coordinar tu cita. No se comparte con terceros.
                 </p>
 
@@ -586,7 +586,7 @@ export default function BookingWizard() {
           {/* ── Paso 5: Elegir método de pago ── */}
           {state.step === 'payment-method' && state.selectedSlot && (
             <StepCard title="¿Cómo deseas pagar?">
-              <div className="bg-blue-50 rounded-xl p-3 mb-5 text-sm text-blue-800">
+              <div className="bg-accent rounded-xl p-3 mb-5 text-sm text-accent-foreground">
                 <span className="font-medium">{state.selectedDoctor?.name}</span>
                 <br />
                 <span className="font-medium">
@@ -598,24 +598,24 @@ export default function BookingWizard() {
                 <button
                   onClick={() => handleConfirm('CASH')}
                   disabled={state.loading}
-                  className="flex w-full items-center gap-3 rounded-2xl border border-gray-200 bg-white p-4 text-left transition-all hover:border-blue-400 hover:shadow-sm active:scale-[.99] disabled:opacity-50"
+                  className="flex w-full items-center gap-3 rounded-2xl border border-border bg-surface p-4 text-left transition-all hover:border-primary hover:shadow-sm active:scale-[.99] disabled:opacity-50"
                 >
                   <span className="text-2xl">💵</span>
                   <div>
-                    <p className="font-semibold text-gray-900">Efectivo (en la clínica)</p>
-                    <p className="text-sm text-gray-500">Reserva tu cita y paga al llegar.</p>
+                    <p className="font-semibold text-text-primary">Efectivo (en la clínica)</p>
+                    <p className="text-sm text-text-muted">Reserva tu cita y paga al llegar.</p>
                   </div>
                 </button>
 
                 <button
                   onClick={() => handleConfirm('STATIC_QR')}
                   disabled={state.loading}
-                  className="flex w-full items-center gap-3 rounded-2xl border border-gray-200 bg-white p-4 text-left transition-all hover:border-blue-400 hover:shadow-sm active:scale-[.99] disabled:opacity-50"
+                  className="flex w-full items-center gap-3 rounded-2xl border border-border bg-surface p-4 text-left transition-all hover:border-primary hover:shadow-sm active:scale-[.99] disabled:opacity-50"
                 >
                   <span className="text-2xl">📲</span>
                   <div>
-                    <p className="font-semibold text-gray-900">QR bancario</p>
-                    <p className="text-sm text-gray-500">
+                    <p className="font-semibold text-text-primary">QR bancario</p>
+                    <p className="text-sm text-text-muted">
                       {qrBanks.length > 0
                         ? 'Escanea el QR con tu banco y paga al instante.'
                         : 'Coordina el pago por QR con la clínica.'}
@@ -625,7 +625,7 @@ export default function BookingWizard() {
               </div>
 
               {state.loading && (
-                <p className="mt-3 text-center text-sm text-gray-400">Procesando…</p>
+                <p className="mt-3 text-center text-sm text-text-muted">Procesando…</p>
               )}
             </StepCard>
           )}
@@ -635,10 +635,10 @@ export default function BookingWizard() {
             <StepCard title="">
               <div className="text-center space-y-4 py-4">
                 <CheckDraw color={primary} reduce={!!reduce} />
-                <h2 className="text-2xl font-bold text-gray-900">
+                <h2 className="text-2xl font-bold text-text-primary">
                   {state.chosenMethod === 'STATIC_QR' ? '¡Cita registrada!' : '¡Cita confirmada!'}
                 </h2>
-                <p className="text-gray-600">
+                <p className="text-text-secondary">
                   Tu cita con <span className="font-semibold">{state.selectedDoctor?.name}</span>:
                   <br />
                   <span className="font-semibold">
@@ -652,7 +652,7 @@ export default function BookingWizard() {
                       <div className="animate-qr-wait rounded-2xl">
                         <PaymentQRSelector banks={qrBanks} />
                       </div>
-                      <p className="text-sm text-gray-500">
+                      <p className="text-sm text-text-muted">
                         Escanea el QR con la app de tu banco y realiza el pago. La clínica{' '}
                         <span className="font-semibold">confirmará tu cita</span> cuando el pago se
                         vea reflejado.
@@ -666,12 +666,12 @@ export default function BookingWizard() {
                     </div>
                   )
                 ) : (
-                  <p className="text-sm text-gray-500">
+                  <p className="text-sm text-text-muted">
                     💵 Tu cita quedó registrada. Paga en efectivo en la clínica el día de tu cita.
                   </p>
                 )}
                 <button
-                  className="mt-4 text-sm underline text-gray-500"
+                  className="mt-4 text-sm underline text-text-muted"
                   onClick={() => router.push(`/${slug}`)}
                 >
                   Volver al inicio
@@ -714,11 +714,11 @@ function Stepper({ step, primary }: { step: Step; primary: string }) {
             {i < idx ? '✓' : i + 1}
           </div>
           <span
-            className={`text-xs hidden sm:block ${i <= idx ? 'text-gray-800 font-medium' : 'text-gray-400'}`}
+            className={`text-xs hidden sm:block ${i <= idx ? 'text-text-primary font-medium' : 'text-text-muted'}`}
           >
             {labels[i]}
           </span>
-          {i < STEPS.length - 1 && <div className="w-4 h-px bg-gray-200 flex-shrink-0" />}
+          {i < STEPS.length - 1 && <div className="w-4 h-px bg-muted flex-shrink-0" />}
         </div>
       ))}
     </div>
@@ -764,18 +764,18 @@ function StepCard({
   onBack?: () => void;
 }) {
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-5">
+    <div className="bg-surface rounded-2xl shadow-sm border border-border p-6 space-y-5">
       <div className="flex items-center gap-3">
         {onBack && (
           <button
             onClick={onBack}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-lg text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-800 active:scale-95"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-lg text-text-muted transition-colors hover:bg-muted hover:text-text-primary active:scale-95"
             aria-label="Volver"
           >
             ←
           </button>
         )}
-        {title && <h2 className="text-lg font-semibold text-gray-900">{title}</h2>}
+        {title && <h2 className="text-lg font-semibold text-text-primary">{title}</h2>}
       </div>
       {children}
     </div>
@@ -820,7 +820,7 @@ function Field({
   const id = useId();
   return (
     <div className="space-y-1">
-      <label htmlFor={id} className="text-sm font-medium text-gray-700">
+      <label htmlFor={id} className="text-sm font-medium text-text-secondary">
         {label}
         {required && <span className="text-red-500 ml-1">*</span>}
       </label>
@@ -832,7 +832,7 @@ function Field({
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         maxLength={maxLength}
-        className="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
+        className="w-full border border-border-strong rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
       />
     </div>
   );

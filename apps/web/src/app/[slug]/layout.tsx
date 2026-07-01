@@ -3,6 +3,7 @@ import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import { getTenantInfo, type TenantInfo } from '@/lib/api';
 import { TenantFooter } from '@/components/TenantFooter';
+import { BookingThemeToggle } from '@/components/BookingThemeToggle';
 import { readableOn } from '@/lib/tenant-color';
 
 interface Props {
@@ -43,7 +44,7 @@ export default async function TenantLayout({ children, params }: Props) {
       {/* Inyectar color corporativo como CSS variable global para el subtree */}
       <style>{`:root { --primary: ${primaryColor}; }`}</style>
 
-      <div className="min-h-screen bg-gray-50 flex flex-col">
+      <div className="min-h-screen bg-background flex flex-col">
         {/* Header con branding del tenant */}
         <header className="shadow-md" style={{ backgroundColor: primaryColor, color: onPrimary }}>
           <div className="max-w-4xl mx-auto px-4 py-4 flex items-center gap-3">
@@ -62,6 +63,9 @@ export default async function TenantLayout({ children, params }: Props) {
               </span>
             )}
             <span className="text-2xl font-bold tracking-tight">{tenantName}</span>
+            <div className="ml-auto">
+              <BookingThemeToggle />
+            </div>
           </div>
         </header>
 

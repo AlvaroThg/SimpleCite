@@ -86,7 +86,7 @@ export function TenantFooter({
   ].filter(Boolean) as { href: string; label: string; Icon: IconCmp }[];
 
   return (
-    <footer className="border-t border-gray-100 bg-white">
+    <footer className="border-t border-border bg-surface">
       <div className="mx-auto max-w-4xl px-4 py-8">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
@@ -96,7 +96,7 @@ export function TenantFooter({
             {address && (
               <button
                 onClick={() => setMapOpen(true)}
-                className="mt-1 inline-flex items-center gap-1.5 text-sm text-gray-500 transition hover:text-gray-800"
+                className="mt-1 inline-flex items-center gap-1.5 text-sm text-text-muted transition hover:text-text-primary"
               >
                 <MapPin className="size-4 flex-shrink-0" />
                 <span className="text-left">{address}</span>
@@ -113,7 +113,7 @@ export function TenantFooter({
                   target="_blank"
                   rel="noreferrer"
                   aria-label={label}
-                  className="flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-gray-600 transition hover:bg-gray-200 hover:text-gray-900"
+                  className="flex h-9 w-9 items-center justify-center rounded-full bg-muted text-text-secondary transition hover:bg-muted hover:text-text-primary"
                 >
                   <Icon className="size-4" />
                 </a>
@@ -122,13 +122,13 @@ export function TenantFooter({
           )}
         </div>
 
-        <div className="mt-6 border-t border-gray-100 pt-4 text-center text-xs text-gray-400">
+        <div className="mt-6 border-t border-border pt-4 text-center text-xs text-text-muted">
           Powered by{' '}
           <a
             href="https://simplecite.com.bo"
             target="_blank"
             rel="noreferrer"
-            className="underline hover:text-gray-600"
+            className="underline hover:text-text-secondary"
           >
             SimpleCite
           </a>
@@ -144,16 +144,16 @@ export function TenantFooter({
           aria-label={`Ubicación de ${name}`}
         >
           <div
-            className="w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-xl"
+            className="w-full max-w-2xl overflow-hidden rounded-2xl bg-surface shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between border-b border-gray-100 p-4">
-              <p className="font-semibold text-gray-900">Ubicación · {name}</p>
+            <div className="flex items-center justify-between border-b border-border p-4">
+              <p className="font-semibold text-text-primary">Ubicación · {name}</p>
               <button
                 ref={closeRef}
                 onClick={() => setMapOpen(false)}
                 aria-label="Cerrar"
-                className="text-gray-400 transition hover:text-gray-700"
+                className="text-text-muted transition hover:text-text-secondary"
               >
                 <X className="size-5" />
               </button>

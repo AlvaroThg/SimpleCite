@@ -33,7 +33,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/* Aplica el tema guardado antes de pintar para evitar el flash. */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `try{if(localStorage.getItem('sc-theme')==='dark'){document.documentElement.setAttribute('data-theme','dark')}}catch(e){}`,
+            __html: `try{var t=localStorage.getItem('sc-theme');var d=t?t==='dark':matchMedia('(prefers-color-scheme:dark)').matches;if(d){document.documentElement.setAttribute('data-theme','dark')}}catch(e){}`,
           }}
         />
       </head>

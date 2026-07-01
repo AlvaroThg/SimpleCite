@@ -68,7 +68,7 @@ export default async function TenantLandingPage({ params }: Props) {
   ];
 
   return (
-    <div className="bg-white text-gray-900">
+    <div className="bg-surface text-text-primary">
       {/* ── Hero ── */}
       <section
         className="relative overflow-hidden"
@@ -85,7 +85,7 @@ export default async function TenantLandingPage({ params }: Props) {
             <h1 className="text-balance text-4xl font-extrabold leading-tight tracking-tight sm:text-5xl">
               {heroTitle}
             </h1>
-            <p className="mt-5 max-w-xl text-lg text-gray-600">{heroSubtitle}</p>
+            <p className="mt-5 max-w-xl text-lg text-text-secondary">{heroSubtitle}</p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Link
                 href={`/${slug}/booking`}
@@ -96,7 +96,7 @@ export default async function TenantLandingPage({ params }: Props) {
               </Link>
               <a
                 href="#especialistas"
-                className="inline-flex items-center justify-center rounded-2xl border border-gray-200 px-7 py-3.5 text-lg font-semibold text-gray-700 transition hover:bg-gray-50 active:scale-95"
+                className="inline-flex items-center justify-center rounded-2xl border border-border px-7 py-3.5 text-lg font-semibold text-text-secondary transition hover:bg-canvas active:scale-95"
               >
                 Ver especialistas
               </a>
@@ -125,7 +125,7 @@ export default async function TenantLandingPage({ params }: Props) {
                 className="absolute -right-6 -top-6 h-40 w-40 rounded-full opacity-20 blur-2xl"
                 style={{ backgroundColor: secondary }}
               />
-              <div className="relative rounded-3xl border border-gray-100 bg-white/70 p-8 shadow-xl backdrop-blur">
+              <div className="relative rounded-3xl border border-border bg-surface/80 p-8 shadow-xl backdrop-blur">
                 <div
                   className="flex h-16 w-16 items-center justify-center rounded-2xl text-white"
                   style={{ backgroundColor: primary, color: onPrimary }}
@@ -133,7 +133,7 @@ export default async function TenantLandingPage({ params }: Props) {
                   <CalendarCheck className="size-8" />
                 </div>
                 <p className="mt-5 text-xl font-bold">Reserva 100% online</p>
-                <p className="mt-1 text-gray-500">
+                <p className="mt-1 text-text-muted">
                   Agenda disponible en tiempo real. Recibe tu confirmación y recordatorios por
                   WhatsApp.
                 </p>
@@ -143,7 +143,7 @@ export default async function TenantLandingPage({ params }: Props) {
                     { icon: MessageCircle, text: 'Confirmación por WhatsApp' },
                     { icon: ShieldCheck, text: 'Tus datos protegidos' },
                   ].map(({ icon: Icon, text }) => (
-                    <div key={text} className="flex items-center gap-3 text-sm text-gray-700">
+                    <div key={text} className="flex items-center gap-3 text-sm text-text-secondary">
                       <span
                         className="flex h-8 w-8 items-center justify-center rounded-lg"
                         style={{ backgroundColor: `${primary}1f`, color: accent }}
@@ -161,13 +161,13 @@ export default async function TenantLandingPage({ params }: Props) {
 
         {/* Banda de stats */}
         <div className="mx-auto max-w-6xl px-5 pb-12">
-          <div className="grid grid-cols-2 gap-4 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-4 rounded-2xl border border-border bg-surface p-6 shadow-sm sm:grid-cols-4">
             {stats.map((s) => (
               <div key={s.label} className="text-center">
                 <p className="text-2xl font-extrabold" style={{ color: accent }}>
                   {s.value}
                 </p>
-                <p className="mt-1 text-sm text-gray-500">{s.label}</p>
+                <p className="mt-1 text-sm text-text-muted">{s.label}</p>
               </div>
             ))}
           </div>
@@ -179,7 +179,7 @@ export default async function TenantLandingPage({ params }: Props) {
         <section id="servicios" className="mx-auto max-w-6xl px-5 py-16 sm:py-20">
           <div className="text-center">
             <h2 className="text-3xl font-bold text-balance">{servicesTitle}</h2>
-            <p className="mt-2 text-gray-500">Atención profesional para lo que necesitas.</p>
+            <p className="mt-2 text-text-muted">Atención profesional para lo que necesitas.</p>
           </div>
           <div className="mt-12 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {services.map((svc, i) => {
@@ -188,7 +188,7 @@ export default async function TenantLandingPage({ params }: Props) {
                 <Link
                   key={svc.id}
                   href={`/${slug}/booking`}
-                  className="group rounded-2xl border border-gray-100 bg-white p-6 shadow-sm transition-all hover:-translate-y-1 hover:shadow-md"
+                  className="group rounded-2xl border border-border bg-surface p-6 shadow-sm transition-all hover:-translate-y-1 hover:shadow-md"
                 >
                   <div
                     className="flex h-12 w-12 items-center justify-center rounded-xl"
@@ -198,10 +198,10 @@ export default async function TenantLandingPage({ params }: Props) {
                   </div>
                   <h3 className="mt-4 text-lg font-semibold">{svc.name}</h3>
                   {svc.description && (
-                    <p className="mt-1 line-clamp-2 text-sm text-gray-500">{svc.description}</p>
+                    <p className="mt-1 line-clamp-2 text-sm text-text-muted">{svc.description}</p>
                   )}
                   <div className="mt-4 flex items-center justify-between">
-                    <span className="text-sm font-semibold text-gray-700">
+                    <span className="text-sm font-semibold text-text-secondary">
                       Bs {Number(svc.price).toFixed(0)} · {svc.duration} min
                     </span>
                     <span
@@ -227,17 +227,17 @@ export default async function TenantLandingPage({ params }: Props) {
 
       {/* ── Especialistas ── */}
       {doctors.length > 0 && (
-        <section id="especialistas" className="bg-gray-50">
+        <section id="especialistas" className="bg-canvas">
           <div className="mx-auto max-w-6xl px-5 py-16 sm:py-20">
             <div className="text-center">
               <h2 className="text-3xl font-bold text-balance">{specialistsTitle}</h2>
-              <p className="mt-2 text-gray-500">Profesionales listos para atenderte.</p>
+              <p className="mt-2 text-text-muted">Profesionales listos para atenderte.</p>
             </div>
             <div className="mt-12 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {doctors.map((doctor) => (
                 <div
                   key={doctor.id}
-                  className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm transition-all hover:-translate-y-1 hover:shadow-md"
+                  className="rounded-2xl border border-border bg-surface p-6 shadow-sm transition-all hover:-translate-y-1 hover:shadow-md"
                 >
                   <div className="flex items-center gap-4">
                     <div
@@ -247,7 +247,7 @@ export default async function TenantLandingPage({ params }: Props) {
                       {initials(doctor.name)}
                     </div>
                     <div className="min-w-0">
-                      <p className="truncate font-semibold text-gray-900">{doctor.name}</p>
+                      <p className="truncate font-semibold text-text-primary">{doctor.name}</p>
                       {doctor.doctorProfile?.specialty && (
                         <p className="truncate text-sm" style={{ color: accent }}>
                           {doctor.doctorProfile.specialty}
@@ -256,7 +256,7 @@ export default async function TenantLandingPage({ params }: Props) {
                     </div>
                   </div>
                   {doctor.doctorProfile?.bio && (
-                    <p className="mt-4 line-clamp-3 text-sm leading-relaxed text-gray-600">
+                    <p className="mt-4 line-clamp-3 text-sm leading-relaxed text-text-secondary">
                       {doctor.doctorProfile.bio}
                     </p>
                   )}
@@ -265,7 +265,7 @@ export default async function TenantLandingPage({ params }: Props) {
                       {doctor.doctorServices.slice(0, 3).map((ds) => (
                         <span
                           key={ds.id}
-                          className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs text-gray-600"
+                          className="rounded-full bg-muted px-2.5 py-0.5 text-xs text-text-secondary"
                         >
                           {ds.service.name}
                         </span>
@@ -302,7 +302,7 @@ export default async function TenantLandingPage({ params }: Props) {
             <p className="mx-auto mt-2 max-w-md opacity-80">{ctaSubtitle}</p>
             <Link
               href={`/${slug}/booking`}
-              className="mt-7 inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-8 py-4 text-lg font-bold shadow-lg transition hover:bg-gray-50 active:scale-95"
+              className="mt-7 inline-flex items-center justify-center gap-2 rounded-2xl bg-surface px-8 py-4 text-lg font-bold shadow-lg transition hover:bg-canvas active:scale-95"
               style={{ color: accent }}
             >
               Agendar mi cita <ArrowRight className="size-5" />
