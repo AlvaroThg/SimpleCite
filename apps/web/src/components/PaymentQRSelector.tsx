@@ -72,7 +72,7 @@ export function PaymentQRSelector({ banks, defaultBankId }: PaymentQRSelectorPro
       </div>
 
       <p className="mt-3 text-center text-xs text-gray-400">
-        Tras pagar, envía la foto del comprobante para confirmar tu cita.
+        La clínica confirmará tu cita cuando el pago se vea reflejado.
       </p>
     </div>
   );

@@ -343,8 +343,8 @@ export default function BookingWizard() {
                   Reserva tu cita{state.tenant ? ` en ${state.tenant.name}` : ''}
                 </h1>
                 <p className="mx-auto max-w-md text-gray-500">
-                  Agenda online en menos de un minuto. Elige a tu especialista y tu horario; te
-                  confirmamos por WhatsApp.
+                  Agenda online en menos de un minuto. Elige a tu especialista y tu horario; la
+                  clínica confirma tu cita.
                 </p>
               </section>
 
@@ -600,8 +600,8 @@ export default function BookingWizard() {
                     <p className="font-semibold text-gray-900">QR bancario</p>
                     <p className="text-sm text-gray-500">
                       {qrBanks.length > 0
-                        ? 'Escanea el QR y envía el comprobante por WhatsApp.'
-                        : 'Te enviamos el QR por WhatsApp; paga y manda el comprobante por ahí.'}
+                        ? 'Escanea el QR con tu banco y paga al instante.'
+                        : 'Coordina el pago por QR con la clínica.'}
                     </p>
                   </div>
                 </button>
@@ -641,24 +641,21 @@ export default function BookingWizard() {
                         <PaymentQRSelector banks={qrBanks} />
                       </div>
                       <p className="text-sm text-gray-500">
-                        Tras pagar, envía la{' '}
-                        <span className="font-semibold">foto del comprobante por WhatsApp</span>{' '}
-                        para confirmar tu cita.
+                        Escanea el QR con la app de tu banco y realiza el pago. La clínica{' '}
+                        <span className="font-semibold">confirmará tu cita</span> cuando el pago se
+                        vea reflejado.
                       </p>
                     </div>
                   ) : (
                     <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-left text-sm text-amber-800">
-                      📲 Te enviamos el{' '}
-                      <span className="font-semibold">QR de pago por WhatsApp</span> al{' '}
-                      <span className="font-semibold">{state.phone}</span>. Realiza el pago y envía
-                      la <span className="font-semibold">foto del comprobante</span> por WhatsApp
-                      para confirmar tu cita.
+                      Tu cita quedó registrada. Coordina el{' '}
+                      <span className="font-semibold">pago con la clínica</span>; se confirmará
+                      cuando el pago se registre.
                     </div>
                   )
                 ) : (
                   <p className="text-sm text-gray-500">
-                    💵 Recuerda traer el pago en efectivo. Recibirás un recordatorio por WhatsApp el
-                    día anterior.
+                    💵 Tu cita quedó registrada. Paga en efectivo en la clínica el día de tu cita.
                   </p>
                 )}
                 <button
