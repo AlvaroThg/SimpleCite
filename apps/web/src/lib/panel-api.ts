@@ -442,6 +442,65 @@ export interface ReportsSummary {
 export const getReportsSummary = (t: string, s: string) =>
   get<{ data: ReportsSummary }>('/api/reports/summary', t, s).then((r) => r.data);
 
+// ─── Reportes: analítica por rango (solo ADMIN) ──────────────────────
+export interface ReportDoctorRow {
+  doctorId: string;
+  doctorName: string;
+  income: number;
+  completed: number;
+  cancelled: number;
+  noShow: number;
+  total: number;
+}
+export interface ReportAnalytics {
+  from: string;
+  to: string;
+  totals: { income: number; completed: number; cancelled: number; noShow: number; total: number };
+  byDoctor: ReportDoctorRow[];
+  incomeOverTime: { date: string; income: number }[];
+}
+export const getReportsAnalytics = (t: string, s: string, from?: string, to?: string) => {
+  const qs = new URLSearchParams();
+  if (from) qs.set('from', from);
+  if (to) qs.set('to', to);
+  const suffix = qs.toString() ? `?${qs.toString()}` : '';
+  return get<{ data: ReportAnalytics }>(`/api/reports/analytics${suffix}`, t, s).then(
+    (r) => r.data,
+  );
+};
+
+/** Descarga el PDF del reporte del período (autenticado) y dispara la descarga. */
+export async function downloadReportsPdf(
+  token: string,
+  slug: string,
+  from?: string,
+  to?: string,
+): Promise<void> {
+  const qs = new URLSearchParams();
+  if (from) qs.set('from', from);
+  if (to) qs.set('to', to);
+  const suffix = qs.toString() ? `?${qs.toString()}` : '';
+  const res = await fetch(`${BASE}/api/reports/analytics/pdf${suffix}`, {
+    headers: { Authorization: `Bearer ${token}`, 'x-tenant-slug': slug },
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new PanelApiError(
+      res.status,
+      (body as { message?: string }).message ?? 'No se pudo generar el reporte',
+    );
+  }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'reporte.pdf';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 // ─── Tenant config / branding ─────────────────────────────────────────
 
 export interface TenantConfig {

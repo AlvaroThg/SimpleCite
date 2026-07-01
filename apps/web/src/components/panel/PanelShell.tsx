@@ -14,6 +14,7 @@ import {
   CreditCard,
   Settings,
   Package,
+  BarChart3,
   LogOut,
   type LucideIcon,
 } from 'lucide-react';
@@ -71,6 +72,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   {
     label: 'Cuenta',
     items: [
+      { href: '/panel/reports', label: 'Reportes', icon: BarChart3, roles: ['ADMIN'] },
       { href: '/panel/billing', label: 'Suscripción', icon: CreditCard, roles: ['ADMIN'] },
       { href: '/panel/settings', label: 'Configuración', icon: Settings, roles: ['ADMIN'] },
     ],
