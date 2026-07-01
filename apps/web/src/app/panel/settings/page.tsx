@@ -23,6 +23,22 @@ import { apiBase } from '@/lib/api-base';
 
 const BASE = apiBase();
 
+/**
+ * Paletas pre-armadas (primario + secundario). Los primarios son suficientemente
+ * oscuros para texto blanco sobre botón (contraste AA ≥ ~4.5 sobre blanco) y
+ * funcionan como acento tanto en modo claro como oscuro.
+ */
+const PALETTES: { name: string; primary: string; secondary: string }[] = [
+  { name: 'Azul', primary: '#2563EB', secondary: '#0EA5E9' },
+  { name: 'Índigo', primary: '#4F46E5', secondary: '#6366F1' },
+  { name: 'Violeta', primary: '#7C3AED', secondary: '#A78BFA' },
+  { name: 'Esmeralda', primary: '#047857', secondary: '#10B981' },
+  { name: 'Teal', primary: '#0F766E', secondary: '#2DD4BF' },
+  { name: 'Cian', primary: '#0E7490', secondary: '#06B6D4' },
+  { name: 'Rosa', primary: '#BE185D', secondary: '#EC4899' },
+  { name: 'Naranja', primary: '#C2410C', secondary: '#F59E0B' },
+];
+
 export default function SettingsPage() {
   return (
     <PanelShell>
@@ -180,6 +196,50 @@ function Branding({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantConf
         <h2 className="text-sm font-semibold text-text-secondary">Marca de tu clínica</h2>
         <p className="text-xs text-text-muted">
           Nombre, logo y color que verán tus pacientes al reservar.
+        </p>
+      </div>
+
+      {/* Paletas pre-armadas (un clic) — también se pueden ajustar manualmente. */}
+      <div className="space-y-1.5">
+        <span className="text-sm font-medium text-text-secondary">Paletas</span>
+        <div className="flex flex-wrap gap-2">
+          {PALETTES.map((p) => {
+            const active =
+              color.toLowerCase() === p.primary.toLowerCase() &&
+              secondaryColor.toLowerCase() === p.secondary.toLowerCase();
+            return (
+              <button
+                key={p.name}
+                type="button"
+                title={p.name}
+                onClick={() => {
+                  setColor(p.primary);
+                  setSecondaryColor(p.secondary);
+                }}
+                aria-pressed={active}
+                className={`flex items-center gap-1.5 rounded-full border p-1 pr-2.5 transition ${
+                  active
+                    ? 'border-primary ring-2 ring-primary/30'
+                    : 'border-border hover:border-border-strong'
+                }`}
+              >
+                <span className="flex">
+                  <span
+                    className="size-5 rounded-full border border-white/60"
+                    style={{ backgroundColor: p.primary }}
+                  />
+                  <span
+                    className="-ml-2 size-5 rounded-full border border-white/60"
+                    style={{ backgroundColor: p.secondary }}
+                  />
+                </span>
+                <span className="text-xs text-text-secondary">{p.name}</span>
+              </button>
+            );
+          })}
+        </div>
+        <p className="text-xs text-text-muted">
+          Elige una paleta o ajusta los colores manualmente abajo.
         </p>
       </div>
 
