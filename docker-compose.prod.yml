@@ -87,6 +87,8 @@ services:
       PATIENT_SESSION_TTL: ${PATIENT_SESSION_TTL:-30m}
       OTP_TTL_MINUTES: ${OTP_TTL_MINUTES:-10}
       TENTATIVE_APPOINTMENT_TTL_MINUTES: ${TENTATIVE_APPOINTMENT_TTL_MINUTES:-15}
+      # Booking sin bot en main: OTP desactivado (Turnstile + rate limit protegen).
+      PUBLIC_BOOKING_REQUIRE_OTP: ${PUBLIC_BOOKING_REQUIRE_OTP:-false}
       R2_ACCOUNT_ID: ${R2_ACCOUNT_ID}
       R2_ENDPOINT: ${R2_ENDPOINT:-}
       R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID}
@@ -136,6 +138,7 @@ services:
       dockerfile: apps/web/Dockerfile
       args:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+        NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${NEXT_PUBLIC_TURNSTILE_SITE_KEY:-}
     image: simplecite-web:prod
     container_name: simplecite-web
     restart: unless-stopped

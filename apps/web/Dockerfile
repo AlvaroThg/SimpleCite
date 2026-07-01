@@ -41,6 +41,10 @@ COPY tsconfig.base.json ./tsconfig.base.json
 # Variables públicas (se inlinean en el bundle del cliente).
 ARG NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+# Site key de Cloudflare Turnstile (anti-bot del booking). Vacío = widget oculto
+# y el backend trata el check como no-op.
+ARG NEXT_PUBLIC_TURNSTILE_SITE_KEY
+ENV NEXT_PUBLIC_TURNSTILE_SITE_KEY=${NEXT_PUBLIC_TURNSTILE_SITE_KEY}
 
 RUN pnpm turbo run build --filter=web
 
