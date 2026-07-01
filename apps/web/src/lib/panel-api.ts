@@ -45,6 +45,8 @@ export interface AppointmentListItem {
   patient: { id: string; name: string; phone: string; ci?: string | null };
   doctor: { id: string; name: string };
   service: { id: string; name: string; duration: number; price: string; color?: string | null };
+  /** Presente solo en el historial del paciente: marcador de tratamiento. */
+  medicalRecord?: { isNewTreatment: boolean; treatmentLabel: string | null } | null;
 }
 
 export interface AppointmentDetail extends AppointmentListItem {
@@ -313,6 +315,8 @@ export interface MedicalRecord {
   diagnosis: string | null;
   treatment: string | null;
   privateNotes: string | null;
+  isNewTreatment: boolean;
+  treatmentLabel: string | null;
   createdAt: string;
   updatedAt: string;
   doctor: { id: string; name: string };
@@ -324,6 +328,8 @@ export interface MedicalRecordInput {
   diagnosis?: string | null;
   treatment?: string | null;
   privateNotes?: string | null;
+  isNewTreatment?: boolean;
+  treatmentLabel?: string | null;
 }
 
 /** Historia clínica de una cita (null si aún no se creó). */

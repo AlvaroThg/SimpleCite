@@ -27,6 +27,8 @@ type RecordForm = {
   diagnosis: string;
   treatment: string;
   privateNotes: string;
+  isNewTreatment: boolean;
+  treatmentLabel: string;
 };
 
 const EMPTY_MED: MedicationItem = { name: '', dose: '', frequency: '', duration: '' };
@@ -54,6 +56,8 @@ function ConsultaView() {
     diagnosis: '',
     treatment: '',
     privateNotes: '',
+    isNewTreatment: false,
+    treatmentLabel: '',
   });
   const [meds, setMeds] = useState<MedicationItem[]>([{ ...EMPTY_MED }]);
   const [instructions, setInstructions] = useState('');
@@ -83,6 +87,8 @@ function ConsultaView() {
           diagnosis: r.diagnosis ?? '',
           treatment: r.treatment ?? '',
           privateNotes: r.privateNotes ?? '',
+          isNewTreatment: r.isNewTreatment ?? false,
+          treatmentLabel: r.treatmentLabel ?? '',
         });
       }
     } catch (err) {
@@ -133,7 +139,10 @@ function ConsultaView() {
     setSaving(true);
     setError('');
     try {
-      const saved = await saveMedicalRecord(session.token, session.slug, id, form);
+      const saved = await saveMedicalRecord(session.token, session.slug, id, {
+        ...form,
+        treatmentLabel: form.treatmentLabel.trim() || null,
+      });
       setRecord(saved);
       setSavedAt(new Date().toLocaleTimeString('es-BO', { hour: '2-digit', minute: '2-digit' }));
     } catch (err) {
@@ -153,7 +162,10 @@ function ConsultaView() {
     setFinishing(true);
     setError('');
     try {
-      const saved = await saveMedicalRecord(session.token, session.slug, id, form);
+      const saved = await saveMedicalRecord(session.token, session.slug, id, {
+        ...form,
+        treatmentLabel: form.treatmentLabel.trim() || null,
+      });
 
       let prescriptionId: string | null = null;
       if (validMeds.length > 0) {
@@ -234,6 +246,33 @@ function ConsultaView() {
           {/* ① Historia clínica */}
           <section className="bg-surface rounded-2xl border border-border p-6 space-y-4">
             <h2 className="text-sm font-semibold text-text-primary">Historia clínica</h2>
+
+            {/* Marcador de tratamiento */}
+            <div className="rounded-xl border border-border bg-canvas p-3">
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={form.isNewTreatment}
+                  onChange={(e) => setForm((f) => ({ ...f, isNewTreatment: e.target.checked }))}
+                  disabled={readOnly}
+                  className="size-4 accent-brand-600"
+                />
+                <span className="text-sm font-medium text-text-secondary">
+                  Es un nuevo tratamiento
+                </span>
+              </label>
+              {form.isNewTreatment && (
+                <input
+                  value={form.treatmentLabel}
+                  onChange={(e) => setForm((f) => ({ ...f, treatmentLabel: e.target.value }))}
+                  disabled={readOnly}
+                  maxLength={120}
+                  placeholder="Nombre del tratamiento (opcional) — ej. Fisioterapia rodilla"
+                  className="mt-2 w-full rounded-lg border border-border px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 disabled:bg-canvas disabled:text-text-muted"
+                />
+              )}
+            </div>
+
             <Field
               label="Síntomas / motivo de consulta"
               value={form.symptoms}

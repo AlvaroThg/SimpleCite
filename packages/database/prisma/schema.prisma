@@ -404,6 +404,11 @@ model MedicalRecord {
   treatment    String? @db.Text /// Plan de tratamiento / indicaciones
   privateNotes String? @db.Text /// Notas privadas del doctor (no se imprimen al paciente)
 
+  /// Etiqueta libre del tratamiento (ej: "Fisioterapia rodilla — sesión 1").
+  treatmentLabel String?
+  /// Marca esta consulta como el inicio de un nuevo tratamiento.
+  isNewTreatment Boolean @default(false)
+
   /// Receta(s) generadas en esta consulta.
   prescriptions Prescription[]
 

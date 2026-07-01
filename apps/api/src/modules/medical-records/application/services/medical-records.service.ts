@@ -87,6 +87,8 @@ export class MedicalRecordsService {
         diagnosis: dto.diagnosis ?? null,
         treatment: dto.treatment ?? null,
         privateNotes: dto.privateNotes ?? null,
+        isNewTreatment: dto.isNewTreatment ?? false,
+        treatmentLabel: dto.treatmentLabel ?? null,
       },
       update: {
         // Solo sobreescribe los campos presentes en el DTO.
@@ -94,6 +96,8 @@ export class MedicalRecordsService {
         ...(dto.diagnosis !== undefined && { diagnosis: dto.diagnosis }),
         ...(dto.treatment !== undefined && { treatment: dto.treatment }),
         ...(dto.privateNotes !== undefined && { privateNotes: dto.privateNotes }),
+        ...(dto.isNewTreatment !== undefined && { isNewTreatment: dto.isNewTreatment }),
+        ...(dto.treatmentLabel !== undefined && { treatmentLabel: dto.treatmentLabel }),
       },
     });
 

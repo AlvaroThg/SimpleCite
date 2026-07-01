@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Lock } from 'lucide-react';
+import { Lock, Sparkles } from 'lucide-react';
 import { useAuth } from '@/lib/panel-auth';
 import {
   getPatientHistory,
@@ -177,10 +177,21 @@ function PatientHistoryView() {
                     >
                       <div className="flex items-center justify-between gap-2">
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-medium text-text-primary">
-                            {a.service.name}
-                            <span className="font-normal text-text-muted"> · {a.doctor.name}</span>
-                          </p>
+                          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                            <p className="truncate text-sm font-medium text-text-primary">
+                              {a.service.name}
+                              <span className="font-normal text-text-muted">
+                                {' '}
+                                · {a.doctor.name}
+                              </span>
+                            </p>
+                            {a.medicalRecord?.isNewTreatment && (
+                              <span className="inline-flex items-center gap-1 rounded-full border border-[var(--st-tent-bd)] bg-[var(--st-tent-bg)] px-2 py-0.5 text-[11px] font-medium text-[var(--st-tent-tx)]">
+                                <Sparkles className="size-3" />
+                                {a.medicalRecord.treatmentLabel || 'Nuevo tratamiento'}
+                              </span>
+                            )}
+                          </div>
                           <p className="text-xs text-text-muted">
                             {fmtDate(a.startTime)} · {fmtTime(a.startTime)}–{fmtTime(a.endTime)} ·{' '}
                             {durMin} min

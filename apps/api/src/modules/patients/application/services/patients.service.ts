@@ -95,6 +95,7 @@ export class PatientsService {
         isPaid: true,
         doctor: { select: { id: true, name: true } },
         service: { select: { id: true, name: true } },
+        medicalRecord: { select: { isNewTreatment: true, treatmentLabel: true } },
       },
       orderBy: { startTime: 'desc' },
       take: limit + 1,

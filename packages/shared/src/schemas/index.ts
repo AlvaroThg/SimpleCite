@@ -320,6 +320,10 @@ export const UpsertMedicalRecordSchema = z
     diagnosis: z.string().max(5000).nullable().optional(),
     treatment: z.string().max(5000).nullable().optional(),
     privateNotes: z.string().max(5000).nullable().optional(),
+    /// Marca esta consulta como inicio de un nuevo tratamiento.
+    isNewTreatment: z.boolean().optional(),
+    /// Etiqueta libre del tratamiento (ej. "Fisioterapia rodilla — sesión 1").
+    treatmentLabel: z.string().max(120).nullable().optional(),
   })
   .refine((v) => Object.keys(v).length > 0, { message: 'Nada que guardar' });
 export type UpsertMedicalRecordDto = z.infer<typeof UpsertMedicalRecordSchema>;
