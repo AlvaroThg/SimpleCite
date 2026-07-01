@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { useAuth } from '@/lib/panel-auth';
@@ -66,6 +66,31 @@ const TH =
   'whitespace-nowrap border-b border-border bg-canvas px-4 py-[11px] text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-text-muted';
 const TD =
   'border-b border-[var(--border-hairline)] px-4 py-3 align-middle text-sm text-text-secondary';
+
+/** Tarjeta de cita para móvil (reemplaza la tabla en pantallas chicas). */
+function ApptCard({ a, children }: { a: AppointmentListItem; children?: ReactNode }) {
+  return (
+    <li className="rounded-xl border border-border bg-surface p-4 shadow-card">
+      <div className="flex items-start justify-between gap-2">
+        <PatientCell a={a} />
+        <StatusBadge status={a.status} />
+      </div>
+      <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-sm">
+        <dt className="text-text-muted">Servicio</dt>
+        <dd className="text-right text-text-secondary">{a.service.name}</dd>
+        <dt className="text-text-muted">Doctor</dt>
+        <dd className="text-right text-text-secondary">{a.doctor.name}</dd>
+        <dt className="text-text-muted">Cuándo</dt>
+        <dd className="text-right text-text-secondary">{fmtDateTime(a.startTime)}</dd>
+        <dt className="text-text-muted">Pago</dt>
+        <dd className="text-right">
+          <PayCell a={a} />
+        </dd>
+      </dl>
+      {children && <div className="mt-3 flex gap-2">{children}</div>}
+    </li>
+  );
+}
 
 // ─── Types ────────────────────────────────────────────────────────────
 
@@ -360,25 +385,68 @@ function PendingTab({
       />
     );
   }
+  const actions = (a: AppointmentListItem, block: boolean) => {
+    const approving = approvingId === a.id;
+    return a.receiptUrl ? (
+      <>
+        <Button
+          variant="outline"
+          size="sm"
+          className={block ? 'flex-1' : ''}
+          onClick={() => onViewReceipt(a)}
+        >
+          Comprobante
+        </Button>
+        <Button
+          size="sm"
+          className={block ? 'flex-1' : ''}
+          disabled={approving}
+          onClick={() => onApprove(a.id)}
+        >
+          {approving ? 'Aprobando…' : 'Aprobar'}
+        </Button>
+      </>
+    ) : (
+      // Sin comprobante (flujo sin WhatsApp): el staff confirma de buena fe que
+      // recibió el pago (efectivo, o QR revisado en su banco).
+      <Button
+        size="sm"
+        className={block ? 'w-full' : ''}
+        disabled={approving}
+        onClick={() => onApprove(a.id)}
+      >
+        {approving ? 'Confirmando…' : 'Confirmar pago recibido'}
+      </Button>
+    );
+  };
   return (
-    <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-card">
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse">
-          <thead>
-            <tr>
-              <th className={TH}>Paciente</th>
-              <th className={TH}>Servicio</th>
-              <th className={TH}>Doctor</th>
-              <th className={TH}>Fecha y hora</th>
-              <th className={TH}>Pago</th>
-              <th className={TH}>Estado</th>
-              <th className={TH}>Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((a) => {
-              const approving = approvingId === a.id;
-              return (
+    <>
+      {/* Móvil: tarjetas */}
+      <ul className="space-y-3 md:hidden">
+        {items.map((a) => (
+          <ApptCard key={a.id} a={a}>
+            {actions(a, true)}
+          </ApptCard>
+        ))}
+      </ul>
+
+      {/* Desktop: tabla */}
+      <div className="hidden overflow-hidden rounded-xl border border-border bg-surface shadow-card md:block">
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse">
+            <thead>
+              <tr>
+                <th className={TH}>Paciente</th>
+                <th className={TH}>Servicio</th>
+                <th className={TH}>Doctor</th>
+                <th className={TH}>Fecha y hora</th>
+                <th className={TH}>Pago</th>
+                <th className={TH}>Estado</th>
+                <th className={TH}>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((a) => (
                 <tr key={a.id} className="transition-colors last:[&>td]:border-b-0 hover:bg-canvas">
                   <td className={`${TD} shadow-[inset_2px_0_0_var(--warning)]`}>
                     <PatientCell a={a} />
@@ -393,30 +461,15 @@ function PendingTab({
                     <StatusBadge status={a.status} />
                   </td>
                   <td className={`${TD} whitespace-nowrap`}>
-                    {a.receiptUrl ? (
-                      <div className="flex gap-2">
-                        <Button variant="outline" size="sm" onClick={() => onViewReceipt(a)}>
-                          Comprobante
-                        </Button>
-                        <Button size="sm" disabled={approving} onClick={() => onApprove(a.id)}>
-                          {approving ? 'Aprobando…' : 'Aprobar'}
-                        </Button>
-                      </div>
-                    ) : (
-                      // Sin comprobante (flujo sin WhatsApp): el staff confirma de buena
-                      // fe que recibió el pago (efectivo, o QR revisado en su banco).
-                      <Button size="sm" disabled={approving} onClick={() => onApprove(a.id)}>
-                        {approving ? 'Confirmando…' : 'Confirmar pago recibido'}
-                      </Button>
-                    )}
+                    <div className="flex gap-2">{actions(a, false)}</div>
                   </td>
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 
@@ -433,40 +486,50 @@ function ConfirmedTab({ items }: { items: AppointmentListItem[] }) {
     );
   }
   return (
-    <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-card">
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse">
-          <thead>
-            <tr>
-              <th className={TH}>Paciente</th>
-              <th className={TH}>Servicio</th>
-              <th className={TH}>Doctor</th>
-              <th className={TH}>Fecha y hora</th>
-              <th className={TH}>Pago</th>
-              <th className={TH}>Estado</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((a) => (
-              <tr key={a.id} className="transition-colors last:[&>td]:border-b-0 hover:bg-canvas">
-                <td className={TD}>
-                  <PatientCell a={a} />
-                </td>
-                <td className={TD}>{a.service.name}</td>
-                <td className={TD}>{a.doctor.name}</td>
-                <td className={`${TD} whitespace-nowrap`}>{fmtDateTime(a.startTime)}</td>
-                <td className={TD}>
-                  <PayCell a={a} />
-                </td>
-                <td className={TD}>
-                  <StatusBadge status={a.status} />
-                </td>
+    <>
+      {/* Móvil: tarjetas */}
+      <ul className="space-y-3 md:hidden">
+        {items.map((a) => (
+          <ApptCard key={a.id} a={a} />
+        ))}
+      </ul>
+
+      {/* Desktop: tabla */}
+      <div className="hidden overflow-hidden rounded-xl border border-border bg-surface shadow-card md:block">
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse">
+            <thead>
+              <tr>
+                <th className={TH}>Paciente</th>
+                <th className={TH}>Servicio</th>
+                <th className={TH}>Doctor</th>
+                <th className={TH}>Fecha y hora</th>
+                <th className={TH}>Pago</th>
+                <th className={TH}>Estado</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {items.map((a) => (
+                <tr key={a.id} className="transition-colors last:[&>td]:border-b-0 hover:bg-canvas">
+                  <td className={TD}>
+                    <PatientCell a={a} />
+                  </td>
+                  <td className={TD}>{a.service.name}</td>
+                  <td className={TD}>{a.doctor.name}</td>
+                  <td className={`${TD} whitespace-nowrap`}>{fmtDateTime(a.startTime)}</td>
+                  <td className={TD}>
+                    <PayCell a={a} />
+                  </td>
+                  <td className={TD}>
+                    <StatusBadge status={a.status} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 
@@ -492,7 +555,7 @@ function ReceiptModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(2,6,23,0.4)] p-4 backdrop-blur-[2px]"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-[rgba(2,6,23,0.4)] p-0 backdrop-blur-[2px] sm:items-center sm:p-4"
       onClick={onClose}
     >
       <div
@@ -500,7 +563,7 @@ function ReceiptModal({
         role="dialog"
         aria-modal="true"
         aria-label={`Comprobante de pago de ${appt.patient.name}`}
-        className="bg-surface-raised rounded-2xl w-full max-w-lg shadow-modal"
+        className="bg-surface-raised rounded-t-2xl sm:rounded-2xl w-full sm:max-w-lg shadow-modal max-h-[90dvh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
@@ -650,13 +713,13 @@ function NewAppointmentModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(2,6,23,0.4)] p-4 backdrop-blur-[2px]">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-[rgba(2,6,23,0.4)] p-0 backdrop-blur-[2px] sm:items-center sm:p-4">
       <div
         ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-label="Nueva cita"
-        className="bg-surface-raised rounded-2xl w-full max-w-md shadow-modal max-h-[90vh] overflow-y-auto"
+        className="bg-surface-raised rounded-t-2xl sm:rounded-2xl w-full sm:max-w-md shadow-modal max-h-[90dvh] overflow-y-auto"
       >
         <div className="flex items-center justify-between px-5 py-4 border-b border-border sticky top-0 bg-surface-raised">
           <p className="font-semibold text-text-primary">Nueva Cita</p>
