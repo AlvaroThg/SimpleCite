@@ -1,5 +1,14 @@
 import Link from 'next/link';
 import Image from 'next/image';
+import {
+  CalendarX2,
+  ShieldCheck,
+  Stethoscope,
+  Check,
+  MessageCircle,
+  Star,
+  ChevronRight,
+} from 'lucide-react';
 import { Reveal, Stagger, StaggerItem, ScrollCue } from '@/components/landing/motion';
 import { IPhoneMockup } from '@/components/landing/IPhoneMockup';
 
@@ -106,20 +115,31 @@ function ProblemSolution() {
     <section className="bg-canvas border-y border-border">
       <div className="max-w-6xl mx-auto px-5 py-20 grid md:grid-cols-2 gap-8">
         <Reveal className="bg-surface rounded-3xl p-8 border border-border">
-          <span className="text-3xl">😟</span>
-          <h3 className="mt-3 text-xl font-bold">Cada paciente que no asiste, es dinero perdido</h3>
+          <div className="flex size-11 items-center justify-center rounded-xl bg-danger/10 text-danger">
+            <CalendarX2 className="size-6" />
+          </div>
+          <h3 className="mt-4 text-xl font-bold">Cada paciente que no asiste, es dinero perdido</h3>
           <p className="mt-3 text-text-secondary leading-relaxed">
             Las llamadas para confirmar consumen tiempo de tu recepción. Los pacientes olvidan la
             cita, no avisan, y ese horario queda vacío. Sin pago anticipado, no hay compromiso.
           </p>
         </Reveal>
         <Reveal delay={0.1} className="bg-surface rounded-3xl p-8 border-2 border-brand-200">
-          <span className="text-3xl">✅</span>
-          <h3 className="mt-3 text-xl font-bold">SimpleCite lo resuelve por ti</h3>
-          <ul className="mt-3 space-y-2 text-text-secondary">
-            <li>• Reserva en línea 24/7 → el paciente elige doctor, servicio y horario.</li>
-            <li>• Pago por QR bancario al reservar → compromiso real del paciente.</li>
-            <li>• Panel para todo el equipo → agenda, pacientes e historias en un solo lugar.</li>
+          <div className="flex size-11 items-center justify-center rounded-xl bg-brand-50 text-brand-600">
+            <ShieldCheck className="size-6" />
+          </div>
+          <h3 className="mt-4 text-xl font-bold">SimpleCite lo resuelve por ti</h3>
+          <ul className="mt-4 space-y-2.5 text-text-secondary">
+            {[
+              'Reserva en línea 24/7 → el paciente elige doctor, servicio y horario.',
+              'Pago por QR bancario al reservar → compromiso real del paciente.',
+              'Panel para todo el equipo → agenda, pacientes e historias en un solo lugar.',
+            ].map((t) => (
+              <li key={t} className="flex items-start gap-2">
+                <Check className="mt-0.5 size-4 flex-none text-success" />
+                <span>{t}</span>
+              </li>
+            ))}
           </ul>
         </Reveal>
       </div>
@@ -172,7 +192,9 @@ function Testimonials() {
       <div className="max-w-6xl mx-auto px-5 py-20">
         <h2 className="text-3xl font-bold text-center">Lo que dicen los doctores</h2>
         <div className="mt-12 flex flex-col items-center justify-center gap-3 text-center py-10">
-          <span className="text-5xl">🩺</span>
+          <div className="flex size-14 items-center justify-center rounded-2xl bg-muted text-text-muted">
+            <Stethoscope className="size-7" />
+          </div>
           <p className="text-lg font-semibold text-text-secondary">¡No hay clientes aún!</p>
           <p className="text-text-muted text-sm">Sé el primero.</p>
         </div>
@@ -266,7 +288,7 @@ function Pricing() {
       price: '35',
       tagline: 'Todo lo que necesitas para automatizar tu clínica y evitar inasistencias.',
       featured: true,
-      badge: '⭐ Recomendado',
+      badge: 'Recomendado',
       buttonLabel: 'Obtener Profesional',
       buttonVariant: 'default' as const,
       checkColor: 'text-brand-500',
@@ -311,7 +333,9 @@ function Pricing() {
             <CardHeader>
               {p.badge && (
                 <div className="mb-3">
-                  <Badge>{p.badge}</Badge>
+                  <Badge>
+                    <Star className="size-3 fill-current" /> {p.badge}
+                  </Badge>
                 </div>
               )}
               <h3 className="text-xl font-bold text-text-primary">{p.name}</h3>
@@ -327,9 +351,9 @@ function Pricing() {
                 {p.features.map((f, i) => (
                   <li key={i} className="flex items-start gap-2">
                     {f.startsWith('Todo') ? (
-                      <span className="text-text-muted mt-0.5 font-bold">›</span>
+                      <ChevronRight className="mt-0.5 size-4 flex-none text-text-muted" />
                     ) : (
-                      <span className={`${p.checkColor} mt-0.5`}>✓</span>
+                      <Check className={`mt-0.5 size-4 flex-none ${p.checkColor}`} />
                     )}
                     <span
                       className={
@@ -366,39 +390,64 @@ function Pricing() {
 function Footer() {
   return (
     <footer className="bg-gray-900 text-white/60">
-      <div className="max-w-6xl mx-auto px-5 py-12 flex flex-col sm:flex-row justify-between gap-6">
-        <div>
-          <Image
-            src="/logo-full.png"
-            alt="SimpleCite"
-            width={2031}
-            height={774}
-            className="h-28 w-auto brightness-0 invert"
-          />
-          <p className="mt-3 text-sm text-brand-300">
-            Gestiona citas. Atiende mejor. Hazlo simple.
-          </p>
-          <p className="mt-1 text-sm text-white/50 max-w-xs">
-            Agenda médica y cobro por QR para clínicas en Bolivia.
-          </p>
+      <div className="max-w-6xl mx-auto px-5 py-14">
+        <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
+          {/* Marca */}
+          <div className="lg:col-span-2">
+            <Image
+              src="/logo-full.png"
+              alt="SimpleCite"
+              width={2031}
+              height={774}
+              className="h-16 w-auto brightness-0 invert"
+            />
+            <p className="mt-4 max-w-xs text-sm text-white/50">
+              Agenda médica y cobro por QR para clínicas y consultorios en Bolivia.
+            </p>
+          </div>
+
+          {/* Producto */}
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider text-white/40">Producto</p>
+            <ul className="mt-3 space-y-2.5 text-sm">
+              <li>
+                <a href="#como-funciona" className="transition-colors hover:text-white">
+                  Cómo funciona
+                </a>
+              </li>
+              <li>
+                <a href="#precios" className="transition-colors hover:text-white">
+                  Precios
+                </a>
+              </li>
+              <li>
+                <Link href="/panel/login" className="transition-colors hover:text-white">
+                  Ingresar al panel
+                </Link>
+              </li>
+            </ul>
+          </div>
+
+          {/* Soporte */}
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider text-white/40">Soporte</p>
+            <ul className="mt-3 space-y-2.5 text-sm">
+              <li>
+                <a
+                  href={waLink('Hola, tengo una consulta sobre SimpleCite.')}
+                  className="inline-flex items-center gap-1.5 transition-colors hover:text-white"
+                >
+                  <MessageCircle className="size-4" /> Contacta a soporte
+                </a>
+              </li>
+            </ul>
+          </div>
         </div>
-        <div className="flex flex-col gap-2 text-sm">
-          <a
-            href={waLink('Hola, tengo una consulta sobre SimpleCite.')}
-            className="hover:text-white"
-          >
-            Contáctanos
-          </a>
-          <Link href="/panel/login" className="hover:text-white">
-            Ingresar al panel
-          </Link>
-          <a href="#precios" className="hover:text-white">
-            Precios
-          </a>
+
+        <div className="mt-12 flex flex-col gap-2 border-t border-white/10 pt-6 text-xs text-white/40 sm:flex-row sm:items-center sm:justify-between">
+          <span>© {new Date().getFullYear()} SimpleCite · Tarija, Bolivia</span>
+          <span className="text-brand-300">Gestiona citas. Atiende mejor. Hazlo simple.</span>
         </div>
-      </div>
-      <div className="border-t border-white/10 py-4 text-center text-xs text-white/40">
-        © {new Date().getFullYear()} SimpleCite · Tarija, Bolivia
       </div>
     </footer>
   );
