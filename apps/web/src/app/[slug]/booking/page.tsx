@@ -234,6 +234,21 @@ export default function BookingWizard() {
     }
   }
 
+  // Link a WhatsApp de la clínica (número general del panel) para que el
+  // paciente envíe el comprobante del pago QR. La verificación es manual por
+  // la clínica (no hay bot). Solo si el tenant configuró su WhatsApp.
+  const clinicWaLink =
+    state.tenant?.whatsappContact && state.selectedSlot
+      ? `https://wa.me/${state.tenant.whatsappContact.replace(/\D/g, '')}?text=${encodeURIComponent(
+          `Hola ${state.tenant.name}, reservé una cita${
+            state.selectedDoctor ? ` con ${state.selectedDoctor.name}` : ''
+          } para el ${formatDate(state.selectedSlot.startTime, tz)} a las ${formatTime(
+            state.selectedSlot.startTime,
+            tz,
+          )} y realicé el pago por QR. Les envío el comprobante.`,
+        )}`
+      : null;
+
   // ─── Acciones ──────────────────────────────────────────────────────
 
   /**
@@ -652,16 +667,20 @@ export default function BookingWizard() {
                         <PaymentQRSelector banks={qrBanks} />
                       </div>
                       <p className="text-sm text-text-muted">
-                        Escanea el QR con la app de tu banco y realiza el pago. La clínica{' '}
-                        <span className="font-semibold">confirmará tu cita</span> cuando el pago se
-                        vea reflejado.
+                        Escanea el QR con la app de tu banco y realiza el pago. Luego{' '}
+                        <span className="font-semibold">envíanos el comprobante por WhatsApp</span>{' '}
+                        y la clínica confirmará tu cita.
                       </p>
+                      {clinicWaLink && <WhatsAppSendButton href={clinicWaLink} />}
                     </div>
                   ) : (
-                    <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-left text-sm text-amber-800">
-                      Tu cita quedó registrada. Coordina el{' '}
-                      <span className="font-semibold">pago con la clínica</span>; se confirmará
-                      cuando el pago se registre.
+                    <div className="space-y-3">
+                      <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-left text-sm text-amber-800">
+                        Tu cita quedó registrada. Realiza el pago y{' '}
+                        <span className="font-semibold">envíanos el comprobante por WhatsApp</span>{' '}
+                        para confirmar tu cita.
+                      </div>
+                      {clinicWaLink && <WhatsAppSendButton href={clinicWaLink} />}
                     </div>
                   )
                 ) : (
@@ -685,6 +704,23 @@ export default function BookingWizard() {
 }
 
 // ─── Sub-components ────────────────────────────────────────────────────
+
+/** CTA para enviar el comprobante al WhatsApp general de la clínica. */
+function WhatsAppSendButton({ href }: { href: string }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+      className="flex w-full items-center justify-center gap-2 rounded-xl bg-whatsapp px-4 py-3 font-semibold text-white transition hover:bg-[var(--whatsapp-hover)] active:scale-[.99]"
+    >
+      <svg viewBox="0 0 24 24" className="size-5" fill="currentColor" aria-hidden>
+        <path d="M17.5 14.4c-.3-.15-1.8-.9-2.08-1-.28-.1-.48-.15-.68.15-.2.3-.78 1-.96 1.2-.18.2-.35.22-.65.07-.3-.15-1.27-.47-2.42-1.5-.9-.8-1.5-1.78-1.68-2.08-.17-.3-.02-.46.13-.6.13-.13.3-.35.45-.52.15-.18.2-.3.3-.5.1-.2.05-.38-.02-.53-.08-.15-.68-1.64-.93-2.24-.24-.58-.5-.5-.68-.51h-.58c-.2 0-.53.08-.8.38-.28.3-1.05 1.03-1.05 2.5 0 1.48 1.08 2.9 1.23 3.1.15.2 2.12 3.24 5.14 4.54.72.3 1.28.48 1.72.62.72.23 1.38.2 1.9.12.58-.08 1.8-.73 2.05-1.44.25-.7.25-1.3.18-1.44-.07-.13-.27-.2-.57-.35zM12 2a10 10 0 0 0-8.6 15.06L2 22l5.06-1.33A10 10 0 1 0 12 2z" />
+      </svg>
+      Enviar comprobante por WhatsApp
+    </a>
+  );
+}
 
 const STEPS: Step[] = [
   'select-doctor',
