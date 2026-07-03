@@ -13,12 +13,14 @@ import {
   createPatient,
   getDoctorsAdmin,
   getDoctorServices,
+  getSlots,
   PanelApiError,
   type AppointmentListItem,
   type PatientListItem,
   type Doctor,
   type DoctorServiceLink,
   type PaymentMethod,
+  type PanelSlot,
 } from '@/lib/panel-api';
 import { PanelShell } from '@/components/panel/PanelShell';
 import { StatusBadge, fmtDateTime, Spinner } from '@/components/panel/ui';
@@ -608,8 +610,13 @@ function pad2(n: number): string {
 function toDateInput(d: Date): string {
   return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 }
-function toTimeInput(d: Date): string {
-  return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+/** Hora local HH:mm de un slot (los slots vienen en ISO/UTC). */
+function fmtSlotTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString('es-BO', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
 }
 
 function NewAppointmentModal({
@@ -636,7 +643,12 @@ function NewAppointmentModal({
   const [doctorId, setDoctorId] = useState('');
   const [serviceId, setServiceId] = useState('');
   const [date, setDate] = useState(initialStart ? toDateInput(initialStart) : '');
-  const [time, setTime] = useState(initialStart ? toTimeInput(initialStart) : '');
+  const [slots, setSlots] = useState<PanelSlot[]>([]);
+  const [loadingSlots, setLoadingSlots] = useState(false);
+  // Inicio (ISO) del slot elegido; se selecciona desde los chips de horario.
+  const [selectedStart, setSelectedStart] = useState(
+    initialStart ? initialStart.toISOString() : '',
+  );
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('CASH');
   const [saving, setSaving] = useState(false);
   const dialogRef = useDialogA11y(onClose);
@@ -665,13 +677,38 @@ function NewAppointmentModal({
       .catch(() => setServices([]));
   }, [doctorId, token, slug]);
 
+  // Disponibilidad del día elegido (mismo motor que el Web Booking): con doctor +
+  // servicio + fecha, trae los horarios reales del especialista y descarta los
+  // ocupados. Reemplaza el <input type="time"> libre que dejaba elegir cualquier
+  // hora fuera de agenda.
+  useEffect(() => {
+    if (!doctorId || !serviceId || !date) {
+      setSlots([]);
+      return;
+    }
+    const from = new Date(`${date}T00:00:00`).toISOString();
+    const to = new Date(`${date}T23:59:59`).toISOString();
+    setLoadingSlots(true);
+    getSlots(token, slug, { doctorId, serviceId, from, to })
+      .then((s) => {
+        setSlots(s);
+        // Conserva la selección solo si sigue siendo un slot disponible.
+        setSelectedStart((cur) =>
+          s.some((sl) => sl.available && sl.startTime === cur) ? cur : '',
+        );
+      })
+      .catch(() => setSlots([]))
+      .finally(() => setLoadingSlots(false));
+  }, [doctorId, serviceId, date, token, slug]);
+
   const selectedService = services.find((s) => s.serviceId === serviceId);
   const durationMin = selectedService?.customDuration ?? selectedService?.service.duration ?? 30;
+  const availableSlots = slots.filter((s) => s.available);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!doctorId || !serviceId || !date || !time) {
-      toast.error('Completa todos los campos');
+    if (!doctorId || !serviceId || !selectedStart) {
+      toast.error('Completa todos los campos y elige un horario');
       return;
     }
     if (patientMode === 'existing' && !patientId) {
@@ -682,8 +719,12 @@ function NewAppointmentModal({
       toast.error('Nombre y teléfono del nuevo paciente son obligatorios');
       return;
     }
-    const startTime = new Date(`${date}T${time}:00`).toISOString();
-    const endTime = new Date(new Date(startTime).getTime() + durationMin * 60_000).toISOString();
+    // El slot ya viene recortado a la duración del servicio; endTime del backend.
+    const slot = slots.find((s) => s.startTime === selectedStart);
+    const startTime = selectedStart;
+    const endTime =
+      slot?.endTime ??
+      new Date(new Date(selectedStart).getTime() + durationMin * 60_000).toISOString();
     setSaving(true);
     try {
       // Walk-in: registra el paciente primero (dedup por phone/ci en el backend).
@@ -838,7 +879,7 @@ function NewAppointmentModal({
               </select>
             </label>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-3">
               <label className="block">
                 <span className="text-sm font-medium text-text-secondary">Fecha</span>
                 <input
@@ -847,19 +888,50 @@ function NewAppointmentModal({
                   onChange={(e) => setDate(e.target.value)}
                   required
                   min={new Date().toISOString().slice(0, 10)}
-                  className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  disabled={!serviceId}
+                  className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:bg-canvas disabled:text-text-muted"
                 />
               </label>
-              <label className="block">
-                <span className="text-sm font-medium text-text-secondary">Hora</span>
-                <input
-                  type="time"
-                  value={time}
-                  onChange={(e) => setTime(e.target.value)}
-                  required
-                  className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                />
-              </label>
+
+              <div className="block">
+                <span className="text-sm font-medium text-text-secondary">Horario disponible</span>
+                {!serviceId ? (
+                  <p className="mt-1 text-xs text-text-muted">Elige doctor y servicio primero.</p>
+                ) : !date ? (
+                  <p className="mt-1 text-xs text-text-muted">
+                    Elige una fecha para ver los horarios del especialista.
+                  </p>
+                ) : loadingSlots ? (
+                  <div className="mt-2 py-2">
+                    <Spinner />
+                  </div>
+                ) : availableSlots.length === 0 ? (
+                  <p className="mt-1 text-xs text-text-muted">
+                    No hay horarios disponibles ese día. Prueba con otra fecha.
+                  </p>
+                ) : (
+                  <div className="mt-2 grid grid-cols-4 gap-2">
+                    {availableSlots.map((s) => {
+                      const active = s.startTime === selectedStart;
+                      return (
+                        <button
+                          key={s.startTime}
+                          type="button"
+                          onClick={() => setSelectedStart(s.startTime)}
+                          aria-pressed={active}
+                          className={`rounded-lg border px-2 py-2 text-sm font-medium tabular-nums transition ${
+                            active
+                              ? 'border-primary bg-primary text-white'
+                              : 'border-border text-text-secondary hover:border-border-strong'
+                          }`}
+                        >
+                          {fmtSlotTime(s.startTime)}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
 
             <fieldset>

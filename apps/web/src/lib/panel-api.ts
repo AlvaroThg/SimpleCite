@@ -425,6 +425,27 @@ const post = <T>(p: string, t: string, s: string, b?: unknown) => req<T>('POST',
 const patch = <T>(p: string, t: string, s: string, b?: unknown) => req<T>('PATCH', p, t, s, b);
 const del = <T>(p: string, t: string, s: string) => req<T>('DELETE', p, t, s);
 
+// ─── Slots (disponibilidad del doctor) ───────────────────────────────
+// Mismo motor que usa el Web Booking, pero autenticado (staff). Devuelve los
+// bloques del doctor en [from, to] con `available` según reglas, bloqueos y
+// citas existentes. Se usa en "Nueva cita" del panel para no dejar elegir un
+// horario fuera de agenda u ocupado.
+
+export interface PanelSlot {
+  startTime: string;
+  endTime: string;
+  available: boolean;
+}
+
+export const getSlots = (
+  t: string,
+  s: string,
+  params: { doctorId: string; serviceId: string; from: string; to: string },
+) =>
+  get<{ data: PanelSlot[] }>(`/api/slots?${new URLSearchParams(params).toString()}`, t, s).then(
+    (r) => r.data,
+  );
+
 // ─── Reports ──────────────────────────────────────────────────────────
 
 export interface ReportsSummary {
