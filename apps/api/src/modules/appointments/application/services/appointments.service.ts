@@ -184,7 +184,7 @@ export class AppointmentsService {
     const allowed = ALLOWED_TRANSITIONS[current.status];
     if (!allowed.includes(nextStatus)) {
       throw new BadRequestException(
-        `TransiciÃ³n invÃ¡lida: ${current.status} â†’ ${nextStatus}. Permitidas: ${allowed.join(', ') || '(estado terminal)'}`,
+        `Transición inválida: ${current.status} → ${nextStatus}. Permitidas: ${allowed.join(', ') || '(estado terminal)'}`,
       );
     }
 

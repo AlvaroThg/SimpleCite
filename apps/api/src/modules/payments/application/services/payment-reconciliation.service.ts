@@ -32,12 +32,19 @@ export class PaymentReconciliationService {
       data: { status: 'EXPIRED' },
     });
 
-    // 2. Cancelar citas PENDING_PAYMENT sin intent activo.
-    //    "Sin intent activo" = no tienen ningún intent PENDING ni PAID.
+    // 2. Cancelar citas PENDING_PAYMENT de la PASARELA (QR Simple, legacy) cuyo
+    //    intent expiró: tuvieron algún intent (`some`) pero ninguno sigue activo.
+    //    IMPORTANTE: el flujo manual de main (QR estático, sin pasarela) NO crea
+    //    PaymentIntents; esas citas quedan PENDING_PAYMENT a la espera de que el
+    //    staff confirme el pago a mano. Sin el filtro `some: {}` este job las
+    //    cancelaba a todas cada minuto (cita "desaparecía" del panel).
     const stuck = await this.prisma.appointment.findMany({
       where: {
         status: 'PENDING_PAYMENT',
-        paymentIntents: { none: { status: { in: ['PENDING', 'PAID'] } } },
+        paymentIntents: {
+          some: {},
+          none: { status: { in: ['PENDING', 'PAID'] } },
+        },
       },
       select: { id: true, tenantId: true },
     });
