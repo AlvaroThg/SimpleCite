@@ -14,6 +14,7 @@ import {
   getDoctorsAdmin,
   getDoctorServices,
   getSlots,
+  getTenantConfig,
   PanelApiError,
   type AppointmentListItem,
   type PatientListItem,
@@ -21,6 +22,7 @@ import {
   type DoctorServiceLink,
   type PaymentMethod,
   type PanelSlot,
+  type TenantConfig,
 } from '@/lib/panel-api';
 import { PanelShell } from '@/components/panel/PanelShell';
 import { StatusBadge, fmtDateTime, Spinner } from '@/components/panel/ui';
@@ -61,6 +63,15 @@ function PayCell({ a }: { a: AppointmentListItem }) {
       </span>
       Bs {a.service.price}
     </span>
+  );
+}
+
+/** Glifo de WhatsApp (mismo trazo que el botón del booking). */
+function WhatsAppGlyph({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden>
+      <path d="M17.5 14.4c-.3-.15-1.8-.9-2.08-1-.28-.1-.48-.15-.68.15-.2.3-.78 1-.96 1.2-.18.2-.35.22-.65.07-.3-.15-1.27-.47-2.42-1.5-.9-.8-1.5-1.78-1.68-2.08-.17-.3-.02-.46.13-.6.13-.13.3-.35.45-.52.15-.18.2-.3.3-.5.1-.2.05-.38-.02-.53-.08-.15-.68-1.64-.93-2.24-.24-.58-.5-.5-.68-.51h-.58c-.2 0-.53.08-.8.38-.28.3-1.05 1.03-1.05 2.5 0 1.48 1.08 2.9 1.23 3.1.15.2 2.12 3.24 5.14 4.54.72.3 1.28.48 1.72.62.72.23 1.38.2 1.9.12.58-.08 1.8-.73 2.05-1.44.25-.7.25-1.3.18-1.44-.07-.13-.27-.2-.57-.35zM12 2a10 10 0 0 0-8.6 15.06L2 22l5.06-1.33A10 10 0 1 0 12 2z" />
+    </svg>
   );
 }
 
@@ -151,6 +162,10 @@ function AppointmentsList() {
   const [showNewAppt, setShowNewAppt] = useState(false);
   // Hora pre-seleccionada al hacer clic en un hueco del calendario (Nueva Cita).
   const [newApptStart, setNewApptStart] = useState<Date | null>(null);
+  // Config del tenant + QR por doctor: para armar el link de WhatsApp que manda
+  // el QR de pago al paciente (número general vía el QR del especialista o el general).
+  const [tenantConfig, setTenantConfig] = useState<TenantConfig | null>(null);
+  const [doctorQrMap, setDoctorQrMap] = useState<Record<string, string | null>>({});
 
   const load = useCallback(async () => {
     if (!session) return;
@@ -174,6 +189,43 @@ function AppointmentsList() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  // Config del tenant + mapa doctorId→qrUrl (una vez). Best-effort: si falla,
+  // el botón de "Enviar QR" simplemente no aparece.
+  useEffect(() => {
+    if (!session) return;
+    Promise.all([
+      getTenantConfig(session.token, session.slug),
+      getDoctorsAdmin(session.token, session.slug),
+    ])
+      .then(([cfg, docs]) => {
+        setTenantConfig(cfg);
+        setDoctorQrMap(Object.fromEntries(docs.map((d) => [d.id, d.qrUrl])));
+      })
+      .catch(() => {});
+  }, [session]);
+
+  // Link wa.me que abre el chat con el paciente y le manda el QR de pago:
+  // en modo PER_DOCTOR usa el QR del especialista (o el general si no tiene);
+  // en modo SHARED, el QR general de la clínica. Solo para citas QR con teléfono.
+  const qrWaLink = useCallback(
+    (a: AppointmentListItem): string | null => {
+      if (a.paymentMethod !== 'STATIC_QR' || !tenantConfig) return null;
+      const phone = a.patient.phone?.replace(/\D/g, '');
+      if (!phone) return null;
+      const qrUrl =
+        tenantConfig.qrAssignmentMode === 'PER_DOCTOR'
+          ? doctorQrMap[a.doctor.id] || tenantConfig.staticQrUrl
+          : tenantConfig.staticQrUrl;
+      if (!qrUrl) return null;
+      const msg =
+        `Hola ${a.patient.name}, para confirmar tu cita del ${fmtDateTime(a.startTime)} ` +
+        `con ${a.doctor.name} en ${tenantConfig.name}, realiza el pago escaneando este QR:\n${qrUrl}\n\n` +
+        `Cuando pagues, envíanos la foto del comprobante por aquí. ¡Gracias!`;
+      return `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
+    },
+    [tenantConfig, doctorQrMap],
+  );
 
   // Carga todas las citas (cualquier estado) para la vista de calendario.
   const loadCalendar = useCallback(async () => {
@@ -330,6 +382,7 @@ function AppointmentsList() {
           approvingId={approvingId}
           onViewReceipt={setReceiptAppt}
           onApprove={handleApprove}
+          qrWaLink={qrWaLink}
         />
       ) : (
         <ConfirmedTab items={confirmedItems} />
@@ -372,11 +425,13 @@ function PendingTab({
   approvingId,
   onViewReceipt,
   onApprove,
+  qrWaLink,
 }: {
   items: AppointmentListItem[];
   approvingId: string | null;
   onViewReceipt: (a: AppointmentListItem) => void;
   onApprove: (id: string) => void;
+  qrWaLink: (a: AppointmentListItem) => string | null;
 }) {
   if (!items.length) {
     return (
@@ -389,36 +444,53 @@ function PendingTab({
   }
   const actions = (a: AppointmentListItem, block: boolean) => {
     const approving = approvingId === a.id;
-    return a.receiptUrl ? (
+    if (a.receiptUrl) {
+      return (
+        <>
+          <Button
+            variant="outline"
+            size="sm"
+            className={block ? 'flex-1' : ''}
+            onClick={() => onViewReceipt(a)}
+          >
+            Comprobante
+          </Button>
+          <Button
+            size="sm"
+            className={block ? 'flex-1' : ''}
+            disabled={approving}
+            onClick={() => onApprove(a.id)}
+          >
+            {approving ? 'Aprobando…' : 'Aprobar'}
+          </Button>
+        </>
+      );
+    }
+    // Aún sin comprobante. Si es cita QR, ofrecemos mandarle el QR al WhatsApp del
+    // paciente (abre el chat con el mensaje listo). El staff confirma de buena fe
+    // el pago (efectivo, o QR revisado en su banco) con "Confirmar pago recibido".
+    const waLink = qrWaLink(a);
+    return (
       <>
-        <Button
-          variant="outline"
-          size="sm"
-          className={block ? 'flex-1' : ''}
-          onClick={() => onViewReceipt(a)}
-        >
-          Comprobante
-        </Button>
+        {waLink && (
+          <a
+            href={waLink}
+            target="_blank"
+            rel="noreferrer"
+            className={`inline-flex h-8 items-center justify-center gap-1.5 rounded-md border border-border px-3 text-[13px] font-medium text-text-secondary transition hover:border-border-strong ${block ? 'flex-1' : ''}`}
+          >
+            <WhatsAppGlyph className="size-4 text-whatsapp" /> Enviar QR
+          </a>
+        )}
         <Button
           size="sm"
           className={block ? 'flex-1' : ''}
           disabled={approving}
           onClick={() => onApprove(a.id)}
         >
-          {approving ? 'Aprobando…' : 'Aprobar'}
+          {approving ? 'Confirmando…' : 'Confirmar pago recibido'}
         </Button>
       </>
-    ) : (
-      // Sin comprobante (flujo sin WhatsApp): el staff confirma de buena fe que
-      // recibió el pago (efectivo, o QR revisado en su banco).
-      <Button
-        size="sm"
-        className={block ? 'w-full' : ''}
-        disabled={approving}
-        onClick={() => onApprove(a.id)}
-      >
-        {approving ? 'Confirmando…' : 'Confirmar pago recibido'}
-      </Button>
     );
   };
   return (
