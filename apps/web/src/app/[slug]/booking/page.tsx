@@ -10,6 +10,7 @@ import {
   getAvailability,
   createBooking,
   confirmBooking,
+  lookupPatient,
   ApiError,
   type DoctorWithServices,
   type Slot,
@@ -29,7 +30,9 @@ type Step =
   | 'select-doctor'
   | 'select-service'
   | 'select-slot'
-  | 'patient-info'
+  | 'patient-type' // ¿paciente nuevo o regresante?
+  | 'patient-info' // nuevo: nombre + CI + teléfono
+  | 'patient-lookup' // regresante: buscar historial por CI
   | 'payment-method'
   | 'select-insurance' // doctor en modo seguro: reemplaza al paso de pago
   | 'confirmed';
@@ -50,6 +53,10 @@ interface State {
   appointmentId: string;
   chosenMethod: '' | 'CASH' | 'STATIC_QR' | 'INSURANCE'; // método elegido al confirmar
   selectedInsurance: { id: string; name: string } | null; // seguro elegido (modo seguro)
+  patientMode: '' | 'new' | 'returning'; // ¿paciente nuevo o regresante?
+  lookupCi: string; // CI ingresado en el lookup de regresante
+  foundPatient: { id: string; firstName: string } | null; // match del lookup
+  lookupDone: boolean; // ya se buscó (para mostrar "no encontrado")
   loading: boolean;
   error: string;
 }
@@ -122,6 +129,10 @@ export default function BookingWizard() {
     appointmentId: '',
     chosenMethod: '',
     selectedInsurance: null,
+    patientMode: '',
+    lookupCi: '',
+    foundPatient: null,
+    lookupDone: false,
     loading: true,
     error: '',
   });
@@ -257,7 +268,8 @@ export default function BookingWizard() {
 
   /**
    * Crea la reserva directamente (flujo abierto sin OTP) y pasa al paso de pago.
-   * El teléfono y el token de Turnstile (anti-bot) viajan en el body.
+   * Paciente nuevo: viajan nombre/CI + teléfono. Regresante (lookup por CI):
+   * viaja solo su patientId — no se piden datos de nuevo.
    */
   async function handleCreateBooking() {
     set({ loading: true });
@@ -266,11 +278,15 @@ export default function BookingWizard() {
         doctorId: state.selectedDoctor!.id,
         serviceId: state.selectedService!.service.id,
         startTime: state.selectedSlot!.startTime,
-        phone: state.phone,
-        patient: {
-          name: state.patientName,
-          ci: state.patientCi || undefined,
-        },
+        ...(state.foundPatient
+          ? { patientId: state.foundPatient.id }
+          : {
+              phone: state.phone,
+              patient: {
+                name: state.patientName,
+                ci: state.patientCi || undefined,
+              },
+            }),
         turnstileToken: turnstileToken || undefined,
       });
 
@@ -294,7 +310,14 @@ export default function BookingWizard() {
   async function handleConfirm(method: 'CASH' | 'STATIC_QR') {
     set({ loading: true });
     try {
-      await confirmBooking(slug, state.appointmentId, method, state.phone);
+      await confirmBooking(
+        slug,
+        state.appointmentId,
+        method,
+        state.phone,
+        undefined,
+        state.foundPatient?.id,
+      );
       set({ chosenMethod: method, step: 'confirmed', loading: false });
     } catch (e) {
       set({
@@ -315,11 +338,32 @@ export default function BookingWizard() {
         'INSURANCE',
         state.phone,
         state.selectedInsurance.id,
+        state.foundPatient?.id,
       );
       set({ chosenMethod: 'INSURANCE', step: 'confirmed', loading: false });
     } catch (e) {
       set({
         error: e instanceof ApiError ? e.message : 'No se pudo confirmar la cita',
+        loading: false,
+      });
+    }
+  }
+
+  /** Busca el historial del paciente regresante por CI (paso patient-lookup). */
+  async function handleLookup() {
+    if (!state.lookupCi.trim()) return;
+    set({ loading: true, lookupDone: false, foundPatient: null });
+    try {
+      const res = await lookupPatient(slug, state.lookupCi);
+      set({
+        foundPatient:
+          res.found && res.patientId ? { id: res.patientId, firstName: res.firstName ?? '' } : null,
+        lookupDone: true,
+        loading: false,
+      });
+    } catch (e) {
+      set({
+        error: e instanceof ApiError ? e.message : 'No se pudo buscar tu historial',
         loading: false,
       });
     }
@@ -371,6 +415,7 @@ export default function BookingWizard() {
           step={state.step}
           primary={primary}
           insurance={!!state.selectedDoctor?.doctorProfile?.insuranceMode}
+          returning={state.patientMode === 'returning'}
         />
       )}
 
@@ -509,7 +554,7 @@ export default function BookingWizard() {
                     const slot = state.slots.find(
                       (s) => new Date(s.startTime).getTime() === start.getTime(),
                     );
-                    if (slot) set({ selectedSlot: slot, step: 'patient-info' });
+                    if (slot) set({ selectedSlot: slot, step: 'patient-type' });
                   }}
                   onRangeChange={(from, to) => void loadRange(from, to)}
                 />
@@ -572,7 +617,7 @@ export default function BookingWizard() {
                         <motion.button
                           key={slot.startTime}
                           disabled={!slot.available}
-                          onClick={() => set({ selectedSlot: slot, step: 'patient-info' })}
+                          onClick={() => set({ selectedSlot: slot, step: 'patient-type' })}
                           // Cupos disponibles: feedback de pulsación con resorte.
                           // Ocupados: inertes (sin hover ni tap) para no malgastar toques.
                           whileTap={!slot.available || reduce ? undefined : { scale: 0.94 }}
@@ -593,9 +638,120 @@ export default function BookingWizard() {
             </StepCard>
           )}
 
-          {/* ── Paso 4: Datos del paciente + teléfono ── */}
+          {/* ── Paso 4: ¿Paciente nuevo o regresante? ── */}
+          {state.step === 'patient-type' && state.selectedSlot && (
+            <StepCard
+              title={`¿Ya visitaste ${state.tenant?.name ?? 'la clínica'} antes?`}
+              onBack={() => set({ step: 'select-slot' })}
+            >
+              <div className="bg-accent rounded-xl p-3 mb-5 text-sm font-medium text-accent-foreground">
+                {slotSummary(state.selectedSlot.startTime, state.selectedSlot.endTime, tz)}
+              </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <button
+                  onClick={() =>
+                    set({ patientMode: 'new', foundPatient: null, step: 'patient-info' })
+                  }
+                  className="flex min-h-20 items-center gap-3 rounded-2xl border border-border bg-surface p-4 text-left transition-all hover:border-primary hover:shadow-sm active:scale-[.99]"
+                >
+                  <span className="text-2xl" aria-hidden>
+                    👋
+                  </span>
+                  <div>
+                    <p className="font-semibold text-text-primary">Soy paciente nuevo</p>
+                    <p className="text-sm text-text-muted">Es mi primera vez aquí.</p>
+                  </div>
+                </button>
+                <button
+                  onClick={() =>
+                    set({
+                      patientMode: 'returning',
+                      lookupCi: '',
+                      foundPatient: null,
+                      lookupDone: false,
+                      step: 'patient-lookup',
+                    })
+                  }
+                  className="flex min-h-20 items-center gap-3 rounded-2xl border border-border bg-surface p-4 text-left transition-all hover:border-primary hover:shadow-sm active:scale-[.99]"
+                >
+                  <span className="text-2xl" aria-hidden>
+                    🗂️
+                  </span>
+                  <div>
+                    <p className="font-semibold text-text-primary">Ya he venido antes</p>
+                    <p className="text-sm text-text-muted">Buscar mi historial con mi CI.</p>
+                  </div>
+                </button>
+              </div>
+            </StepCard>
+          )}
+
+          {/* ── Paso 4b (regresante): buscar historial por CI ── */}
+          {state.step === 'patient-lookup' && state.selectedSlot && (
+            <StepCard
+              title="Ingresa tu cédula de identidad"
+              onBack={() => set({ step: 'patient-type' })}
+            >
+              <p className="mb-4 text-sm text-text-muted">
+                Buscaremos tu historial en {state.tenant?.name ?? 'la clínica'}.
+              </p>
+              <div className="space-y-4">
+                <Field
+                  label="Cédula de identidad"
+                  value={state.lookupCi}
+                  onChange={(v) => set({ lookupCi: v, lookupDone: false, foundPatient: null })}
+                  placeholder="Ej: 1234567"
+                  inputMode="numeric"
+                  maxLength={20}
+                  required
+                />
+
+                {state.foundPatient ? (
+                  <>
+                    <div className="rounded-xl border border-border bg-accent p-4 text-sm text-accent-foreground">
+                      👋 Hola, <span className="font-semibold">{state.foundPatient.firstName}</span>
+                      . Encontramos tu historial.
+                    </div>
+                    <TurnstileWidget onToken={setTurnstileToken} />
+                    <Btn
+                      label="Confirmar y continuar"
+                      color={primary}
+                      loading={state.loading}
+                      disabled={false}
+                      onClick={handleCreateBooking}
+                    />
+                  </>
+                ) : state.lookupDone ? (
+                  <>
+                    <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                      No encontramos ese CI en {state.tenant?.name ?? 'la clínica'}.
+                    </div>
+                    <Btn
+                      label="Registrarme como paciente nuevo"
+                      color={primary}
+                      loading={false}
+                      disabled={false}
+                      onClick={() =>
+                        set({ patientMode: 'new', foundPatient: null, step: 'patient-info' })
+                      }
+                    />
+                  </>
+                ) : (
+                  <Btn
+                    label="Buscar mi historial"
+                    color={primary}
+                    loading={state.loading}
+                    disabled={!state.lookupCi.trim()}
+                    onClick={handleLookup}
+                  />
+                )}
+              </div>
+            </StepCard>
+          )}
+
+          {/* ── Paso 4 (nuevo): Datos del paciente + teléfono ── */}
           {state.step === 'patient-info' && state.selectedSlot && (
-            <StepCard title="Tus datos" onBack={() => set({ step: 'select-slot' })}>
+            <StepCard title="Tus datos" onBack={() => set({ step: 'patient-type' })}>
               <div className="bg-accent rounded-xl p-3 mb-5 text-sm font-medium text-accent-foreground">
                 {slotSummary(state.selectedSlot.startTime, state.selectedSlot.endTime, tz)}
               </div>
@@ -846,19 +1002,24 @@ function Stepper({
   step,
   primary,
   insurance,
+  returning,
 }: {
   step: Step;
   primary: string;
   /** Doctor en modo seguro: el paso de pago se reemplaza por el de seguro. */
   insurance: boolean;
+  /** Paciente regresante: la posición "Datos" se llama "Tu CI". */
+  returning: boolean;
 }) {
-  // El stepper se construye dinámicamente según el modo del doctor elegido;
-  // si el paciente vuelve atrás y cambia de doctor, se recalcula solo.
+  // El stepper se construye dinámicamente según el modo del doctor elegido y
+  // el tipo de paciente; si el paciente vuelve atrás, se recalcula solo.
+  // "Datos" y "Tu CI" comparten posición: el label cambia según la elección.
   const STEPS: Step[] = [
     'select-doctor',
     'select-service',
     'select-slot',
-    'patient-info',
+    'patient-type',
+    returning ? 'patient-lookup' : 'patient-info',
     insurance ? 'select-insurance' : 'payment-method',
     'confirmed',
   ];
@@ -866,7 +1027,8 @@ function Stepper({
     'Doctor',
     'Servicio',
     'Horario',
-    'Datos',
+    '¿Eres nuevo?',
+    returning ? 'Tu CI' : 'Datos',
     insurance ? 'Seguro' : 'Pago',
     '¡Listo!',
   ];

@@ -445,21 +445,31 @@ export type OtpVerifyDto = z.infer<typeof OtpVerifySchema>;
 
 // ─── Public Booking Schemas ───
 
-export const CreatePublicAppointmentSchema = z.object({
-  doctorId: z.string().uuid(),
-  serviceId: z.string().uuid(),
-  startTime: z.string().datetime(),
-  patient: z.object({
-    name: z.string().min(2).max(100),
-    /// Algunos servicios (médico-legales) requieren CI; el resto puede omitirla.
-    ci: z.string().max(20).optional(),
-  }),
-  /// Modo abierto (sin OTP, default en main): el phone viaja en el body en vez
-  /// del JWT de paciente. En modo OTP (bot activo) se ignora y se usa el JWT.
-  phone: PhoneSchema.optional(),
-  /// Token de Cloudflare Turnstile (anti-bot) para el flujo abierto sin OTP.
-  turnstileToken: z.string().optional(),
-});
+export const CreatePublicAppointmentSchema = z
+  .object({
+    doctorId: z.string().uuid(),
+    serviceId: z.string().uuid(),
+    startTime: z.string().datetime(),
+    /// Paciente regresante (lookup por CI): usa su registro existente; no se
+    /// piden nombre ni teléfono de nuevo.
+    patientId: z.string().uuid().optional(),
+    patient: z
+      .object({
+        name: z.string().min(2).max(100),
+        /// Algunos servicios (médico-legales) requieren CI; el resto puede omitirla.
+        ci: z.string().max(20).optional(),
+      })
+      .optional(),
+    /// Modo abierto (sin OTP, default en main): el phone viaja en el body en vez
+    /// del JWT de paciente. En modo OTP (bot activo) se ignora y se usa el JWT.
+    phone: PhoneSchema.optional(),
+    /// Token de Cloudflare Turnstile (anti-bot) para el flujo abierto sin OTP.
+    turnstileToken: z.string().optional(),
+  })
+  .refine((d) => !!d.patientId || !!d.patient?.name, {
+    message: 'Indica los datos del paciente o su registro existente',
+    path: ['patient'],
+  });
 export type CreatePublicAppointmentDto = z.infer<typeof CreatePublicAppointmentSchema>;
 
 /** Confirmación de la reserva pública: método de pago (efectivo/QR) o seguro. */
@@ -470,6 +480,8 @@ export const ConfirmPublicBookingSchema = z
     tenantInsuranceId: z.string().uuid().optional(),
     /// Modo abierto (sin OTP): el phone del titular viaja en el body.
     phone: PhoneSchema.optional(),
+    /// Paciente regresante (lookup por CI): identifica al titular sin phone.
+    patientId: z.string().uuid().optional(),
   })
   .refine((d) => d.paymentMethod !== 'INSURANCE' || !!d.tenantInsuranceId, {
     message: 'Selecciona el seguro con el que asistirás',

@@ -1,4 +1,5 @@
-import { Controller, Get, Query, NotFoundException } from '@nestjs/common';
+import { Controller, Get, Query, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { SlotsQuerySchema, type SlotsQueryDto } from '@simplecite/shared';
 import { CurrentTenant, Public } from '../../../../common/decorators';
 import { ZodValidationPipe } from '../../../../common/pipes/zod-validation.pipe';
@@ -28,6 +29,21 @@ export class PublicTenantController {
     if (!tenantId) throw new NotFoundException('Tenant no encontrado');
     const doctors = await this.service.listDoctorsWithServices(tenantId);
     return { success: true, data: doctors };
+  }
+
+  /**
+   * Lookup de paciente regresante por CI. Rate limit estricto (10/min por IP)
+   * y respuesta mínima ({found, patientId?, firstName?}) — ver el service.
+   */
+  @Get('patients/lookup')
+  @Throttle({ default: { limit: 10, ttl: 60 * 1000 } })
+  async lookupPatient(@CurrentTenant() tenantId: string, @Query('ci') ci?: string) {
+    if (!tenantId) throw new NotFoundException('Tenant no encontrado');
+    if (!ci?.trim() || ci.trim().length > 20) {
+      throw new BadRequestException('CI inválido');
+    }
+    const result = await this.service.lookupPatientByCi(tenantId, ci);
+    return { success: true, data: result };
   }
 
   @Get('availability')

@@ -68,6 +68,7 @@ export class PublicBookingController {
       appointmentId,
       paymentMethod: dto.paymentMethod,
       tenantInsuranceId: dto.tenantInsuranceId,
+      patientId: dto.patientId,
     });
     return { success: true, data: result };
   }

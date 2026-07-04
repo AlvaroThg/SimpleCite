@@ -37,12 +37,20 @@ export class OptionalPatientSessionGuard implements CanActivate {
       Request & {
         patient?: { phone: string; tenantId: string };
         tenantId?: string;
-        body?: { phone?: string };
+        body?: { phone?: string; patientId?: string };
       }
     >();
 
     const rawPhone = req.body?.phone;
-    if (!rawPhone) throw new BadRequestException('El número de teléfono es obligatorio');
+    // Paciente regresante (lookup por CI): viaja patientId en vez de phone;
+    // el service resuelve el teléfono desde su registro.
+    if (!rawPhone) {
+      if (req.body?.patientId) {
+        req.patient = { phone: '', tenantId: req.tenantId ?? '' };
+        return true;
+      }
+      throw new BadRequestException('El número de teléfono es obligatorio');
+    }
 
     req.patient = { phone: normalizePhone(rawPhone), tenantId: req.tenantId ?? '' };
     return true;

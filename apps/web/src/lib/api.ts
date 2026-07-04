@@ -195,12 +195,23 @@ export async function createBooking(
     doctorId: string;
     serviceId: string;
     startTime: string;
-    phone: string;
-    patient: { name: string; ci?: string };
+    /// Paciente nuevo: nombre (+CI) y teléfono.
+    phone?: string;
+    patient?: { name: string; ci?: string };
+    /// Paciente regresante (lookup por CI): usa su registro, sin pedir datos.
+    patientId?: string;
     turnstileToken?: string;
   },
 ): Promise<BookingResult> {
   return apiPost(`/api/public/tenants/${slug}/appointments`, payload);
+}
+
+/** Busca un paciente regresante por CI. Solo expone id + primer nombre. */
+export async function lookupPatient(
+  slug: string,
+  ci: string,
+): Promise<{ found: boolean; patientId?: string; firstName?: string }> {
+  return apiGet(`/api/public/tenants/${slug}/patients/lookup?ci=${encodeURIComponent(ci.trim())}`);
 }
 
 export async function confirmBooking(
@@ -210,11 +221,14 @@ export async function confirmBooking(
   phone: string,
   /// Requerido cuando paymentMethod=INSURANCE (doctor en modo seguro).
   tenantInsuranceId?: string,
+  /// Paciente regresante: identifica al titular en lugar del phone.
+  patientId?: string,
 ): Promise<{ id: string; status: string }> {
   return apiPost(`/api/public/tenants/${slug}/appointments/${appointmentId}/confirm`, {
     paymentMethod,
-    phone,
+    ...(phone && { phone }),
     ...(tenantInsuranceId && { tenantInsuranceId }),
+    ...(patientId && { patientId }),
   });
 }
 

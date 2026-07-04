@@ -55,7 +55,21 @@ export class PublicBookingService {
     dto: CreatePublicAppointmentDto;
     remoteIp?: string;
   }): Promise<{ appointmentId: string; expiresAt: Date }> {
-    const { tenantId, phone, dto, remoteIp } = params;
+    const { tenantId, dto, remoteIp } = params;
+    let { phone } = params;
+
+    // Paciente regresante (lookup por CI): usa su registro existente; el phone
+    // sale de la DB (no se pide de nuevo) y sirve para el rate limit.
+    let returningPatient: { id: string } | null = null;
+    if (dto.patientId) {
+      const existing = await this.prisma.client.patient.findFirst({
+        where: { id: dto.patientId, tenantId },
+        select: { id: true, phone: true },
+      });
+      if (!existing) throw new NotFoundException('Paciente no encontrado');
+      returningPatient = { id: existing.id };
+      phone = existing.phone;
+    }
 
     // 0. Modo abierto (sin OTP): anti-bot Turnstile + rate limit por teléfono.
     //    En modo OTP el JWT ya autenticó al titular, así que se omite.
@@ -100,14 +114,16 @@ export class PublicBookingService {
       throw new BadRequestException('No se puede reservar en el pasado');
     }
 
-    // 2. Resolver Patient con dedupe por phone+ci normalizados (Fase 7).
-    //    El phone ya pasó por OTP; findOrCreate normaliza a E.164 y deduplica.
-    const patient = await this.patients.findOrCreate({
-      tenantId,
-      phone,
-      name: dto.patient.name,
-      ci: dto.patient.ci,
-    });
+    // 2. Resolver Patient: regresante (registro existente) o dedupe por
+    //    phone+ci normalizados (findOrCreate normaliza a E.164 y deduplica).
+    const patient =
+      returningPatient ??
+      (await this.patients.findOrCreate({
+        tenantId,
+        phone,
+        name: dto.patient!.name,
+        ci: dto.patient!.ci,
+      }));
 
     // 3. Crear appointment TENTATIVE con TTL
     const ttlMin = this.config.get<number>('TENTATIVE_APPOINTMENT_TTL_MINUTES') ?? 15;
@@ -191,8 +207,9 @@ export class PublicBookingService {
     appointmentId: string;
     paymentMethod: PaymentMethod;
     tenantInsuranceId?: string;
+    patientId?: string;
   }) {
-    const { tenantId, phone, appointmentId, paymentMethod, tenantInsuranceId } = params;
+    const { tenantId, phone, appointmentId, paymentMethod, tenantInsuranceId, patientId } = params;
 
     const appointment = await this.prisma.client.appointment.findFirst({
       where: { id: appointmentId, tenantId },
@@ -200,7 +217,11 @@ export class PublicBookingService {
     });
     if (!appointment) throw new NotFoundException('Cita no encontrada');
 
-    if (appointment.patient.phone !== phone) {
+    // Titularidad: por phone (flujo normal) o por patientId (regresante vía CI).
+    const owns = patientId
+      ? appointment.patientId === patientId
+      : appointment.patient.phone === phone;
+    if (!owns) {
       this.logger.warn(
         {
           event: 'public.appointment.confirm.wrong-patient',

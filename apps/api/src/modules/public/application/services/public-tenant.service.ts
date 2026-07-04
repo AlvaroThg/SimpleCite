@@ -133,6 +133,37 @@ export class PublicTenantService {
   }
 
   /**
+   * Lookup de paciente regresante por CI (flujo "¿Ya visitaste antes?").
+   *
+   * Mínima exposición: solo devuelve el id y el PRIMER nombre — nunca apellido,
+   * teléfono ni historial. La respuesta es idéntica exista o no el CI en otro
+   * tenant, y el tiempo de respuesta se normaliza (piso fijo) para no permitir
+   * enumerar CIs por timing.
+   */
+  async lookupPatientByCi(
+    tenantId: string,
+    ci: string,
+  ): Promise<{ found: boolean; patientId?: string; firstName?: string }> {
+    const MIN_RESPONSE_MS = 150;
+    const started = Date.now();
+
+    const patient = await this.prisma.client.patient.findFirst({
+      where: { ci: ci.trim(), tenantId },
+      select: { id: true, name: true },
+    });
+
+    // Piso de tiempo constante: mitiga timing attacks de enumeración.
+    const elapsed = Date.now() - started;
+    if (elapsed < MIN_RESPONSE_MS) {
+      await new Promise((r) => setTimeout(r, MIN_RESPONSE_MS - elapsed));
+    }
+
+    if (!patient) return { found: false };
+    const firstName = patient.name.trim().split(/\s+/)[0] ?? '';
+    return { found: true, patientId: patient.id, firstName };
+  }
+
+  /**
    * Disponibilidad de slots — delega al motor de slots existente.
    * La validación de tenantId+doctor+service la hace SlotsService internamente.
    */
