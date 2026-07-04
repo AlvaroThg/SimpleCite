@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import {
   getDoctors,
@@ -413,7 +414,13 @@ export default function BookingWizard() {
                       }
                       className="group flex items-center gap-4 rounded-2xl border border-border bg-surface p-4 text-left transition-all hover:-translate-y-0.5 hover:border-primary hover:shadow-md"
                     >
-                      <Avatar name={doc.name} color={primary} />
+                      <DoctorAvatar
+                        name={doc.name}
+                        photoUrl={doc.doctorProfile?.photoUrl ?? null}
+                        color={primary}
+                        // Pocos doctores (≤3): avatar más grande, la cara importa.
+                        large={state.doctors.length <= 3}
+                      />
                       <div className="min-w-0">
                         <p className="truncate font-semibold text-text-primary">{doc.name}</p>
                         {doc.doctorProfile?.specialty && (
@@ -959,6 +966,41 @@ function Avatar({ name, color }: { name: string; color: string }) {
       style={{ backgroundColor: color, color: readableOn(color) }}
     >
       {initials}
+    </div>
+  );
+}
+
+/**
+ * Avatar del especialista: foto (next/image) si existe, iniciales si no o si
+ * la imagen falla. 48px en listas largas, 64px cuando hay ≤3 doctores.
+ */
+function DoctorAvatar({
+  name,
+  photoUrl,
+  color,
+  large,
+}: {
+  name: string;
+  photoUrl: string | null;
+  color: string;
+  large: boolean;
+}) {
+  const [imgError, setImgError] = useState(false);
+  if (!photoUrl || imgError) return <Avatar name={name} color={color} />;
+  return (
+    <div
+      className={`relative flex-shrink-0 overflow-hidden rounded-full border border-border ${
+        large ? 'size-16' : 'size-12'
+      }`}
+    >
+      <Image
+        src={photoUrl}
+        alt={name}
+        fill
+        sizes={large ? '64px' : '48px'}
+        className="object-cover"
+        onError={() => setImgError(true)}
+      />
     </div>
   );
 }

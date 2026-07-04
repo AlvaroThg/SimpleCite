@@ -86,6 +86,29 @@ export class DoctorsController {
     return { success: true, data: doctor };
   }
 
+  /**
+   * Sube la foto del especialista a R2 (mismo patrón base64 que el QR).
+   * Body: { imageBase64: string, mimeType: string }.
+   */
+  @Roles('ADMIN')
+  @Post(':id/photo')
+  async uploadPhoto(
+    @CurrentUser('tenantId') tenantId: string,
+    @Param('id') id: string,
+    @Body() body: { imageBase64?: string; mimeType?: string },
+  ) {
+    if (!body.imageBase64 || !body.mimeType) {
+      throw new BadRequestException('imageBase64 y mimeType son requeridos');
+    }
+    const doctor = await this.doctorsService.uploadPhoto(
+      tenantId,
+      id,
+      body.imageBase64,
+      body.mimeType,
+    );
+    return { success: true, data: doctor };
+  }
+
   @Roles('ADMIN')
   @Delete(':id')
   async archive(@CurrentUser('tenantId') tenantId: string, @Param('id') id: string) {

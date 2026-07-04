@@ -43,6 +43,31 @@ export class DoctorsService {
     return this.toPublic(updated);
   }
 
+  /**
+   * Sube la foto del especialista a R2 y guarda la URL en DoctorProfile.photoUrl.
+   * Misma carpeta por tenant/doctor que el QR: `<slug>/doctors/<doctorId>/`.
+   */
+  async uploadPhoto(tenantId: string, doctorId: string, imageBase64: string, mimeType: string) {
+    const doctor = await this.prisma.client.user.findFirst({
+      where: { id: doctorId, tenantId, role: 'DOCTOR' },
+      select: { id: true, tenant: { select: { slug: true } } },
+    });
+    if (!doctor) throw new NotFoundException('Doctor no encontrado');
+
+    const url = await this.storage.uploadImageFromBase64(
+      `${doctor.tenant.slug}/doctors/${doctorId}`,
+      imageBase64,
+      mimeType,
+    );
+
+    const updated = await this.prisma.client.user.update({
+      where: { id: doctorId },
+      data: { doctorProfile: { update: { photoUrl: url } } },
+      include: { doctorProfile: true },
+    });
+    return this.toPublic(updated);
+  }
+
   async create(tenantId: string, dto: CreateDoctorDto) {
     // Email Ãºnico dentro del tenant
     const existing = await this.prisma.client.user.findFirst({

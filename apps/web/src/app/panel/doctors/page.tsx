@@ -16,6 +16,7 @@ import {
   createService,
   getDoctorInsurances,
   setDoctorInsurance,
+  uploadDoctorPhoto,
   PanelApiError,
   type Doctor,
   type ServiceItem,
@@ -347,9 +348,7 @@ function Doctors() {
             >
               <div className="p-4 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
-                  <Avatar name={d.name} size="lg">
-                    {initials(d.name) ? undefined : <Stethoscope className="h-5 w-5" />}
-                  </Avatar>
+                  <PhotoAvatar doctor={d} onUploaded={load} />
                   <div className="min-w-0">
                     <p className="font-semibold text-text-primary truncate">
                       {d.name}
@@ -411,6 +410,78 @@ function Doctors() {
           ))}
         </ul>
       )}
+    </div>
+  );
+}
+
+/**
+ * Avatar del doctor: foto de R2 si existe (fallback a iniciales si no carga)
+ * y botón "Cambiar foto" al pasar el mouse. Sube por base64 → API → R2.
+ */
+function PhotoAvatar({ doctor, onUploaded }: { doctor: Doctor; onUploaded: () => void }) {
+  const { session } = useAuth();
+  const [uploading, setUploading] = useState(false);
+  const [imgError, setImgError] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !session) return;
+    setUploading(true);
+    try {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve((reader.result as string).split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      await uploadDoctorPhoto(session.token, session.slug, doctor.id, {
+        imageBase64: base64,
+        mimeType: file.type,
+      });
+      setImgError(false);
+      onUploaded();
+      toast.success('Foto actualizada.');
+    } catch (err) {
+      toast.error(err instanceof PanelApiError ? err.message : 'No se pudo subir la foto');
+    } finally {
+      setUploading(false);
+      e.target.value = '';
+    }
+  }
+
+  return (
+    <div className="group/photo relative flex-shrink-0">
+      {doctor.photoUrl && !imgError ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={doctor.photoUrl}
+          alt={doctor.name}
+          onError={() => setImgError(true)}
+          className="size-12 rounded-full border border-border object-cover"
+        />
+      ) : (
+        <Avatar name={doctor.name} size="lg">
+          {initials(doctor.name) ? undefined : <Stethoscope className="h-5 w-5" />}
+        </Avatar>
+      )}
+      <button
+        type="button"
+        onClick={() => inputRef.current?.click()}
+        disabled={uploading}
+        title="Cambiar foto"
+        aria-label={`Cambiar foto de ${doctor.name}`}
+        className="absolute inset-0 flex items-center justify-center rounded-full bg-black/45 text-white opacity-0 transition-opacity group-hover/photo:opacity-100 focus-visible:opacity-100 disabled:opacity-60"
+      >
+        <Upload className="size-4" />
+      </button>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/webp"
+        className="hidden"
+        onChange={handleUpload}
+      />
     </div>
   );
 }

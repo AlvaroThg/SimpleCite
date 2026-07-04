@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { ShieldCheck, CalendarCheck, MessageCircle, Clock, ArrowRight } from 'lucide-react';
 import { getTenantInfo, getDoctors } from '@/lib/api';
 import { getServiceIcon } from '@/lib/service-icons';
@@ -240,12 +241,24 @@ export default async function TenantLandingPage({ params }: Props) {
                   className="rounded-2xl border border-border bg-surface p-6 shadow-sm transition-all hover:-translate-y-1 hover:shadow-md"
                 >
                   <div className="flex items-center gap-4">
-                    <div
-                      className="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-full text-xl font-bold text-white"
-                      style={{ backgroundColor: primary, color: onPrimary }}
-                    >
-                      {initials(doctor.name)}
-                    </div>
+                    {doctor.doctorProfile?.photoUrl ? (
+                      <div className="relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-full border border-border">
+                        <Image
+                          src={doctor.doctorProfile.photoUrl}
+                          alt={doctor.name}
+                          fill
+                          sizes="64px"
+                          className="object-cover"
+                        />
+                      </div>
+                    ) : (
+                      <div
+                        className="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-full text-xl font-bold text-white"
+                        style={{ backgroundColor: primary, color: onPrimary }}
+                      >
+                        {initials(doctor.name)}
+                      </div>
+                    )}
                     <div className="min-w-0">
                       <p className="truncate font-semibold text-text-primary">{doctor.name}</p>
                       {doctor.doctorProfile?.specialty && (

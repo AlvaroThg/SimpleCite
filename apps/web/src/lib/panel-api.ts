@@ -656,6 +656,13 @@ export const uploadDoctorQr = (
   id: string,
   body: { imageBase64: string; mimeType: string },
 ) => post<{ data: Doctor }>(`/api/doctors/${id}/qr`, t, s, body).then((r) => r.data);
+/** Sube la foto del especialista a R2 (mismo patrón que el QR). */
+export const uploadDoctorPhoto = (
+  t: string,
+  s: string,
+  id: string,
+  body: { imageBase64: string; mimeType: string },
+) => post<{ data: Doctor }>(`/api/doctors/${id}/photo`, t, s, body).then((r) => r.data);
 export const archiveDoctor = (t: string, s: string, id: string) =>
   del<{ success: boolean }>(`/api/doctors/${id}`, t, s);
 
