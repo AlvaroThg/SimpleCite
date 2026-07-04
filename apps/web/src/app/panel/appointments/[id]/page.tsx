@@ -3,14 +3,16 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { FileText } from 'lucide-react';
+import { FileText, ShieldCheck } from 'lucide-react';
 import { useAuth } from '@/lib/panel-auth';
 import {
   getAppointment,
+  getMedicalRecord,
   transitionAppointment,
   downloadAppointmentReport,
   PanelApiError,
   type AppointmentDetail,
+  type MedicalRecord,
 } from '@/lib/panel-api';
 import { PanelShell } from '@/components/panel/PanelShell';
 import { StatusBadge, fmtDate, fmtTime, ErrorBox } from '@/components/panel/ui';
@@ -19,7 +21,11 @@ import { SkeletonDetail } from '@/components/panel/Skeleton';
 // Transiciones permitidas desde el panel (espejo del backend state machine).
 const TRANSITIONS: Record<string, { status: string; label: string; cls: string }[]> = {
   PENDING_PAYMENT: [
-    { status: 'CONFIRMED', label: 'Confirmar', cls: 'bg-green-600 hover:bg-green-700' },
+    {
+      status: 'CONFIRMED',
+      label: 'Confirmar pago recibido',
+      cls: 'bg-green-600 hover:bg-green-700',
+    },
     { status: 'CANCELLED', label: 'Cancelar', cls: 'bg-red-600 hover:bg-red-700' },
   ],
   CONFIRMED: [
@@ -28,6 +34,13 @@ const TRANSITIONS: Record<string, { status: string; label: string; cls: string }
     { status: 'CANCELLED', label: 'Cancelar', cls: 'bg-red-600 hover:bg-red-700' },
   ],
 };
+
+/** Etiqueta humana del método de pago (INSURANCE muestra el seguro, no el enum). */
+function payLabel(a: AppointmentDetail): string {
+  if (a.paymentMethod === 'INSURANCE') return a.insuranceNameSnapshot ?? 'Seguro médico';
+  if (a.paymentMethod === 'STATIC_QR') return 'QR Bancario';
+  return 'Efectivo';
+}
 
 export default function AppointmentDetailPage() {
   return (
@@ -42,6 +55,7 @@ function AppointmentDetailView() {
   const { session } = useAuth();
   const router = useRouter();
   const [appt, setAppt] = useState<AppointmentDetail | null>(null);
+  const [record, setRecord] = useState<MedicalRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [acting, setActing] = useState(false);
@@ -52,6 +66,10 @@ function AppointmentDetailView() {
     setError('');
     try {
       setAppt(await getAppointment(session.token, session.slug, id));
+      // Historia clínica: solo roles clínicos (staff no accede a contenido EHR).
+      if (session.user.role !== 'STAFF') {
+        setRecord(await getMedicalRecord(session.token, session.slug, id).catch(() => null));
+      }
     } catch (err) {
       setError(err instanceof PanelApiError ? err.message : 'Error al cargar la cita');
     } finally {
@@ -81,7 +99,10 @@ function AppointmentDetailView() {
   if (error && !appt) return <ErrorBox message={error} />;
   if (!appt) return null;
 
-  const transitions = TRANSITIONS[appt.status] ?? [];
+  // Citas de seguro nunca ofrecen "Confirmar pago": no hay cobro que aprobar.
+  const transitions = (TRANSITIONS[appt.status] ?? []).filter(
+    (t) => !(appt.paymentMethod === 'INSURANCE' && t.status === 'CONFIRMED'),
+  );
 
   return (
     <div className="space-y-5">
@@ -107,8 +128,26 @@ function AppointmentDetailView() {
           <Info label="Hora" value={`${fmtTime(appt.startTime)} – ${fmtTime(appt.endTime)}`} />
           <Info label="Servicio" value={appt.service.name} />
           <Info label="Doctor" value={appt.doctor.name} />
-          <Info label="Precio" value={`Bs ${Number(appt.service.price).toFixed(2)}`} />
-          <Info label="Pago" value={appt.isPaid ? 'Pagado' : 'Pendiente'} />
+          {appt.paymentMethod === 'INSURANCE' ? (
+            <>
+              <div>
+                <dt className="text-text-muted text-xs">Método de pago</dt>
+                <dd className="inline-flex items-center gap-1.5 font-medium text-text-primary">
+                  <ShieldCheck className="size-4 text-text-muted" /> {payLabel(appt)}
+                </dd>
+              </div>
+              {/* Cubierta por seguro: el paciente no paga en la clínica. */}
+              <Info label="Monto paciente" value="Bs 0.00" />
+            </>
+          ) : (
+            <>
+              <Info label="Método de pago" value={payLabel(appt)} />
+              <Info
+                label="Precio"
+                value={`Bs ${Number(appt.service.price).toFixed(2)} · ${appt.isPaid ? 'Pagado' : 'Pendiente'}`}
+              />
+            </>
+          )}
         </dl>
 
         <div className="flex flex-wrap items-center gap-4 border-t border-border pt-4">
@@ -149,6 +188,56 @@ function AppointmentDetailView() {
 
       {error && <ErrorBox message={error} />}
 
+      {/* Historia clínica de la consulta (roles clínicos; staff no la ve) */}
+      {record && (
+        <div className="bg-surface rounded-2xl border border-border p-6 space-y-4">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs font-medium text-text-muted uppercase tracking-wider">
+              Historia clínica
+            </p>
+            {record.treatmentLabel && (
+              <span className="rounded-full border border-border bg-canvas px-2.5 py-0.5 text-xs text-text-secondary">
+                {record.treatmentLabel}
+              </span>
+            )}
+          </div>
+          <dl className="space-y-3 text-sm">
+            {record.symptoms && <RecordField label="Motivo de consulta" value={record.symptoms} />}
+            {record.diagnosis && <RecordField label="Diagnóstico" value={record.diagnosis} />}
+            {record.treatment && (
+              <RecordField label="Tratamiento e indicaciones" value={record.treatment} />
+            )}
+            {record.privateNotes && (
+              <RecordField label="Notas privadas" value={record.privateNotes} />
+            )}
+          </dl>
+          {record.prescriptions.length > 0 && (
+            <div className="border-t border-border pt-3">
+              <p className="mb-2 text-xs font-medium text-text-muted uppercase tracking-wider">
+                Recetas
+              </p>
+              <ul className="space-y-2">
+                {record.prescriptions.map((p) => (
+                  <li key={p.id} className="rounded-lg border border-border bg-canvas p-3 text-sm">
+                    <ul className="space-y-0.5 text-text-secondary">
+                      {p.medications.map((m, i) => (
+                        <li key={i}>
+                          <span className="font-medium text-text-primary">{m.name}</span> — {m.dose}
+                          , {m.frequency}, {m.duration}
+                        </li>
+                      ))}
+                    </ul>
+                    {p.instructions && (
+                      <p className="mt-1.5 text-xs text-text-muted">{p.instructions}</p>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+
       {transitions.length > 0 && (
         <div className="bg-surface rounded-2xl border border-border p-4">
           <p className="text-xs font-medium text-text-muted uppercase tracking-wider mb-3">
@@ -177,6 +266,15 @@ function Info({ label, value }: { label: string; value: string }) {
     <div>
       <dt className="text-text-muted text-xs">{label}</dt>
       <dd className="text-text-primary font-medium">{value}</dd>
+    </div>
+  );
+}
+
+function RecordField({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt className="text-text-muted text-xs">{label}</dt>
+      <dd className="whitespace-pre-wrap text-text-secondary">{value}</dd>
     </div>
   );
 }

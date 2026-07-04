@@ -102,9 +102,22 @@ const TD =
   'border-b border-[var(--border-hairline)] px-4 py-3 align-middle text-sm text-text-secondary';
 
 /** Tarjeta de cita para móvil (reemplaza la tabla en pantallas chicas). */
-function ApptCard({ a, children }: { a: AppointmentListItem; children?: ReactNode }) {
+function ApptCard({
+  a,
+  onOpen,
+  children,
+}: {
+  a: AppointmentListItem;
+  onOpen?: (id: string) => void;
+  children?: ReactNode;
+}) {
   return (
-    <li className="rounded-xl border border-border bg-surface p-4 shadow-card">
+    <li
+      onClick={onOpen ? () => onOpen(a.id) : undefined}
+      className={`rounded-xl border border-border bg-surface p-4 shadow-card ${
+        onOpen ? 'cursor-pointer transition-colors hover:border-brand-300' : ''
+      }`}
+    >
       <div className="flex items-start justify-between gap-2">
         <PatientCell a={a} />
         <StatusBadge status={a.status} />
@@ -121,7 +134,12 @@ function ApptCard({ a, children }: { a: AppointmentListItem; children?: ReactNod
           <PayCell a={a} />
         </dd>
       </dl>
-      {children && <div className="mt-3 flex gap-2">{children}</div>}
+      {/* Las acciones no deben disparar la navegación de la tarjeta. */}
+      {children && (
+        <div className="mt-3 flex gap-2" onClick={(e) => e.stopPropagation()}>
+          {children}
+        </div>
+      )}
     </li>
   );
 }
@@ -404,9 +422,13 @@ function AppointmentsList() {
           onViewReceipt={setReceiptAppt}
           onApprove={handleApprove}
           qrWaLink={qrWaLink}
+          onOpen={(id) => router.push(`/panel/appointments/${id}`)}
         />
       ) : (
-        <ConfirmedTab items={confirmedItems} />
+        <ConfirmedTab
+          items={confirmedItems}
+          onOpen={(id) => router.push(`/panel/appointments/${id}`)}
+        />
       )}
 
       {/* Receipt modal */}
@@ -447,12 +469,14 @@ function PendingTab({
   onViewReceipt,
   onApprove,
   qrWaLink,
+  onOpen,
 }: {
   items: AppointmentListItem[];
   approvingId: string | null;
   onViewReceipt: (a: AppointmentListItem) => void;
   onApprove: (id: string) => void;
   qrWaLink: (a: AppointmentListItem) => string | null;
+  onOpen: (id: string) => void;
 }) {
   if (!items.length) {
     return (
@@ -519,13 +543,13 @@ function PendingTab({
       {/* Móvil: tarjetas */}
       <ul className="space-y-3 md:hidden">
         {items.map((a) => (
-          <ApptCard key={a.id} a={a}>
+          <ApptCard key={a.id} a={a} onOpen={onOpen}>
             {actions(a, true)}
           </ApptCard>
         ))}
       </ul>
 
-      {/* Desktop: tabla */}
+      {/* Desktop: tabla (fila completa clickeable → detalle) */}
       <div className="hidden overflow-hidden rounded-xl border border-border bg-surface shadow-card md:block">
         <div className="overflow-x-auto">
           <table className="w-full border-collapse">
@@ -542,7 +566,11 @@ function PendingTab({
             </thead>
             <tbody>
               {items.map((a) => (
-                <tr key={a.id} className="transition-colors last:[&>td]:border-b-0 hover:bg-canvas">
+                <tr
+                  key={a.id}
+                  onClick={() => onOpen(a.id)}
+                  className="cursor-pointer transition-colors last:[&>td]:border-b-0 hover:bg-canvas"
+                >
                   <td className={`${TD} shadow-[inset_2px_0_0_var(--warning)]`}>
                     <PatientCell a={a} />
                   </td>
@@ -556,7 +584,10 @@ function PendingTab({
                     <StatusBadge status={a.status} />
                   </td>
                   <td className={`${TD} whitespace-nowrap`}>
-                    <div className="flex gap-2">{actions(a, false)}</div>
+                    {/* Los botones no deben disparar la navegación de la fila. */}
+                    <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+                      {actions(a, false)}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -570,7 +601,13 @@ function PendingTab({
 
 // ─── Confirmed tab ─────────────────────────────────────────────────────
 
-function ConfirmedTab({ items }: { items: AppointmentListItem[] }) {
+function ConfirmedTab({
+  items,
+  onOpen,
+}: {
+  items: AppointmentListItem[];
+  onOpen: (id: string) => void;
+}) {
   if (!items.length) {
     return (
       <EmptyState
@@ -585,11 +622,11 @@ function ConfirmedTab({ items }: { items: AppointmentListItem[] }) {
       {/* Móvil: tarjetas */}
       <ul className="space-y-3 md:hidden">
         {items.map((a) => (
-          <ApptCard key={a.id} a={a} />
+          <ApptCard key={a.id} a={a} onOpen={onOpen} />
         ))}
       </ul>
 
-      {/* Desktop: tabla */}
+      {/* Desktop: tabla (fila completa clickeable → detalle) */}
       <div className="hidden overflow-hidden rounded-xl border border-border bg-surface shadow-card md:block">
         <div className="overflow-x-auto">
           <table className="w-full border-collapse">
@@ -605,7 +642,11 @@ function ConfirmedTab({ items }: { items: AppointmentListItem[] }) {
             </thead>
             <tbody>
               {items.map((a) => (
-                <tr key={a.id} className="transition-colors last:[&>td]:border-b-0 hover:bg-canvas">
+                <tr
+                  key={a.id}
+                  onClick={() => onOpen(a.id)}
+                  className="cursor-pointer transition-colors last:[&>td]:border-b-0 hover:bg-canvas"
+                >
                   <td className={TD}>
                     <PatientCell a={a} />
                   </td>
