@@ -169,8 +169,10 @@ export default function BookingWizard() {
 
     set({ loading: true, slots: [], selectedSlot: null, availableDates: [] });
 
+    // Ventana de reserva completa (hoy → +1 mes), igual que el clamp del
+    // calendario: así "Siguiente" siempre tiene datos sin esperar el fetch.
     const from = new Date(todayStr() + 'T00:00:00').toISOString();
-    const to = new Date(addDays(todayStr(), 27) + 'T23:59:59').toISOString();
+    const to = new Date(addDays(todayStr(), 31) + 'T23:59:59').toISOString();
 
     getAvailability(slug, {
       doctorId: selectedDoctor.id,
@@ -1015,7 +1017,10 @@ export default function BookingWizard() {
                       {state.tenant.address}
                     </p>
                     <a
-                      href={`https://maps.google.com/?q=${encodeURIComponent(state.tenant.address)}`}
+                      href={
+                        state.tenant.mapsUrl ||
+                        `https://maps.google.com/?q=${encodeURIComponent(state.tenant.address)}`
+                      }
                       target="_blank"
                       rel="noopener noreferrer"
                       className="mt-3 inline-flex items-center gap-1.5 rounded-xl border border-border px-4 py-2 text-sm font-medium text-text-secondary transition hover:border-primary hover:text-text-primary"

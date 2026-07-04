@@ -75,6 +75,7 @@ export default async function TenantLayout({ children, params }: Props) {
           name={tenantName}
           primaryColor={primaryColor}
           address={tenant.address}
+          mapsUrl={tenant.mapsUrl}
           facebookUrl={tenant.facebookUrl}
           instagramUrl={tenant.instagramUrl}
           whatsappContact={tenant.whatsappContact}

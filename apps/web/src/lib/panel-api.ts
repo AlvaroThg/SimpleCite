@@ -566,6 +566,8 @@ export interface TenantConfig {
   whatsappContact: string | null;
   /// Foto de la fachada del consultorio (referencia física para el paciente).
   locationPhotoUrl: string | null;
+  /// Link de Google Maps (si es null, los mapas se generan desde address).
+  mapsUrl: string | null;
   timezone: string;
   plan: string;
   whatsappEnabled: boolean;
@@ -597,6 +599,7 @@ export const updateTenantBranding = (
     instagramUrl?: string | null;
     whatsappContact?: string | null;
     locationPhotoUrl?: string | null;
+    mapsUrl?: string | null;
   },
 ) => patch<{ data: TenantConfig }>('/api/tenants/current', t, s, body).then((r) => r.data);
 

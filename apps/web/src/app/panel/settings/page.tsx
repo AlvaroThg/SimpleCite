@@ -1,31 +1,23 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { CheckCircle2 } from 'lucide-react';
 import { useAuth } from '@/lib/panel-auth';
 import {
   getTenantConfig,
   updateTenantBranding,
   uploadTenantAsset,
-  getWaInstances,
-  createWaInstance,
-  restartWaInstance,
-  deleteWaInstance,
   getTenantInsurances,
   createTenantInsurance,
   updateTenantInsurance,
   PanelApiError,
   type TenantConfig,
-  type WaInstance,
   type TenantInsurance,
 } from '@/lib/panel-api';
 import { PanelShell } from '@/components/panel/PanelShell';
 import { ErrorBox } from '@/components/panel/ui';
 import { SkeletonCards } from '@/components/panel/Skeleton';
+import { PhoneField } from '@/components/PhoneField';
 import { toast } from 'sonner';
-import { apiBase } from '@/lib/api-base';
-
-const BASE = apiBase();
 
 /**
  * Paletas pre-armadas (primario + secundario). Los primarios son suficientemente
@@ -96,7 +88,6 @@ function Settings() {
           </section>
         )
       ) : null}
-      <WhatsApp />
     </div>
   );
 }
@@ -589,6 +580,7 @@ function Branding({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantConf
 function ContactInfo({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantConfig) => void }) {
   const { session } = useAuth();
   const [address, setAddress] = useState(cfg.address ?? '');
+  const [mapsUrl, setMapsUrl] = useState(cfg.mapsUrl ?? '');
   const [facebookUrl, setFacebookUrl] = useState(cfg.facebookUrl ?? '');
   const [instagramUrl, setInstagramUrl] = useState(cfg.instagramUrl ?? '');
   const [whatsappContact, setWhatsappContact] = useState(cfg.whatsappContact ?? '');
@@ -632,6 +624,7 @@ function ContactInfo({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantC
     try {
       const updated = await updateTenantBranding(session.token, session.slug, {
         address: address.trim() || null,
+        mapsUrl: mapsUrl.trim() || null,
         facebookUrl: facebookUrl.trim() || null,
         instagramUrl: instagramUrl.trim() || null,
         whatsappContact: whatsappContact.trim() || null,
@@ -662,6 +655,23 @@ function ContactInfo({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantC
           placeholder="Av. Las Américas #123, Tarija"
           className="w-full border border-border-strong rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
         />
+      </label>
+
+      <label className="block space-y-1">
+        <span className="text-sm font-medium text-text-secondary">
+          Link de Google Maps (opcional)
+        </span>
+        <input
+          type="url"
+          value={mapsUrl}
+          onChange={(e) => setMapsUrl(e.target.value)}
+          placeholder="https://maps.app.goo.gl/…"
+          className="w-full border border-border-strong rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+        />
+        <span className="text-xs text-text-muted">
+          En Google Maps: busca tu clínica → Compartir → Copiar enlace. Si lo dejas vacío, el mapa
+          se genera buscando la dirección de arriba.
+        </span>
       </label>
 
       {/* Foto de la fachada: se muestra al paciente al confirmar su reserva. */}
@@ -725,17 +735,13 @@ function ContactInfo({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantC
         </label>
       </div>
 
-      <label className="block space-y-1">
+      <div className="block space-y-1">
         <span className="text-sm font-medium text-text-secondary">WhatsApp de contacto</span>
-        <input
-          type="tel"
-          value={whatsappContact}
-          onChange={(e) => setWhatsappContact(e.target.value)}
-          placeholder="59170000000"
-          className="w-full border border-border-strong rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
-        />
-        <span className="text-xs text-text-muted">Número con código de país, sin el signo +.</span>
-      </label>
+        <PhoneField value={whatsappContact} onChange={setWhatsappContact} />
+        <span className="text-xs text-text-muted">
+          A este número llegan los comprobantes y avisos de reserva de tus pacientes.
+        </span>
+      </div>
 
       <div className="flex justify-end">
         <button
@@ -933,247 +939,5 @@ function Insurances() {
         </ul>
       )}
     </section>
-  );
-}
-
-// ─── WhatsApp ─────────────────────────────────────────────────────────────
-function WhatsApp() {
-  const { session } = useAuth();
-  const [instances, setInstances] = useState<WaInstance[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState('');
-  const [qrFor, setQrFor] = useState<string | null>(null);
-
-  const load = useCallback(async () => {
-    if (!session) return;
-    setLoading(true);
-    try {
-      setInstances(await getWaInstances(session.token, session.slug));
-    } catch (e) {
-      setErr(e instanceof PanelApiError ? e.message : 'Error al cargar instancias');
-    } finally {
-      setLoading(false);
-    }
-  }, [session]);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  async function create() {
-    if (!session) return;
-    setBusy(true);
-    setErr('');
-    try {
-      const inst = await createWaInstance(session.token, session.slug);
-      await load();
-      setQrFor(inst.id);
-    } catch (e) {
-      setErr(e instanceof PanelApiError ? e.message : 'No se pudo crear la instancia');
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function restart(id: string) {
-    if (!session) return;
-    setBusy(true);
-    try {
-      await restartWaInstance(session.token, session.slug, id);
-      await load();
-      setQrFor(id);
-    } catch (e) {
-      setErr(e instanceof PanelApiError ? e.message : 'No se pudo reiniciar');
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function destroy(id: string) {
-    if (!session || !confirm('¿Eliminar esta instancia de WhatsApp?')) return;
-    setBusy(true);
-    try {
-      await deleteWaInstance(session.token, session.slug, id);
-      if (qrFor === id) setQrFor(null);
-      await load();
-    } catch (e) {
-      setErr(e instanceof PanelApiError ? e.message : 'No se pudo eliminar');
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <section className="bg-surface rounded-2xl border border-border p-5 space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-sm font-semibold text-text-secondary">WhatsApp</h2>
-          <p className="text-xs text-text-muted">
-            Conecta el número desde el que tu bot atiende y envía recordatorios.
-          </p>
-        </div>
-        {instances.length === 0 && (
-          <button
-            onClick={create}
-            disabled={busy}
-            className="px-4 py-2 rounded-xl bg-brand-600 text-white text-sm font-semibold hover:bg-brand-700 disabled:opacity-50"
-          >
-            + Conectar WhatsApp
-          </button>
-        )}
-      </div>
-
-      {err && <ErrorBox message={err} />}
-
-      {loading ? (
-        <p className="text-sm text-text-muted">Cargando…</p>
-      ) : instances.length === 0 ? (
-        <p className="text-sm text-text-muted">Aún no has conectado ningún número.</p>
-      ) : (
-        <ul className="space-y-3">
-          {instances.map((i) => (
-            <li key={i.id} className="border border-border rounded-xl p-4 space-y-3">
-              <div className="flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="font-medium text-text-primary">{i.phone ?? 'Sin vincular'}</p>
-                  <p className="text-xs text-text-muted truncate">{i.containerName}</p>
-                </div>
-                <div className="flex items-center gap-3 text-sm flex-shrink-0">
-                  <StatusPill status={i.status} />
-                  <button
-                    onClick={() => setQrFor(qrFor === i.id ? null : i.id)}
-                    className="text-brand-600 hover:text-brand-800 font-medium"
-                  >
-                    {qrFor === i.id ? 'Ocultar QR' : 'Ver QR'}
-                  </button>
-                  <button
-                    onClick={() => restart(i.id)}
-                    disabled={busy}
-                    className="text-text-muted hover:text-text-primary"
-                  >
-                    Reiniciar
-                  </button>
-                  <button
-                    onClick={() => destroy(i.id)}
-                    disabled={busy}
-                    className="text-red-500 hover:text-red-700"
-                  >
-                    Eliminar
-                  </button>
-                </div>
-              </div>
-              {qrFor === i.id && <QrPanel instanceId={i.id} onConnected={load} />}
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
-  );
-}
-
-function StatusPill({ status }: { status: string }) {
-  const map: Record<string, string> = {
-    CONNECTED: 'bg-green-100 text-green-700',
-    PAIRING: 'bg-amber-100 text-amber-700',
-    DISCONNECTED: 'bg-red-100 text-red-600',
-  };
-  return (
-    <span
-      className={`px-2 py-0.5 rounded-full text-xs font-medium ${map[status] ?? 'bg-muted text-text-secondary'}`}
-    >
-      {status}
-    </span>
-  );
-}
-
-/**
- * Panel del QR: consume el SSE de /admin/whatsapp/instances/:id/qr.
- * Usamos fetch+ReadableStream (no EventSource) porque necesitamos enviar el
- * header Authorization y x-tenant-slug, que EventSource no soporta.
- */
-function QrPanel({ instanceId, onConnected }: { instanceId: string; onConnected: () => void }) {
-  const { session } = useAuth();
-  const [qr, setQr] = useState<string | null>(null);
-  const [state, setState] = useState<'pairing' | 'qr' | 'connected' | 'error'>('pairing');
-  const onConnectedRef = useRef(onConnected);
-  onConnectedRef.current = onConnected;
-
-  useEffect(() => {
-    if (!session) return;
-    const ctrl = new AbortController();
-
-    (async () => {
-      try {
-        const res = await fetch(`${BASE}/api/admin/whatsapp/instances/${instanceId}/qr`, {
-          headers: {
-            Accept: 'text/event-stream',
-            Authorization: `Bearer ${session.token}`,
-            'x-tenant-slug': session.slug,
-          },
-          signal: ctrl.signal,
-        });
-        if (!res.ok || !res.body) {
-          setState('error');
-          return;
-        }
-        const reader = res.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = '';
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split('\n');
-          buffer = lines.pop() ?? '';
-          for (const line of lines) {
-            if (!line.startsWith('data:')) continue;
-            try {
-              const data = JSON.parse(line.slice(5).trim()) as { type: string; qr?: string };
-              if (data.type === 'qr' && data.qr) {
-                setQr(data.qr);
-                setState('qr');
-              } else if (data.type === 'connected') {
-                setState('connected');
-                onConnectedRef.current();
-                return;
-              } else if (data.type === 'disconnected') {
-                setState('error');
-              }
-            } catch {
-              // ignorar líneas malformadas
-            }
-          }
-        }
-      } catch (e) {
-        if ((e as Error).name !== 'AbortError') setState('error');
-      }
-    })();
-
-    return () => ctrl.abort();
-  }, [instanceId, session]);
-
-  return (
-    <div className="bg-canvas rounded-xl p-4 flex flex-col items-center text-center">
-      {state === 'connected' ? (
-        <p className="inline-flex items-center gap-1.5 text-sm text-green-700 font-medium">
-          <CheckCircle2 className="size-4" /> WhatsApp conectado.
-        </p>
-      ) : state === 'error' ? (
-        <p className="text-sm text-red-600">
-          No se pudo obtener el QR. Intenta reiniciar la instancia.
-        </p>
-      ) : qr ? (
-        <>
-          {/* El QR llega como data URL base64; <img> evita configurar dominios en next/image. */}
-          <img src={qr} alt="QR de WhatsApp" width={224} height={224} className="rounded-lg" />
-          <p className="mt-3 text-sm text-text-secondary">
-            Abre WhatsApp → <b>Dispositivos vinculados</b> → <b>Vincular dispositivo</b> y escanea.
-          </p>
-        </>
-      ) : (
-        <p className="text-sm text-text-muted">Generando código QR…</p>
-      )}
-    </div>
   );
 }

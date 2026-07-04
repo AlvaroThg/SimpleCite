@@ -11,9 +11,10 @@ import { randomUUID } from 'crypto';
  * el acceso público (subdominio `*.r2.dev`) o un dominio propio conectado; esa
  * base se configura en `R2_PUBLIC_URL`.
  *
- * Carpetas (prefijos) dentro del bucket:
- *   assets/<tenantId>   — logos, QR estático, portada del tenant
- *   receipts/<tenantId> — comprobantes de pago enviados por WhatsApp
+ * Carpetas (prefijos) dentro del bucket — una carpeta por clínica (slug):
+ *   <slug>/assets            — logo, QR estático, portada, fachada
+ *   <slug>/doctors/<id>      — QR y foto de cada especialista
+ *   receipts/<tenantId>      — comprobantes de pago (flujo bot, develop)
  */
 @Injectable()
 export class StorageService {

@@ -97,6 +97,7 @@ export const UpdateTenantBrandingSchema = z
     instagramUrl: z.string().url('URL inválida').max(300).nullable().optional(),
     whatsappContact: z.string().max(20).nullable().optional(),
     locationPhotoUrl: z.string().url('URL de imagen inválida').max(500).nullable().optional(),
+    mapsUrl: z.string().url('Link de Google Maps inválido').max(500).nullable().optional(),
   })
   .refine((v) => Object.keys(v).length > 0, { message: 'Nada que actualizar' });
 export type UpdateTenantBrandingDto = z.infer<typeof UpdateTenantBrandingSchema>;
@@ -513,6 +514,7 @@ export const PublicTenantInfoSchema = z.object({
   instagramUrl: z.string().nullable(),
   whatsappContact: z.string().nullable(),
   locationPhotoUrl: z.string().nullable(),
+  mapsUrl: z.string().nullable(),
   staticQrUrl: z.string().nullable(),
   staticQrLabel: z.string().nullable(),
   staticQrUrl2: z.string().nullable(),

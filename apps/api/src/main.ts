@@ -1,11 +1,20 @@
 import { NestFactory } from '@nestjs/core';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
   // rawBody: true expone req.rawBody (Buffer) — necesario para validar la
   // firma HMAC del webhook de pagos sobre el cuerpo crudo (no re-serializado).
-  const app = await NestFactory.create(AppModule, { bufferLogs: true, rawBody: true });
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    bufferLogs: true,
+    rawBody: true,
+  });
+
+  // Límite de body JSON: las imágenes (logo, QR, fotos) viajan en base64
+  // dentro del JSON. El default de Express (100kb) rechazaba cualquier foto
+  // real con 413. 8mb cubre fotos de celular; R2 recibe el binario después.
+  app.useBodyParser('json', { limit: '8mb' });
 
   // Reemplazar el logger por defecto de NestJS con Pino estructurado
   app.useLogger(app.get(Logger));

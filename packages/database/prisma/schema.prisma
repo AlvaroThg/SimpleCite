@@ -138,6 +138,9 @@ model Tenant {
   /// Foto exterior/fachada del consultorio. Separado de heroImageUrl
   /// (marketing) — propósito es referencia física para el paciente.
   locationPhotoUrl String?
+  /// Link de Google Maps de la clínica (compartido desde la app de Maps).
+  /// Si es null, los botones de mapa generan una búsqueda desde `address`.
+  mapsUrl          String?
 
   // Configuración de WhatsApp
   whatsappEnabled Boolean @default(false)

@@ -36,6 +36,8 @@ export interface TenantInfo {
   whatsappContact: string | null;
   /// Foto de la fachada del consultorio (referencia física para el paciente).
   locationPhotoUrl: string | null;
+  /// Link de Google Maps (si es null, se genera búsqueda desde address).
+  mapsUrl: string | null;
   staticQrUrl: string | null;
   staticQrLabel: string | null;
   staticQrUrl2: string | null;

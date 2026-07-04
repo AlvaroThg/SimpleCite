@@ -29,6 +29,7 @@ export interface TenantConfig {
   instagramUrl: string | null;
   whatsappContact: string | null;
   locationPhotoUrl: string | null;
+  mapsUrl: string | null;
   timezone: string;
   plan: string;
   whatsappEnabled: boolean;
@@ -93,6 +94,7 @@ export class TenantService implements TenantServicePort {
         instagramUrl: true,
         whatsappContact: true,
         locationPhotoUrl: true,
+        mapsUrl: true,
         timezone: true,
         plan: true,
         whatsappEnabled: true,
@@ -127,6 +129,7 @@ export class TenantService implements TenantServicePort {
         ...(dto.facebookUrl !== undefined && { facebookUrl: dto.facebookUrl }),
         ...(dto.instagramUrl !== undefined && { instagramUrl: dto.instagramUrl }),
         ...(dto.whatsappContact !== undefined && { whatsappContact: dto.whatsappContact }),
+        ...(dto.mapsUrl !== undefined && { mapsUrl: dto.mapsUrl }),
       },
     });
     return this.getConfig(tenantId);
@@ -142,8 +145,16 @@ export class TenantService implements TenantServicePort {
     imageBase64: string,
     mimeType: string,
   ): Promise<TenantConfig> {
+    // Carpeta por slug (no por id): todo lo de una clínica vive bajo
+    // `<slug>/…` en el bucket — fácil de inspeccionar/cargar a mano.
+    const tenant = await this.prisma.client.tenant.findUnique({
+      where: { id: tenantId },
+      select: { slug: true },
+    });
+    if (!tenant) throw new NotFoundException('Tenant no encontrado');
+
     const url = await this.storage.uploadImageFromBase64(
-      `assets/${tenantId}`,
+      `${tenant.slug}/assets`,
       imageBase64,
       mimeType,
     );

@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import { Calendar, Views, type View } from 'react-big-calendar';
-import { format } from 'date-fns';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Calendar, Views, type View, type ToolbarProps } from 'react-big-calendar';
+import { format, startOfDay, startOfWeek, endOfWeek, addMonths } from 'date-fns';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import './calendar.css';
 import { localizer, messagesEs, formatsEs } from './localizer';
@@ -38,6 +38,66 @@ function SlotEvent({ event }: { event: CalEvent }) {
 }
 
 /**
+ * Toolbar del calendario público: sin "Anterior" cuando ya estás en hoy (no se
+ * reserva al pasado) y "Siguiente" deshabilitado al llegar al mes siguiente.
+ * Reusa las clases rbc-* para conservar el estilo de calendar.css.
+ */
+function makeBookingToolbar(today: Date, maxDate: Date) {
+  return function BookingToolbar({
+    label,
+    view,
+    date,
+    onNavigate,
+    onView,
+  }: ToolbarProps<CalEvent>) {
+    // Límite por vista: en semana comparamos semanas; en día, días.
+    const atStart =
+      view === Views.DAY
+        ? startOfDay(date) <= today
+        : startOfWeek(date, { weekStartsOn: 1 }) <= startOfWeek(today, { weekStartsOn: 1 });
+    const atEnd =
+      view === Views.DAY
+        ? startOfDay(date) >= startOfDay(maxDate)
+        : endOfWeek(date, { weekStartsOn: 1 }) >= maxDate;
+
+    return (
+      <div className="rbc-toolbar">
+        <span className="rbc-btn-group">
+          <button type="button" onClick={() => onNavigate('TODAY')} disabled={atStart}>
+            Hoy
+          </button>
+          {!atStart && (
+            <button type="button" onClick={() => onNavigate('PREV')}>
+              Anterior
+            </button>
+          )}
+          <button type="button" onClick={() => onNavigate('NEXT')} disabled={atEnd}>
+            Siguiente
+          </button>
+        </span>
+        <span className="rbc-toolbar-label">{label}</span>
+        <span className="rbc-btn-group">
+          <button
+            type="button"
+            className={view === Views.WEEK ? 'rbc-active' : ''}
+            onClick={() => onView(Views.WEEK)}
+          >
+            Semana
+          </button>
+          <button
+            type="button"
+            className={view === Views.DAY ? 'rbc-active' : ''}
+            onClick={() => onView(Views.DAY)}
+          >
+            Día
+          </button>
+        </span>
+      </div>
+    );
+  };
+}
+
+/**
  * Calendario público de reservas (estilo Google Calendar). El paciente ve los
  * turnos DISPONIBLES como bloques verdes clicables y los OCUPADOS en gris (sin
  * nombres). En móvil arranca en vista Día; en escritorio, Semana.
@@ -52,6 +112,11 @@ export function BookingCalendar({
 }: BookingCalendarProps) {
   const [view, setView] = useState<View>(defaultView);
   const [date, setDate] = useState<Date>(new Date());
+
+  // Ventana de reserva del paciente: desde hoy hasta un mes adelante. No tiene
+  // sentido navegar al pasado ni más allá de lo que la clínica publica.
+  const today = useMemo(() => startOfDay(new Date()), []);
+  const maxDate = useMemo(() => addMonths(today, 1), [today]);
 
   // Responsive: en pantallas chicas, vista Día (como Google Calendar móvil).
   useEffect(() => {
@@ -71,11 +136,25 @@ export function BookingCalendar({
     [slots],
   );
 
-  // Aterrizar en el primer día con cupo (no en una semana vacía).
+  // Aterrizar en el primer día con cupo (no en una semana vacía) — SOLO al
+  // inicio. Si se re-ejecutara con cada carga incremental de slots, la
+  // navegación "Siguiente" rebotaría de vuelta a la primera semana.
   const firstAvailable = useMemo(() => slots.find((s) => s.available)?.start, [slots]);
+  const landed = useRef(false);
   useEffect(() => {
-    if (firstAvailable) setDate(firstAvailable);
+    if (firstAvailable && !landed.current) {
+      landed.current = true;
+      setDate(firstAvailable);
+    }
   }, [firstAvailable]);
+
+  /** Navegación acotada a [hoy, hoy+1 mes]. */
+  function handleNavigate(next: Date) {
+    const clamped = next < today ? today : next > maxDate ? maxDate : next;
+    setDate(clamped);
+  }
+
+  const toolbar = useMemo(() => makeBookingToolbar(today, maxDate), [today, maxDate]);
 
   const min = useMemo(() => {
     const d = new Date();
@@ -112,12 +191,12 @@ export function BookingCalendar({
           culture="es"
           messages={messagesEs}
           formats={formatsEs}
-          components={{ event: SlotEvent }}
+          components={{ event: SlotEvent, toolbar: toolbar }}
           events={events}
           view={view}
           onView={setView}
           date={date}
-          onNavigate={setDate}
+          onNavigate={handleNavigate}
           views={[Views.WEEK, Views.DAY]}
           // Solo los turnos disponibles son accionables.
           onSelectEvent={(e) => {

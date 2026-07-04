@@ -13,6 +13,8 @@ interface Props {
   name: string;
   primaryColor: string;
   address: string | null;
+  /** Link de Google Maps compartido por la clínica (prioridad sobre address). */
+  mapsUrl?: string | null;
   facebookUrl: string | null;
   instagramUrl: string | null;
   whatsappContact: string | null;
@@ -57,6 +59,7 @@ export function TenantFooter({
   name,
   primaryColor,
   address,
+  mapsUrl,
   facebookUrl,
   instagramUrl,
   whatsappContact,
@@ -83,9 +86,12 @@ export function TenantFooter({
   const mapsSrc = address
     ? `https://maps.google.com/maps?q=${encodeURIComponent(address)}&z=16&output=embed`
     : null;
-  const mapsLink = address
-    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`
-    : null;
+  // El link compartido de Maps (si existe) es más preciso que buscar el texto.
+  const mapsLink =
+    mapsUrl ||
+    (address
+      ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`
+      : null);
 
   const linkCls = 'transition-colors hover:text-text-primary';
 
