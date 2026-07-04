@@ -397,6 +397,9 @@ export const CreateProductSchema = z.object({
   price: z.number().nonnegative('El precio no puede ser negativo').default(0),
   stock: z.number().int().min(0, 'El stock no puede ser negativo').default(0),
   lowStockThreshold: z.number().int().min(0).nullable().optional(),
+  /// Dueño (Opción A): null/omitido = producto de la clínica; uuid = privado
+  /// del doctor (solo él y el admin lo ven).
+  doctorId: z.string().uuid().nullable().optional(),
 });
 export type CreateProductDto = z.infer<typeof CreateProductSchema>;
 

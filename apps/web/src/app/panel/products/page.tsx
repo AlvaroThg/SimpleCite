@@ -9,9 +9,11 @@ import {
   updateProduct,
   adjustStock,
   deleteProduct,
+  getDoctorsAdmin,
   PanelApiError,
   type ProductItem,
   type ProductCategory,
+  type Doctor,
 } from '@/lib/panel-api';
 import { PanelShell } from '@/components/panel/PanelShell';
 import { ErrorBox } from '@/components/panel/ui';
@@ -34,6 +36,7 @@ type Draft = {
   price: string;
   stock: string;
   lowStockThreshold: string;
+  doctorId: string; // '' = producto de la clínica
 };
 const empty: Draft = {
   name: '',
@@ -43,6 +46,7 @@ const empty: Draft = {
   price: '',
   stock: '0',
   lowStockThreshold: '',
+  doctorId: '',
 };
 
 export default function ProductsPage() {
@@ -59,7 +63,11 @@ function isLow(p: ProductItem): boolean {
 
 function Products() {
   const { session } = useAuth();
+  const isAdmin = session?.user.role === 'ADMIN';
   const [items, setItems] = useState<ProductItem[]>([]);
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
+  // Filtro del admin: '' = todos, 'clinic' = de la clínica, uuid = del doctor.
+  const [ownerFilter, setOwnerFilter] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [draft, setDraft] = useState<Draft | null>(null);
@@ -69,17 +77,28 @@ function Products() {
     if (!session) return;
     setLoading(true);
     try {
-      setItems(await getProducts(session.token, session.slug, true));
+      setItems(await getProducts(session.token, session.slug, true, ownerFilter || undefined));
     } catch (err) {
       setError(err instanceof PanelApiError ? err.message : 'Error al cargar productos');
     } finally {
       setLoading(false);
     }
-  }, [session]);
+  }, [session, ownerFilter]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  // Doctores para el filtro/dueño (solo lo usa el admin).
+  useEffect(() => {
+    if (!session || !isAdmin) return;
+    getDoctorsAdmin(session.token, session.slug)
+      .then((d) => setDoctors(d.filter((doc) => doc.isActive)))
+      .catch(() => {});
+  }, [session, isAdmin]);
+
+  const doctorName = (id: string | null) =>
+    id ? (doctors.find((d) => d.id === id)?.name ?? 'Doctor') : null;
 
   async function save() {
     if (!session || !draft) return;
@@ -94,6 +113,7 @@ function Products() {
         price: Number(draft.price) || 0,
         stock: Number(draft.stock) || 0,
         lowStockThreshold: draft.lowStockThreshold === '' ? null : Number(draft.lowStockThreshold),
+        doctorId: draft.doctorId || null,
       };
       if (draft.id) await updateProduct(session.token, session.slug, draft.id, body);
       else await createProduct(session.token, session.slug, body);
@@ -148,6 +168,26 @@ function Products() {
       </div>
 
       {error && <ErrorBox message={error} />}
+
+      {/* Filtro por dueño (solo admin): clínica o un doctor específico */}
+      {isAdmin && doctors.length > 0 && (
+        <label className="flex w-fit items-center gap-2 text-sm text-text-secondary">
+          Ver productos de
+          <select
+            value={ownerFilter}
+            onChange={(e) => setOwnerFilter(e.target.value)}
+            className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          >
+            <option value="">Todos</option>
+            <option value="clinic">La clínica</option>
+            {doctors.map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
 
       {/* Formulario crear/editar */}
       {draft && (
@@ -223,6 +263,24 @@ function Products() {
               />
             </Field>
           </div>
+          {/* Dueño del producto (solo admin): clínica (todos lo ven) o privado
+              de un doctor (solo él y el admin). */}
+          {isAdmin && doctors.length > 0 && (
+            <Field label="Pertenece a">
+              <select
+                value={draft.doctorId}
+                onChange={(e) => setDraft({ ...draft, doctorId: e.target.value })}
+                className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                <option value="">La clínica (visible para todos)</option>
+                {doctors.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name} (privado)
+                  </option>
+                ))}
+              </select>
+            </Field>
+          )}
           <div className="flex justify-end gap-2">
             <button onClick={() => setDraft(null)} className="px-4 py-2 text-sm text-text-muted">
               Cancelar
@@ -261,7 +319,12 @@ function Products() {
                   <span className="truncate">{p.name}</span>
                   {isLow(p) && (
                     <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700">
-                      <AlertTriangle className="size-3" /> Stock bajo
+                      <AlertTriangle className="size-3" /> Reponer
+                    </span>
+                  )}
+                  {p.doctorId && doctorName(p.doctorId) && (
+                    <span className="inline-flex items-center rounded-full border border-border bg-canvas px-2 py-0.5 text-[11px] text-text-secondary">
+                      {doctorName(p.doctorId)}
                     </span>
                   )}
                   {!p.isActive && <span className="text-xs text-red-500">archivado</span>}
@@ -279,12 +342,13 @@ function Products() {
 
               <div className="flex flex-shrink-0 items-center gap-3">
                 {/* Ajuste de stock */}
+                {/* Área táctil mínima 44px para uso en móvil/tablet. */}
                 <div className="flex items-center gap-1.5">
                   <button
                     onClick={() => adjust(p.id, -1)}
                     disabled={p.stock <= 0}
                     aria-label="Restar stock"
-                    className="flex size-7 items-center justify-center rounded-lg border border-border text-text-secondary hover:bg-canvas disabled:opacity-30"
+                    className="flex size-11 items-center justify-center rounded-lg border border-border text-text-secondary hover:bg-canvas disabled:opacity-30"
                   >
                     <Minus className="size-4" />
                   </button>
@@ -298,7 +362,7 @@ function Products() {
                   <button
                     onClick={() => adjust(p.id, 1)}
                     aria-label="Sumar stock"
-                    className="flex size-7 items-center justify-center rounded-lg border border-border text-text-secondary hover:bg-canvas"
+                    className="flex size-11 items-center justify-center rounded-lg border border-border text-text-secondary hover:bg-canvas"
                   >
                     <Plus className="size-4" />
                   </button>
@@ -317,6 +381,7 @@ function Products() {
                         stock: String(p.stock),
                         lowStockThreshold:
                           p.lowStockThreshold == null ? '' : String(p.lowStockThreshold),
+                        doctorId: p.doctorId ?? '',
                       })
                     }
                     className="font-medium text-brand-600 hover:text-brand-800"

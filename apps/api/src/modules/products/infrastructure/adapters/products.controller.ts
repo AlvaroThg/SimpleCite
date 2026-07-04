@@ -39,12 +39,17 @@ export class ProductsController {
   @Roles('ADMIN', 'DOCTOR', 'STAFF')
   async list(
     @CurrentUser('tenantId') tenantId: string,
+    @CurrentUser('sub') userId: string,
+    @CurrentUser('role') role: string,
     @Query('includeInactive') includeInactive?: string,
     @Query('q') q?: string,
+    @Query('doctorId') doctorId?: string,
   ) {
     const data = await this.products.list(tenantId, {
       includeInactive: includeInactive === 'true',
       q,
+      doctorId,
+      requester: { userId, role },
     });
     return { success: true, data };
   }

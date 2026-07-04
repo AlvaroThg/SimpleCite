@@ -18,6 +18,7 @@ import {
   type ProductItem,
 } from '@/lib/panel-api';
 import { ArrowLeft, Lock, X } from 'lucide-react';
+import { toast } from 'sonner';
 import { PanelShell } from '@/components/panel/PanelShell';
 import { fmtDate, fmtTime, ErrorBox } from '@/components/panel/ui';
 import { SkeletonDetail } from '@/components/panel/Skeleton';
@@ -174,6 +175,11 @@ function ConsultaView() {
           instructions: instructions.trim() || undefined,
         });
         prescriptionId = p.id;
+        // Stock bajo tras descontar los medicamentos del inventario: avisar
+        // sin bloquear el cierre de la consulta.
+        for (const item of p.lowStock ?? []) {
+          toast.warning(`⚠ Reponer "${item.name}": quedan ${item.stock} en inventario.`);
+        }
       }
 
       // CONFIRMED → COMPLETED (cierra la cita).

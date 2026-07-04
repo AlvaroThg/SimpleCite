@@ -371,13 +371,15 @@ export async function createPrescription(
   slug: string,
   recordId: string,
   body: { medications: MedicationItem[]; instructions?: string },
-): Promise<PrescriptionItem> {
+): Promise<PrescriptionItem & { lowStock?: { id: string; name: string; stock: number }[] }> {
   const res = await fetch(`${BASE}/api/medical-records/${recordId}/prescriptions`, {
     method: 'POST',
     headers: authHeaders(token, slug),
     body: JSON.stringify(body),
   });
-  const json = await handle<{ data: PrescriptionItem }>(res);
+  const json = await handle<{
+    data: PrescriptionItem & { lowStock?: { id: string; name: string; stock: number }[] };
+  }>(res);
   return json.data;
 }
 
@@ -786,6 +788,8 @@ export interface ProductItem {
   stock: number;
   lowStockThreshold: number | null;
   isActive: boolean;
+  /// Dueño: null = de la clínica; uuid = privado del doctor.
+  doctorId: string | null;
 }
 
 export interface ProductInput {
@@ -796,14 +800,17 @@ export interface ProductInput {
   price: number;
   stock: number;
   lowStockThreshold?: number | null;
+  /// null/omitido = producto de la clínica; uuid = privado del doctor.
+  doctorId?: string | null;
 }
 
-export const getProducts = (t: string, s: string, includeInactive = false) =>
-  get<{ data: ProductItem[] }>(
-    `/api/products${includeInactive ? '?includeInactive=true' : ''}`,
-    t,
-    s,
-  ).then((r) => r.data);
+export const getProducts = (t: string, s: string, includeInactive = false, doctorId?: string) => {
+  const qs = new URLSearchParams();
+  if (includeInactive) qs.set('includeInactive', 'true');
+  if (doctorId) qs.set('doctorId', doctorId); // 'clinic' | uuid (solo admin)
+  const suffix = qs.toString() ? `?${qs.toString()}` : '';
+  return get<{ data: ProductItem[] }>(`/api/products${suffix}`, t, s).then((r) => r.data);
+};
 export const createProduct = (t: string, s: string, body: ProductInput) =>
   post<{ data: ProductItem }>('/api/products', t, s, body).then((r) => r.data);
 export const updateProduct = (

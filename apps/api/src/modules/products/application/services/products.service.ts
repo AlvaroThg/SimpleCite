@@ -11,13 +11,33 @@ import { PrismaService } from '../../../../common/database/prisma.service';
 export class ProductsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async list(tenantId: string, opts: { includeInactive?: boolean; q?: string } = {}) {
+  async list(
+    tenantId: string,
+    opts: {
+      includeInactive?: boolean;
+      q?: string;
+      /// Filtro del admin: 'clinic' = solo de la clínica; uuid = de ese doctor.
+      doctorId?: string;
+      /// Scope por rol (Opción A): un DOCTOR solo ve los productos de la
+      /// clínica (doctorId=null) más los suyos propios.
+      requester?: { userId: string; role: string };
+    } = {},
+  ) {
     const q = opts.q?.trim();
+    const doctorScope =
+      opts.requester?.role === 'DOCTOR'
+        ? { OR: [{ doctorId: null }, { doctorId: opts.requester.userId }] }
+        : opts.doctorId === 'clinic'
+          ? { doctorId: null }
+          : opts.doctorId
+            ? { doctorId: opts.doctorId }
+            : {};
     return this.prisma.client.product.findMany({
       where: {
         tenantId,
         ...(opts.includeInactive ? {} : { isActive: true }),
         ...(q ? { name: { contains: q, mode: 'insensitive' as const } } : {}),
+        ...doctorScope,
       },
       orderBy: { name: 'asc' },
     });
@@ -29,6 +49,15 @@ export class ProductsService {
       select: { id: true },
     });
     if (existing) throw new ConflictException(`Ya existe un producto "${dto.name}"`);
+
+    // Producto privado de un doctor: validar que el doctor es del tenant.
+    if (dto.doctorId) {
+      const doctor = await this.prisma.client.user.findFirst({
+        where: { id: dto.doctorId, tenantId, role: 'DOCTOR' },
+        select: { id: true },
+      });
+      if (!doctor) throw new NotFoundException('Doctor no encontrado');
+    }
     return this.prisma.client.product.create({ data: { ...dto, tenantId } });
   }
 

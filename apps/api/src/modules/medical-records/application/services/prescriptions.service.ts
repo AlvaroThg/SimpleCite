@@ -50,6 +50,10 @@ export class PrescriptionsService {
       },
     });
 
+    // Medicamentos vinculados al inventario: descontar 1 unidad por item y
+    // avisar (no bloquear) si el stock queda en o bajo el umbral de reposición.
+    const lowStock = await this.decrementLinkedStock(ctx.tenantId, dto.medications);
+
     this.logger.log(
       {
         event: 'ehr.prescription.created',
@@ -62,7 +66,46 @@ export class PrescriptionsService {
       'PrescriptionsService',
     );
 
-    return prescription;
+    return { ...prescription, lowStock };
+  }
+
+  /**
+   * Descuenta stock de los productos referenciados por la receta (1 unidad por
+   * item con productId; el stock nunca baja de 0). Best-effort: un fallo de
+   * inventario no rompe la emisión de la receta. Devuelve los productos que
+   * quedaron en o bajo su lowStockThreshold para el toast de advertencia.
+   */
+  private async decrementLinkedStock(
+    tenantId: string,
+    medications: { productId?: string }[],
+  ): Promise<{ id: string; name: string; stock: number }[]> {
+    const counts = new Map<string, number>();
+    for (const m of medications) {
+      if (m.productId) counts.set(m.productId, (counts.get(m.productId) ?? 0) + 1);
+    }
+    if (counts.size === 0) return [];
+
+    const lowStock: { id: string; name: string; stock: number }[] = [];
+    try {
+      for (const [productId, qty] of counts) {
+        const product = await this.prisma.client.product.findFirst({
+          where: { id: productId, tenantId },
+          select: { id: true, name: true, stock: true, lowStockThreshold: true },
+        });
+        if (!product) continue; // texto libre con id inválido: se ignora
+        const stock = Math.max(0, product.stock - qty);
+        await this.prisma.client.product.update({ where: { id: productId }, data: { stock } });
+        if (product.lowStockThreshold !== null && stock <= product.lowStockThreshold) {
+          lowStock.push({ id: product.id, name: product.name, stock });
+        }
+      }
+    } catch (err) {
+      this.logger.warn(
+        { event: 'ehr.prescription.stock-decrement-failed', err: (err as Error).message },
+        'PrescriptionsService',
+      );
+    }
+    return lowStock;
   }
 
   async listByRecord(ctx: RequesterContext, medicalRecordId: string) {
