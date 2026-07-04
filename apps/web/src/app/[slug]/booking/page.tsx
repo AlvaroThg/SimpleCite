@@ -249,6 +249,23 @@ export default function BookingWizard() {
     }
   }
 
+  // Link secundario para que el paciente avise a la clínica de su reserva por
+  // WhatsApp (número general del panel). Manual: él decide enviarlo. Solo se
+  // muestra en flujos SIN QR (el flujo QR ya tiene el CTA del comprobante).
+  const notifyWaLink =
+    state.tenant?.whatsappContact && state.selectedSlot
+      ? `https://wa.me/${state.tenant.whatsappContact.replace(/\D/g, '')}?text=${encodeURIComponent(
+          `Nueva cita en ${state.tenant.name}: ${
+            state.foundPatient?.firstName || state.patientName || 'Paciente'
+          } · ${state.selectedService?.service.name ?? ''} con ${
+            state.selectedDoctor?.name ?? ''
+          } · ${formatDate(state.selectedSlot.startTime, tz)} a las ${formatTime(
+            state.selectedSlot.startTime,
+            tz,
+          )}. Reservado desde simplecite.`,
+        )}`
+      : null;
+
   // Link a WhatsApp de la clínica (número general del panel) para que el
   // paciente envíe el comprobante del pago QR. La verificación es manual por
   // la clínica (no hay bot). Solo si el tenant configuró su WhatsApp.
@@ -964,6 +981,50 @@ export default function BookingWizard() {
                     💵 Tu cita quedó registrada. Paga en efectivo en la clínica el día de tu cita.
                   </p>
                 )}
+
+                {/* Aviso manual a la clínica (flujos sin QR; el QR ya tiene su CTA) */}
+                {state.chosenMethod !== 'STATIC_QR' && notifyWaLink && (
+                  <a
+                    href={notifyWaLink}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-block text-sm font-medium text-text-secondary underline underline-offset-2 hover:text-text-primary"
+                  >
+                    📲 Notificar a {state.tenant?.name} por WhatsApp →
+                  </a>
+                )}
+
+                {/* Ubicación de la clínica: referencia física para llegar. */}
+                {state.tenant?.address && (
+                  <div className="rounded-2xl border border-border bg-surface p-4 text-left">
+                    <p className="mb-3 text-sm text-text-muted">
+                      Por si lo necesitas, aquí está la ubicación de {state.tenant.name}.
+                    </p>
+                    {state.tenant.locationPhotoUrl && (
+                      <div className="relative mb-3 h-44 w-full overflow-hidden rounded-xl border border-border">
+                        <Image
+                          src={state.tenant.locationPhotoUrl}
+                          alt={`Fachada de ${state.tenant.name}`}
+                          fill
+                          sizes="(max-width: 640px) 100vw, 560px"
+                          className="object-cover"
+                        />
+                      </div>
+                    )}
+                    <p className="text-sm font-medium text-text-secondary">
+                      {state.tenant.address}
+                    </p>
+                    <a
+                      href={`https://maps.google.com/?q=${encodeURIComponent(state.tenant.address)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-3 inline-flex items-center gap-1.5 rounded-xl border border-border px-4 py-2 text-sm font-medium text-text-secondary transition hover:border-primary hover:text-text-primary"
+                    >
+                      Abrir en Google Maps →
+                    </a>
+                  </div>
+                )}
+
                 <button
                   className="mt-4 text-sm underline text-text-muted"
                   onClick={() => router.push(`/${slug}`)}

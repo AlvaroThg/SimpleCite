@@ -28,6 +28,7 @@ export interface TenantConfig {
   facebookUrl: string | null;
   instagramUrl: string | null;
   whatsappContact: string | null;
+  locationPhotoUrl: string | null;
   timezone: string;
   plan: string;
   whatsappEnabled: boolean;
@@ -91,6 +92,7 @@ export class TenantService implements TenantServicePort {
         facebookUrl: true,
         instagramUrl: true,
         whatsappContact: true,
+        locationPhotoUrl: true,
         timezone: true,
         plan: true,
         whatsappEnabled: true,
@@ -136,7 +138,7 @@ export class TenantService implements TenantServicePort {
    */
   async uploadAsset(
     tenantId: string,
-    type: 'logo' | 'static-qr' | 'static-qr-2' | 'hero',
+    type: 'logo' | 'static-qr' | 'static-qr-2' | 'hero' | 'location',
     imageBase64: string,
     mimeType: string,
   ): Promise<TenantConfig> {
@@ -148,12 +150,13 @@ export class TenantService implements TenantServicePort {
 
     const FIELD_BY_TYPE: Record<
       typeof type,
-      'logoUrl' | 'heroImageUrl' | 'staticQrUrl' | 'staticQrUrl2'
+      'logoUrl' | 'heroImageUrl' | 'staticQrUrl' | 'staticQrUrl2' | 'locationPhotoUrl'
     > = {
       logo: 'logoUrl',
       hero: 'heroImageUrl',
       'static-qr': 'staticQrUrl',
       'static-qr-2': 'staticQrUrl2',
+      location: 'locationPhotoUrl',
     };
     const field = FIELD_BY_TYPE[type];
     await this.prisma.client.tenant.update({

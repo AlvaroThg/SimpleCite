@@ -62,14 +62,16 @@ export class TenantController {
     @CurrentUser('tenantId') tenantId: string,
     @Body()
     body: {
-      type: 'logo' | 'static-qr' | 'static-qr-2' | 'hero';
+      type: 'logo' | 'static-qr' | 'static-qr-2' | 'hero' | 'location';
       imageBase64: string;
       mimeType: string;
     },
   ) {
     const { type, imageBase64, mimeType } = body;
-    if (!['logo', 'static-qr', 'static-qr-2', 'hero'].includes(type)) {
-      throw new BadRequestException('type debe ser "logo", "static-qr", "static-qr-2" o "hero"');
+    if (!['logo', 'static-qr', 'static-qr-2', 'hero', 'location'].includes(type)) {
+      throw new BadRequestException(
+        'type debe ser "logo", "static-qr", "static-qr-2", "hero" o "location"',
+      );
     }
     if (!imageBase64 || !mimeType) {
       throw new BadRequestException('imageBase64 y mimeType son requeridos');

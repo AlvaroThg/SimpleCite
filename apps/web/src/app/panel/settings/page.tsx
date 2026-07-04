@@ -585,7 +585,7 @@ function Branding({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantConf
   );
 }
 
-// ─── Contacto y redes ─────────────────────────────────────────────────────
+// ─── Contacto y ubicación ─────────────────────────────────────────────────
 function ContactInfo({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantConfig) => void }) {
   const { session } = useAuth();
   const [address, setAddress] = useState(cfg.address ?? '');
@@ -593,6 +593,38 @@ function ContactInfo({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantC
   const [instagramUrl, setInstagramUrl] = useState(cfg.instagramUrl ?? '');
   const [whatsappContact, setWhatsappContact] = useState(cfg.whatsappContact ?? '');
   const [saving, setSaving] = useState(false);
+  const [uploadingLocation, setUploadingLocation] = useState(false);
+  const locationInputRef = useRef<HTMLInputElement>(null);
+
+  /** Sube la foto de la fachada (referencia física para el paciente). */
+  async function handleLocationUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    if (!session) return;
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingLocation(true);
+    try {
+      const reader = new FileReader();
+      const base64 = await new Promise<string>((resolve, reject) => {
+        reader.onload = () => resolve((reader.result as string).split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const updated = await uploadTenantAsset(session.token, session.slug, {
+        type: 'location',
+        imageBase64: base64,
+        mimeType: file.type,
+      });
+      onSaved(updated);
+      toast.success('Foto de la fachada actualizada.');
+    } catch (err) {
+      toast.error(
+        err instanceof PanelApiError ? `Fallo al subir: ${err.message}` : 'Fallo al subir',
+      );
+    } finally {
+      setUploadingLocation(false);
+      e.target.value = '';
+    }
+  }
 
   async function save() {
     if (!session) return;
@@ -616,9 +648,9 @@ function ContactInfo({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantC
   return (
     <section className="bg-surface rounded-2xl border border-border p-5 space-y-5">
       <div>
-        <h2 className="text-sm font-semibold text-text-secondary">Contacto y redes</h2>
+        <h2 className="text-sm font-semibold text-text-secondary">Contacto y ubicación</h2>
         <p className="text-xs text-text-muted">
-          Dirección y enlaces que verán tus pacientes en la página pública.
+          Dirección, foto de la fachada y enlaces que verán tus pacientes en la página pública.
         </p>
       </div>
 
@@ -631,6 +663,43 @@ function ContactInfo({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantC
           className="w-full border border-border-strong rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
         />
       </label>
+
+      {/* Foto de la fachada: se muestra al paciente al confirmar su reserva. */}
+      <div className="flex items-center gap-4">
+        {cfg.locationPhotoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={cfg.locationPhotoUrl}
+            alt="Fachada del consultorio"
+            className="h-28 w-auto max-w-[280px] rounded-xl border border-border bg-surface object-cover"
+          />
+        ) : (
+          <div className="flex h-28 w-44 items-center justify-center rounded-xl border-2 border-dashed border-border p-2 text-center text-xs leading-tight text-text-disabled">
+            Sin foto de fachada
+          </div>
+        )}
+        <div className="space-y-1">
+          <p className="text-sm font-medium text-text-secondary">Foto de la fachada</p>
+          <button
+            type="button"
+            onClick={() => locationInputRef.current?.click()}
+            disabled={uploadingLocation}
+            className="px-3 py-1.5 text-sm border border-border rounded-lg hover:border-brand-300 hover:text-brand-700 disabled:opacity-50 transition"
+          >
+            {uploadingLocation ? 'Subiendo…' : cfg.locationPhotoUrl ? 'Cambiar foto' : 'Subir foto'}
+          </button>
+          <p className="text-xs text-text-muted">
+            Ayuda al paciente a ubicar el consultorio al confirmar su cita.
+          </p>
+          <input
+            ref={locationInputRef}
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            className="hidden"
+            onChange={handleLocationUpload}
+          />
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <label className="block space-y-1">

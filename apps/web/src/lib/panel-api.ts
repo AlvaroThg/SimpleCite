@@ -562,6 +562,8 @@ export interface TenantConfig {
   facebookUrl: string | null;
   instagramUrl: string | null;
   whatsappContact: string | null;
+  /// Foto de la fachada del consultorio (referencia física para el paciente).
+  locationPhotoUrl: string | null;
   timezone: string;
   plan: string;
   whatsappEnabled: boolean;
@@ -592,6 +594,7 @@ export const updateTenantBranding = (
     facebookUrl?: string | null;
     instagramUrl?: string | null;
     whatsappContact?: string | null;
+    locationPhotoUrl?: string | null;
   },
 ) => patch<{ data: TenantConfig }>('/api/tenants/current', t, s, body).then((r) => r.data);
 
@@ -599,7 +602,7 @@ export const uploadTenantAsset = (
   t: string,
   s: string,
   body: {
-    type: 'logo' | 'static-qr' | 'static-qr-2' | 'hero';
+    type: 'logo' | 'static-qr' | 'static-qr-2' | 'hero' | 'location';
     imageBase64: string;
     mimeType: string;
   },

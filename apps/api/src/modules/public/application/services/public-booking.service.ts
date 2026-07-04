@@ -297,6 +297,7 @@ export class PublicBookingService {
         },
         'PublicBookingService',
       );
+      await this.recordBookingNotification(tenantId, appointmentId);
       return confirmed;
     }
 
@@ -325,7 +326,27 @@ export class PublicBookingService {
       'PublicBookingService',
     );
 
+    await this.recordBookingNotification(tenantId, appointmentId);
     return updated;
+  }
+
+  /**
+   * Stub para el bot futuro: registra que hay una reserva pública nueva que
+   * notificar a la clínica. Best-effort e idempotente (unique por cita).
+   */
+  private async recordBookingNotification(tenantId: string, appointmentId: string) {
+    try {
+      await this.prisma.client.bookingNotification.upsert({
+        where: { appointmentId },
+        create: { tenantId, appointmentId },
+        update: {},
+      });
+    } catch (err) {
+      this.logger.warn(
+        { event: 'public.booking.notification-failed', appointmentId, err: (err as Error).message },
+        'PublicBookingService',
+      );
+    }
   }
 
   /**

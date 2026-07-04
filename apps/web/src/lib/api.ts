@@ -34,6 +34,8 @@ export interface TenantInfo {
   facebookUrl: string | null;
   instagramUrl: string | null;
   whatsappContact: string | null;
+  /// Foto de la fachada del consultorio (referencia física para el paciente).
+  locationPhotoUrl: string | null;
   staticQrUrl: string | null;
   staticQrLabel: string | null;
   staticQrUrl2: string | null;
