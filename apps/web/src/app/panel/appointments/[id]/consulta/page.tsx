@@ -19,6 +19,7 @@ import {
 } from '@/lib/panel-api';
 import { ArrowLeft, Lock, X } from 'lucide-react';
 import { toast } from 'sonner';
+import { Switch } from '@/components/ui/switch';
 import { PanelShell } from '@/components/panel/PanelShell';
 import { fmtDate, fmtTime, ErrorBox } from '@/components/panel/ui';
 import { SkeletonDetail } from '@/components/panel/Skeleton';
@@ -255,18 +256,17 @@ function ConsultaView() {
 
             {/* Marcador de tratamiento */}
             <div className="rounded-xl border border-border bg-canvas p-3">
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={form.isNewTreatment}
-                  onChange={(e) => setForm((f) => ({ ...f, isNewTreatment: e.target.checked }))}
-                  disabled={readOnly}
-                  className="size-4 accent-brand-600"
-                />
+              <div className="flex items-center justify-between gap-2">
                 <span className="text-sm font-medium text-text-secondary">
                   Es un nuevo tratamiento
                 </span>
-              </label>
+                <Switch
+                  checked={form.isNewTreatment}
+                  onCheckedChange={(v) => setForm((f) => ({ ...f, isNewTreatment: v }))}
+                  disabled={readOnly}
+                  aria-label="Es un nuevo tratamiento"
+                />
+              </div>
               {form.isNewTreatment && (
                 <input
                   value={form.treatmentLabel}

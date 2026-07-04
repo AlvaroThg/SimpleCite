@@ -29,6 +29,7 @@ import { SkeletonList } from '@/components/panel/Skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Button } from '@/components/ui/button';
 import { Avatar } from '@/components/ui/avatar';
+import { Switch } from '@/components/ui/switch';
 import { Stethoscope, Upload, Shield } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -288,17 +289,16 @@ function Doctors() {
           )}
           {draft.id && (
             <div className="space-y-3 rounded-lg border border-border bg-canvas p-3">
-              <label className="flex items-center justify-between gap-2 text-sm">
+              <div className="flex items-center justify-between gap-2 text-sm">
                 <span className="flex items-center gap-2 font-medium text-text-secondary">
                   <Shield className="size-4 text-text-muted" /> Modo seguro
                 </span>
-                <input
-                  type="checkbox"
+                <Switch
                   checked={draft.insuranceMode}
-                  onChange={(e) => setDraft({ ...draft, insuranceMode: e.target.checked })}
-                  className="size-4 accent-brand-600"
+                  onCheckedChange={(v) => setDraft({ ...draft, insuranceMode: v })}
+                  aria-label="Modo seguro"
                 />
-              </label>
+              </div>
               <p className="text-xs text-text-muted">
                 Con el modo seguro activo, las citas de este especialista se cubren por seguro
                 médico: el paciente elige su seguro al reservar y no paga en la clínica.
@@ -307,14 +307,19 @@ function Doctors() {
             </div>
           )}
           {draft.id && (
-            <label className="flex items-center gap-2 text-sm text-text-secondary">
-              <input
-                type="checkbox"
+            <div className="flex items-center justify-between gap-2 rounded-lg border border-border bg-canvas p-3 text-sm">
+              <div>
+                <span className="font-medium text-text-secondary">Activo</span>
+                <p className="text-xs text-text-muted">
+                  Inactivo deja de aparecer en la agenda y el booking.
+                </p>
+              </div>
+              <Switch
                 checked={draft.isActive}
-                onChange={(e) => setDraft({ ...draft, isActive: e.target.checked })}
+                onCheckedChange={(v) => setDraft({ ...draft, isActive: v })}
+                aria-label="Doctor activo"
               />
-              Activo
-            </label>
+            </div>
           )}
           <div className="flex gap-2 justify-end">
             <button onClick={() => setDraft(null)} className="px-4 py-2 text-sm text-text-muted">
@@ -536,19 +541,20 @@ function DoctorInsurances({ doctorId }: { doctorId: string }) {
       <p className="text-xs font-semibold uppercase tracking-wider text-text-muted">
         Seguros que acepta
       </p>
-      <ul className="space-y-1">
+      <ul className="divide-y divide-[var(--border-hairline)]">
         {options.map((opt) => (
-          <li key={opt.id}>
-            <label className="flex cursor-pointer items-center gap-2 rounded-lg px-1 py-1 text-sm text-text-secondary hover:text-text-primary">
-              <input
-                type="checkbox"
-                checked={opt.assigned}
-                disabled={busy}
-                onChange={() => toggle(opt)}
-                className="size-4 accent-brand-600"
-              />
+          <li key={opt.id} className="flex items-center justify-between gap-2 py-2">
+            <span
+              className={`text-sm ${opt.assigned ? 'font-medium text-text-primary' : 'text-text-secondary'}`}
+            >
               {opt.name}
-            </label>
+            </span>
+            <Switch
+              checked={opt.assigned}
+              disabled={busy}
+              onCheckedChange={() => toggle(opt)}
+              aria-label={`Aceptar ${opt.name}`}
+            />
           </li>
         ))}
       </ul>
