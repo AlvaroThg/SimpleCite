@@ -5,7 +5,7 @@ import { z } from 'zod';
 export const UserRole = z.enum(['ADMIN', 'DOCTOR', 'STAFF']);
 export type UserRole = z.infer<typeof UserRole>;
 
-export const PaymentMethod = z.enum(['CASH', 'STATIC_QR']);
+export const PaymentMethod = z.enum(['CASH', 'STATIC_QR', 'INSURANCE']);
 export type PaymentMethod = z.infer<typeof PaymentMethod>;
 
 /** Íconos disponibles para los servicios en la landing (mirror en el frontend). */
@@ -121,8 +121,34 @@ export const UpdateDoctorSchema = z.object({
   /// QR bancario propio del doctor (modo PER_DOCTOR).
   qrUrl: z.string().url('URL de QR inválida').max(500).nullable().optional(),
   qrLabel: z.string().max(60).nullable().optional(),
+  /// Modo seguro: las citas con este doctor van por seguro, sin cobro directo.
+  insuranceMode: z.boolean().optional(),
 });
 export type UpdateDoctorDto = z.infer<typeof UpdateDoctorSchema>;
+
+// ─── Seguros médicos (Addendum G) ───
+
+/** Alta de un seguro en el catálogo del tenant (ADMIN). */
+export const CreateTenantInsuranceSchema = z.object({
+  name: z.string().trim().min(2, 'Nombre muy corto').max(80),
+});
+export type CreateTenantInsuranceDto = z.infer<typeof CreateTenantInsuranceSchema>;
+
+/** Edición / archivado (soft) de un seguro del catálogo. */
+export const UpdateTenantInsuranceSchema = z
+  .object({
+    name: z.string().trim().min(2).max(80).optional(),
+    isActive: z.boolean().optional(),
+  })
+  .refine((v) => Object.keys(v).length > 0, { message: 'Nada que actualizar' });
+export type UpdateTenantInsuranceDto = z.infer<typeof UpdateTenantInsuranceSchema>;
+
+/** Asignar/desasignar un seguro a un doctor (checkbox del panel). */
+export const SetDoctorInsuranceSchema = z.object({
+  tenantInsuranceId: z.string().uuid(),
+  isActive: z.boolean(),
+});
+export type SetDoctorInsuranceDto = z.infer<typeof SetDoctorInsuranceSchema>;
 
 // ─── Patient Schemas ───
 
@@ -222,10 +248,16 @@ export const CreateAppointmentSchema = z
     doctorId: z.string().uuid(),
     serviceId: z.string().uuid(),
     paymentMethod: PaymentMethod.default('CASH'),
+    /// Requerido cuando paymentMethod=INSURANCE: seguro que cubre la cita.
+    tenantInsuranceId: z.string().uuid().optional(),
   })
   .refine((d) => new Date(d.endTime) > new Date(d.startTime), {
     message: 'endTime debe ser posterior a startTime',
     path: ['endTime'],
+  })
+  .refine((d) => d.paymentMethod !== 'INSURANCE' || !!d.tenantInsuranceId, {
+    message: 'Selecciona el seguro que cubre la cita',
+    path: ['tenantInsuranceId'],
   });
 export type CreateAppointmentDto = z.infer<typeof CreateAppointmentSchema>;
 
@@ -430,12 +462,19 @@ export const CreatePublicAppointmentSchema = z.object({
 });
 export type CreatePublicAppointmentDto = z.infer<typeof CreatePublicAppointmentSchema>;
 
-/** Confirmación de la reserva pública: elige método de pago (efectivo o QR). */
-export const ConfirmPublicBookingSchema = z.object({
-  paymentMethod: PaymentMethod,
-  /// Modo abierto (sin OTP): el phone del titular viaja en el body.
-  phone: PhoneSchema.optional(),
-});
+/** Confirmación de la reserva pública: método de pago (efectivo/QR) o seguro. */
+export const ConfirmPublicBookingSchema = z
+  .object({
+    paymentMethod: PaymentMethod,
+    /// Requerido cuando paymentMethod=INSURANCE (doctor en modo seguro).
+    tenantInsuranceId: z.string().uuid().optional(),
+    /// Modo abierto (sin OTP): el phone del titular viaja en el body.
+    phone: PhoneSchema.optional(),
+  })
+  .refine((d) => d.paymentMethod !== 'INSURANCE' || !!d.tenantInsuranceId, {
+    message: 'Selecciona el seguro con el que asistirás',
+    path: ['tenantInsuranceId'],
+  });
 export type ConfirmPublicBookingDto = z.infer<typeof ConfirmPublicBookingSchema>;
 
 // ─── Public Tenant Info (response shape, no DTO de input) ───

@@ -14,10 +14,13 @@ import {
   unassignServiceFromDoctor,
   updateDoctorService,
   createService,
+  getDoctorInsurances,
+  setDoctorInsurance,
   PanelApiError,
   type Doctor,
   type ServiceItem,
   type DoctorServiceLink,
+  type DoctorInsuranceOption,
 } from '@/lib/panel-api';
 import { PanelShell } from '@/components/panel/PanelShell';
 import { ErrorBox } from '@/components/panel/ui';
@@ -25,7 +28,7 @@ import { SkeletonList } from '@/components/panel/Skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Button } from '@/components/ui/button';
 import { Avatar } from '@/components/ui/avatar';
-import { Stethoscope, Upload } from 'lucide-react';
+import { Stethoscope, Upload, Shield } from 'lucide-react';
 import { toast } from 'sonner';
 
 /** Iniciales (máx. 2) a partir del nombre del doctor, para el avatar. */
@@ -57,6 +60,7 @@ type Draft = {
   qrUrl: string;
   qrLabel: string;
   isActive: boolean;
+  insuranceMode: boolean;
 };
 const empty: Draft = {
   email: '',
@@ -68,6 +72,7 @@ const empty: Draft = {
   qrUrl: '',
   qrLabel: '',
   isActive: true,
+  insuranceMode: false,
 };
 
 function Doctors() {
@@ -138,6 +143,7 @@ function Doctors() {
           qrUrl: draft.qrUrl.trim() || null,
           qrLabel: draft.qrLabel.trim() || null,
           isActive: draft.isActive,
+          insuranceMode: draft.insuranceMode,
         });
       } else {
         await createDoctor(session.token, session.slug, {
@@ -280,6 +286,26 @@ function Doctors() {
             </div>
           )}
           {draft.id && (
+            <div className="space-y-3 rounded-lg border border-border bg-canvas p-3">
+              <label className="flex items-center justify-between gap-2 text-sm">
+                <span className="flex items-center gap-2 font-medium text-text-secondary">
+                  <Shield className="size-4 text-text-muted" /> Modo seguro
+                </span>
+                <input
+                  type="checkbox"
+                  checked={draft.insuranceMode}
+                  onChange={(e) => setDraft({ ...draft, insuranceMode: e.target.checked })}
+                  className="size-4 accent-brand-600"
+                />
+              </label>
+              <p className="text-xs text-text-muted">
+                Con el modo seguro activo, las citas de este especialista se cubren por seguro
+                médico: el paciente elige su seguro al reservar y no paga en la clínica.
+              </p>
+              {draft.insuranceMode && <DoctorInsurances doctorId={draft.id} />}
+            </div>
+          )}
+          {draft.id && (
             <label className="flex items-center gap-2 text-sm text-text-secondary">
               <input
                 type="checkbox"
@@ -331,8 +357,15 @@ function Doctors() {
                         <span className="text-red-500 font-normal"> · archivado</span>
                       )}
                     </p>
-                    <p className="text-sm text-text-muted truncate">
-                      {d.specialty ?? 'Sin especialidad'} · {d.email}
+                    <p className="flex items-center gap-1.5 text-sm text-text-muted truncate">
+                      <span className="truncate">
+                        {d.specialty ?? 'Sin especialidad'} · {d.email}
+                      </span>
+                      {d.insuranceMode && (
+                        <span className="inline-flex flex-shrink-0 items-center gap-1 rounded-full border border-border bg-canvas px-2 py-px text-[11px] font-medium text-text-secondary">
+                          <Shield className="size-3" /> Seguro
+                        </span>
+                      )}
                     </p>
                   </div>
                 </div>
@@ -356,6 +389,7 @@ function Doctors() {
                         qrUrl: d.qrUrl ?? '',
                         qrLabel: d.qrLabel ?? '',
                         isActive: d.isActive,
+                        insuranceMode: d.insuranceMode,
                       })
                     }
                     className="text-brand-600 hover:text-brand-800 font-medium transition-colors"
@@ -377,6 +411,76 @@ function Doctors() {
           ))}
         </ul>
       )}
+    </div>
+  );
+}
+
+/**
+ * Checkboxes de seguros para un doctor en modo seguro: catálogo activo del
+ * tenant + estado de asignación. Marcar crea/activa el DoctorInsurance;
+ * desmarcar lo desactiva (soft).
+ */
+function DoctorInsurances({ doctorId }: { doctorId: string }) {
+  const { session } = useAuth();
+  const [options, setOptions] = useState<DoctorInsuranceOption[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (!session) return;
+    getDoctorInsurances(session.token, session.slug, doctorId)
+      .then(setOptions)
+      .catch(() => toast.error('No se pudieron cargar los seguros'))
+      .finally(() => setLoading(false));
+  }, [session, doctorId]);
+
+  async function toggle(opt: DoctorInsuranceOption) {
+    if (!session || busy) return;
+    setBusy(true);
+    try {
+      setOptions(
+        await setDoctorInsurance(session.token, session.slug, doctorId, {
+          tenantInsuranceId: opt.id,
+          isActive: !opt.assigned,
+        }),
+      );
+    } catch (e) {
+      toast.error(e instanceof PanelApiError ? e.message : 'No se pudo actualizar');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (loading) return <p className="text-xs text-text-muted">Cargando seguros…</p>;
+  if (options.length === 0) {
+    return (
+      <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+        No hay seguros en el catálogo. Agrégalos primero en{' '}
+        <strong>Configuración → Seguros médicos</strong>.
+      </p>
+    );
+  }
+  return (
+    <div className="space-y-1.5">
+      <p className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+        Seguros que acepta
+      </p>
+      <ul className="space-y-1">
+        {options.map((opt) => (
+          <li key={opt.id}>
+            <label className="flex cursor-pointer items-center gap-2 rounded-lg px-1 py-1 text-sm text-text-secondary hover:text-text-primary">
+              <input
+                type="checkbox"
+                checked={opt.assigned}
+                disabled={busy}
+                onChange={() => toggle(opt)}
+                className="size-4 accent-brand-600"
+              />
+              {opt.name}
+            </label>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

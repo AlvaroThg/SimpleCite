@@ -76,7 +76,28 @@ export class AppointmentsService {
     }
 
     const paymentMethod = dto.paymentMethod ?? 'CASH';
+    // INSURANCE se confirma directo (no hay cobro que aprobar); QR queda
+    // pendiente de pago; efectivo se confirma (walk-in del staff).
     const status = paymentMethod === 'STATIC_QR' ? 'PENDING_PAYMENT' : 'CONFIRMED';
+
+    // Modo seguro (Addendum G): validar que el seguro está activo y asignado
+    // al doctor, y congelar el nombre (snapshot inmutable para reportes/PDFs).
+    let insuranceData: { tenantInsuranceId: string; insuranceNameSnapshot: string } | null = null;
+    if (paymentMethod === 'INSURANCE') {
+      const insurance = await this.prisma.client.tenantInsurance.findFirst({
+        where: {
+          id: dto.tenantInsuranceId,
+          tenantId,
+          isActive: true,
+          doctorAssignments: { some: { doctorId: dto.doctorId, isActive: true } },
+        },
+        select: { id: true, name: true },
+      });
+      if (!insurance) {
+        throw new BadRequestException('Seguro no válido para este especialista');
+      }
+      insuranceData = { tenantInsuranceId: insurance.id, insuranceNameSnapshot: insurance.name };
+    }
 
     try {
       const appointment = await this.prisma.client.appointment.create({
@@ -91,6 +112,7 @@ export class AppointmentsService {
           status,
           price,
           cancellationToken: generateCancellationToken(),
+          ...(insuranceData ?? {}),
         },
         include: {
           patient: { select: { phone: true, name: true } },

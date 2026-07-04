@@ -32,7 +32,7 @@ export interface PanelUser {
   tenantId: string;
 }
 
-export type PaymentMethod = 'CASH' | 'STATIC_QR';
+export type PaymentMethod = 'CASH' | 'STATIC_QR' | 'INSURANCE';
 
 export interface AppointmentListItem {
   id: string;
@@ -42,6 +42,8 @@ export interface AppointmentListItem {
   isPaid: boolean;
   paymentMethod: PaymentMethod;
   receiptUrl: string | null;
+  /// Nombre del seguro congelado al crear la cita (solo INSURANCE).
+  insuranceNameSnapshot?: string | null;
   patient: { id: string; name: string; phone: string; ci?: string | null };
   doctor: { id: string; name: string };
   service: { id: string; name: string; duration: number; price: string; color?: string | null };
@@ -168,6 +170,8 @@ export async function createAppointment(
     startTime: string;
     endTime: string;
     paymentMethod?: PaymentMethod;
+    /// Requerido cuando paymentMethod=INSURANCE.
+    tenantInsuranceId?: string;
   },
 ): Promise<AppointmentListItem> {
   const res = await fetch(`${BASE}/api/appointments`, {
@@ -448,6 +452,13 @@ export const getSlots = (
 
 // ─── Reports ──────────────────────────────────────────────────────────
 
+export interface ReportInsuranceRow {
+  name: string;
+  count: number;
+  /// Valor referencial (precio de lista) — el paciente pagó Bs 0.
+  referentialValue: number;
+}
+
 export interface ReportsSummary {
   citasHoy: number;
   ingresosMes: number;
@@ -477,6 +488,10 @@ export interface ReportAnalytics {
   from: string;
   to: string;
   totals: { income: number; completed: number; cancelled: number; noShow: number; total: number };
+  /// Ingreso real por método de cobro (los seguros nunca suman aquí).
+  incomeByMethod: { cash: number; qr: number };
+  /// Columnas dinámicas por seguro presente en el período (snapshots).
+  byInsurance: ReportInsuranceRow[];
   byDoctor: ReportDoctorRow[];
   incomeOverTime: { date: string; income: number }[];
 }
@@ -613,6 +628,10 @@ export interface Doctor {
   bio: string | null;
   qrUrl: string | null;
   qrLabel: string | null;
+  /// Modo seguro: las citas de este doctor van por seguro médico, sin cobro.
+  insuranceMode: boolean;
+  /// Foto del especialista (R2). Null = avatar de iniciales.
+  photoUrl: string | null;
 }
 export const getDoctorsAdmin = (t: string, s: string) =>
   get<{ data: Doctor[] }>('/api/doctors', t, s).then((r) => r.data);
@@ -669,6 +688,46 @@ export const updateDoctorService = (
   body: { customDuration?: number | null; customPrice?: number | null },
 ) =>
   patch<{ data: DoctorServiceLink }>(`/api/services/assignments/${linkId}`, t, s, body).then(
+    (r) => r.data,
+  );
+
+// ─── Seguros médicos (Addendum G) ─────────────────────────────────────
+
+export interface TenantInsurance {
+  id: string;
+  name: string;
+  isActive: boolean;
+}
+/** Seguro del catálogo activo + si está asignado a un doctor (checkboxes). */
+export interface DoctorInsuranceOption {
+  id: string;
+  name: string;
+  assigned: boolean;
+}
+
+export const getTenantInsurances = (t: string, s: string) =>
+  get<{ data: TenantInsurance[] }>('/api/tenant-insurances', t, s).then((r) => r.data);
+export const createTenantInsurance = (t: string, s: string, body: { name: string }) =>
+  post<{ data: TenantInsurance }>('/api/tenant-insurances', t, s, body).then((r) => r.data);
+export const updateTenantInsurance = (
+  t: string,
+  s: string,
+  id: string,
+  body: { name?: string; isActive?: boolean },
+) =>
+  patch<{ data: TenantInsurance }>(`/api/tenant-insurances/${id}`, t, s, body).then((r) => r.data);
+
+export const getDoctorInsurances = (t: string, s: string, doctorId: string) =>
+  get<{ data: DoctorInsuranceOption[] }>(`/api/doctors/${doctorId}/insurances`, t, s).then(
+    (r) => r.data,
+  );
+export const setDoctorInsurance = (
+  t: string,
+  s: string,
+  doctorId: string,
+  body: { tenantInsuranceId: string; isActive: boolean },
+) =>
+  put<{ data: DoctorInsuranceOption[] }>(`/api/doctors/${doctorId}/insurances`, t, s, body).then(
     (r) => r.data,
   );
 

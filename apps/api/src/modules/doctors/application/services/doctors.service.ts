@@ -118,6 +118,7 @@ export class DoctorsService {
             ...(dto.bio !== undefined && { bio: dto.bio }),
             ...(dto.qrUrl !== undefined && { qrUrl: dto.qrUrl }),
             ...(dto.qrLabel !== undefined && { qrLabel: dto.qrLabel }),
+            ...(dto.insuranceMode !== undefined && { insuranceMode: dto.insuranceMode }),
           },
         },
       },
@@ -158,6 +159,8 @@ export class DoctorsService {
       bio: string | null;
       qrUrl?: string | null;
       qrLabel?: string | null;
+      insuranceMode?: boolean;
+      photoUrl?: string | null;
     } | null;
   }) {
     return {
@@ -171,6 +174,8 @@ export class DoctorsService {
       bio: d.doctorProfile?.bio ?? null,
       qrUrl: d.doctorProfile?.qrUrl ?? null,
       qrLabel: d.doctorProfile?.qrLabel ?? null,
+      insuranceMode: d.doctorProfile?.insuranceMode ?? false,
+      photoUrl: d.doctorProfile?.photoUrl ?? null,
     };
   }
 }

@@ -78,6 +78,7 @@ enum NoteVisibility {
 enum PaymentMethod {
   CASH /// Efectivo en la clínica
   STATIC_QR /// QR bancario estático — paciente envía comprobante por WhatsApp
+  INSURANCE /// Cobertura por seguro médico — no hay cobro al paciente
 }
 
 enum QrAssignmentMode {
@@ -148,6 +149,8 @@ model Tenant {
   medicalRecords    MedicalRecord[]
   prescriptions     Prescription[]
   products          Product[]
+  tenantInsurances  TenantInsurance[]
+  doctorInsurances  DoctorInsurance[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -184,6 +187,8 @@ model User {
   doctorServices       DoctorService[]
   doctorScheduleRules  DoctorScheduleRule[]
   doctorScheduleBlocks DoctorScheduleBlock[]
+  /// Seguros médicos asignados a este doctor (solo aplica con insuranceMode).
+  insuranceAssignments DoctorInsurance[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -204,6 +209,12 @@ model DoctorProfile {
   /// QR bancario propio del doctor (solo aplica si el tenant usa PER_DOCTOR).
   qrUrl   String?
   qrLabel String? /// Nombre del banco del QR del doctor
+
+  /// Si true, las citas con este doctor van por seguro, no por cobro directo.
+  insuranceMode Boolean @default(false)
+
+  /// URL pública en Cloudflare R2. Foto del especialista (booking + landing).
+  photoUrl String?
 
   userId   String @unique
   user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -314,6 +325,15 @@ model Appointment {
   paymentMethod PaymentMethod @default(CASH)
   /// URL del comprobante de pago enviado por el paciente vía WhatsApp.
   receiptUrl    String?
+
+  /// Seguro que cubre esta cita (solo paymentMethod=INSURANCE).
+  tenantInsuranceId String?
+  tenantInsurance   TenantInsurance? @relation(fields: [tenantInsuranceId], references: [id], onDelete: SetNull)
+
+  /// Nombre del seguro en el momento de crear la cita — INMUTABLE.
+  /// Fuente de verdad para PDFs y reportes históricos independientemente
+  /// de si el admin renombra o archiva el seguro después.
+  insuranceNameSnapshot String?
 
   /// Monto cobrado por esta cita, congelado al crearla: customPrice del doctor
   /// para el servicio ?? precio del servicio. Fuente de verdad para reportes.
@@ -489,6 +509,53 @@ model Product {
   @@index([tenantId])
   @@index([tenantId, isActive])
   @@map("products")
+}
+
+/// Seguro médico aceptado por la clínica. Catálogo que define el admin una vez;
+/// luego se asigna por doctor vía DoctorInsurance. Archivado = isActive:false
+/// (las citas históricas conservan insuranceNameSnapshot).
+model TenantInsurance {
+  id       String  @id @default(uuid())
+  name     String /// "Univida", "Universitario", "COSSMIL", etc.
+  isActive Boolean @default(true)
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  doctorAssignments DoctorInsurance[]
+  appointments      Appointment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([name, tenantId])
+  @@index([tenantId])
+  @@map("tenant_insurances")
+}
+
+/// Asignación M:N doctor ↔ seguro: subconjunto del catálogo del tenant que un
+/// doctor específico acepta. Desasignar = isActive:false (soft, reversible).
+model DoctorInsurance {
+  id       String  @id @default(uuid())
+  isActive Boolean @default(true)
+
+  doctorId String
+  doctor   User   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  tenantInsuranceId String
+  tenantInsurance   TenantInsurance @relation(fields: [tenantInsuranceId], references: [id], onDelete: Cascade)
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([doctorId, tenantInsuranceId])
+  @@index([doctorId])
+  @@index([tenantInsuranceId])
+  @@index([tenantId])
+  @@map("doctor_insurances")
 }
 
 /// Catálogo de servicios que ofrece un doctor específico.

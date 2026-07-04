@@ -11,9 +11,13 @@ import {
   createWaInstance,
   restartWaInstance,
   deleteWaInstance,
+  getTenantInsurances,
+  createTenantInsurance,
+  updateTenantInsurance,
   PanelApiError,
   type TenantConfig,
   type WaInstance,
+  type TenantInsurance,
 } from '@/lib/panel-api';
 import { PanelShell } from '@/components/panel/PanelShell';
 import { ErrorBox } from '@/components/panel/ui';
@@ -80,6 +84,7 @@ function Settings() {
           <>
             <Branding cfg={cfg} onSaved={setCfg} />
             <ContactInfo cfg={cfg} onSaved={setCfg} />
+            <Insurances />
           </>
         ) : (
           <section className="bg-surface rounded-2xl border border-border p-5">
@@ -672,6 +677,192 @@ function ContactInfo({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantC
           {saving ? 'Guardando…' : 'Guardar'}
         </button>
       </div>
+    </section>
+  );
+}
+
+// ─── Seguros médicos (Addendum G) ─────────────────────────────────────────
+function Insurances() {
+  const { session } = useAuth();
+  const [items, setItems] = useState<TenantInsurance[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [newName, setNewName] = useState('');
+  const [busy, setBusy] = useState(false);
+  // Edición inline del nombre: id en edición + valor del borrador.
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+
+  const load = useCallback(async () => {
+    if (!session) return;
+    setLoading(true);
+    try {
+      setItems(await getTenantInsurances(session.token, session.slug));
+    } catch (e) {
+      toast.error(e instanceof PanelApiError ? e.message : 'Error al cargar seguros');
+    } finally {
+      setLoading(false);
+    }
+  }, [session]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  async function add() {
+    if (!session || !newName.trim()) return;
+    setBusy(true);
+    try {
+      await createTenantInsurance(session.token, session.slug, { name: newName.trim() });
+      setNewName('');
+      await load();
+      toast.success('Seguro agregado.');
+    } catch (e) {
+      toast.error(e instanceof PanelApiError ? e.message : 'No se pudo agregar');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveName(id: string) {
+    if (!session || !editName.trim()) return;
+    setBusy(true);
+    try {
+      await updateTenantInsurance(session.token, session.slug, id, { name: editName.trim() });
+      setEditingId(null);
+      await load();
+      toast.success('Seguro actualizado.');
+    } catch (e) {
+      toast.error(e instanceof PanelApiError ? e.message : 'No se pudo actualizar');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function toggleActive(ins: TenantInsurance) {
+    if (!session) return;
+    setBusy(true);
+    try {
+      await updateTenantInsurance(session.token, session.slug, ins.id, {
+        isActive: !ins.isActive,
+      });
+      await load();
+      toast.success(ins.isActive ? 'Seguro archivado.' : 'Seguro reactivado.');
+    } catch (e) {
+      toast.error(e instanceof PanelApiError ? e.message : 'No se pudo actualizar');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="bg-surface rounded-2xl border border-border p-5 space-y-4">
+      <div>
+        <h2 className="text-sm font-semibold text-text-secondary">Seguros médicos</h2>
+        <p className="text-xs text-text-muted">
+          Catálogo de seguros que acepta tu clínica. Después de agregar un seguro, ve a{' '}
+          <strong>Doctores</strong> para asignárselo individualmente a cada especialista.
+        </p>
+      </div>
+
+      <div className="flex gap-2">
+        <input
+          value={newName}
+          onChange={(e) => setNewName(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') void add();
+          }}
+          placeholder="Ej: Univida, COSSMIL, Universitario…"
+          className="flex-1 border border-border-strong rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+        />
+        <button
+          onClick={add}
+          disabled={busy || !newName.trim()}
+          className="px-4 py-2 rounded-xl bg-brand-600 text-white text-sm font-semibold hover:bg-brand-700 disabled:opacity-50"
+        >
+          Agregar
+        </button>
+      </div>
+
+      {loading ? (
+        <p className="text-sm text-text-muted">Cargando…</p>
+      ) : items.length === 0 ? (
+        <p className="text-sm text-text-muted">Aún no agregaste ningún seguro.</p>
+      ) : (
+        <ul className="divide-y divide-[var(--border-hairline)]">
+          {items.map((ins) => (
+            <li key={ins.id} className="flex items-center justify-between gap-3 py-2.5">
+              {editingId === ins.id ? (
+                <div className="flex flex-1 items-center gap-2">
+                  <input
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') void saveName(ins.id);
+                      if (e.key === 'Escape') setEditingId(null);
+                    }}
+                    autoFocus
+                    className="flex-1 border border-border-strong rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+                  />
+                  <button
+                    onClick={() => saveName(ins.id)}
+                    disabled={busy}
+                    className="text-sm font-medium text-brand-600 hover:text-brand-800"
+                  >
+                    Guardar
+                  </button>
+                  <button
+                    onClick={() => setEditingId(null)}
+                    className="text-sm text-text-muted hover:text-text-primary"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span
+                      className={`truncate text-sm font-medium ${
+                        ins.isActive ? 'text-text-primary' : 'text-text-muted line-through'
+                      }`}
+                    >
+                      {ins.name}
+                    </span>
+                    {!ins.isActive && (
+                      <span className="rounded-full border border-border bg-canvas px-2 py-px text-[11px] text-text-muted">
+                        Archivado
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex flex-shrink-0 gap-3 text-sm">
+                    {ins.isActive && (
+                      <button
+                        onClick={() => {
+                          setEditingId(ins.id);
+                          setEditName(ins.name);
+                        }}
+                        className="font-medium text-brand-600 hover:text-brand-800"
+                      >
+                        Editar
+                      </button>
+                    )}
+                    <button
+                      onClick={() => toggleActive(ins)}
+                      disabled={busy}
+                      className={
+                        ins.isActive
+                          ? 'text-text-muted hover:text-text-primary'
+                          : 'font-medium text-brand-600 hover:text-brand-800'
+                      }
+                    >
+                      {ins.isActive ? 'Archivar' : 'Reactivar'}
+                    </button>
+                  </div>
+                </>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
     </section>
   );
 }

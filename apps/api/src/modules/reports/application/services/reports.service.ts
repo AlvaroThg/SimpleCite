@@ -12,10 +12,23 @@ export interface ReportDoctorRow {
   noShow: number;
   total: number;
 }
+export interface ReportInsuranceRow {
+  /// Nombre desde insuranceNameSnapshot (inmutable), NUNCA el id actual.
+  name: string;
+  /// Citas del período cubiertas por este seguro (no canceladas).
+  count: number;
+  /// Valor referencial para la clínica: suma del precio de lista congelado.
+  /// El paciente pagó Bs 0 — esto NO es ingreso.
+  referentialValue: number;
+}
 export interface ReportAnalytics {
   from: string;
   to: string;
   totals: { income: number; completed: number; cancelled: number; noShow: number; total: number };
+  /// Desglose del ingreso real por método de cobro (INSURANCE nunca suma aquí).
+  incomeByMethod: { cash: number; qr: number };
+  /// Columnas dinámicas por seguro presente en el período (desde snapshots).
+  byInsurance: ReportInsuranceRow[];
   byDoctor: ReportDoctorRow[];
   incomeOverTime: { date: string; income: number }[];
 }
@@ -61,6 +74,8 @@ export class ReportsService {
           tenantId,
           startTime: { gte: monthStart, lte: monthEnd },
           OR: [{ isPaid: true }, { status: 'COMPLETED' }],
+          // Citas por seguro: el paciente paga Bs 0 — nunca son ingreso.
+          paymentMethod: { not: 'INSURANCE' },
         },
         select: { price: true, service: { select: { price: true } } },
       }),
@@ -131,6 +146,8 @@ export class ReportsService {
         isPaid: true,
         doctorId: true,
         price: true,
+        paymentMethod: true,
+        insuranceNameSnapshot: true,
         doctor: { select: { name: true } },
         service: { select: { price: true } },
       },
@@ -138,12 +155,17 @@ export class ReportsService {
 
     const byDoctor = new Map<string, ReportDoctorRow>();
     const byDay = new Map<string, number>();
+    const byInsurance = new Map<string, ReportInsuranceRow>();
+    const incomeByMethod = { cash: 0, qr: 0 };
     const totals = { income: 0, completed: 0, cancelled: 0, noShow: 0, total: appts.length };
 
     for (const a of appts) {
       // Monto congelado en la cita; legacy (null) → precio actual del servicio.
       const price = Number(a.price ?? a.service.price);
-      const isRevenue = a.isPaid || a.status === 'COMPLETED';
+      const isInsurance = a.paymentMethod === 'INSURANCE';
+      // Ingreso real = cobrado al paciente. Las citas de seguro pagan Bs 0:
+      // se reportan aparte con su valor referencial, nunca como ingreso.
+      const isRevenue = !isInsurance && (a.isPaid || a.status === 'COMPLETED');
       const row: ReportDoctorRow = byDoctor.get(a.doctorId) ?? {
         doctorId: a.doctorId,
         doctorName: a.doctor.name,
@@ -167,8 +189,18 @@ export class ReportsService {
       if (isRevenue) {
         row.income += price;
         totals.income += price;
+        if (a.paymentMethod === 'STATIC_QR') incomeByMethod.qr += price;
+        else incomeByMethod.cash += price;
         const day = formatInTimeZone(a.startTime, tz, 'yyyy-MM-dd');
         byDay.set(day, (byDay.get(day) ?? 0) + price);
+      }
+      // Columnas dinámicas por seguro (nombre desde el snapshot inmutable).
+      if (isInsurance && a.status !== 'CANCELLED') {
+        const name = a.insuranceNameSnapshot ?? 'Seguro';
+        const ins = byInsurance.get(name) ?? { name, count: 0, referentialValue: 0 };
+        ins.count++;
+        ins.referentialValue += price;
+        byInsurance.set(name, ins);
       }
       byDoctor.set(a.doctorId, row);
     }
@@ -177,6 +209,8 @@ export class ReportsService {
       from: from.toISOString(),
       to: to.toISOString(),
       totals,
+      incomeByMethod,
+      byInsurance: [...byInsurance.values()].sort((a, b) => b.count - a.count),
       byDoctor: [...byDoctor.values()].sort((a, b) => b.income - a.income),
       incomeOverTime: [...byDay.entries()]
         .map(([date, income]) => ({ date, income }))

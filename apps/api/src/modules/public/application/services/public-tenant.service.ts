@@ -77,16 +77,31 @@ export class PublicTenantService {
 
   /**
    * Doctores activos con su especialidad/bio + servicios que ofrecen.
-   * Forma el "catálogo" que muestra la landing/wizard.
+   * Forma el "catálogo" que muestra la landing/wizard. Incluye el modo seguro
+   * y los seguros activos del doctor (Addendum G) para que el booking arme el
+   * paso "select-insurance" sin fetch adicional.
    */
   async listDoctorsWithServices(tenantId: string) {
-    return this.prisma.client.user.findMany({
+    const doctors = await this.prisma.client.user.findMany({
       where: { tenantId, role: 'DOCTOR', isActive: true },
       select: {
         id: true,
         name: true,
         doctorProfile: {
-          select: { specialty: true, bio: true, qrUrl: true, qrLabel: true },
+          select: {
+            specialty: true,
+            bio: true,
+            qrUrl: true,
+            qrLabel: true,
+            insuranceMode: true,
+            photoUrl: true,
+          },
+        },
+        insuranceAssignments: {
+          where: { isActive: true, tenantInsurance: { isActive: true } },
+          select: {
+            tenantInsurance: { select: { id: true, name: true } },
+          },
         },
         doctorServices: {
           where: { isActive: true },
@@ -109,6 +124,12 @@ export class PublicTenantService {
       },
       orderBy: { name: 'asc' },
     });
+
+    // Aplanar la asignación M:N a una lista simple { id, name } para el wizard.
+    return doctors.map(({ insuranceAssignments, ...d }) => ({
+      ...d,
+      insurances: insuranceAssignments.map((a) => a.tenantInsurance),
+    }));
   }
 
   /**

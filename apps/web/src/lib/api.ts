@@ -51,7 +51,13 @@ export interface DoctorWithServices {
     bio: string | null;
     qrUrl?: string | null;
     qrLabel?: string | null;
+    /// Modo seguro: el paso de pago se reemplaza por selección de seguro.
+    insuranceMode?: boolean;
+    /// Foto del especialista (R2); null = avatar de iniciales.
+    photoUrl?: string | null;
   } | null;
+  /// Seguros activos asignados al doctor (solo relevante con insuranceMode).
+  insurances?: { id: string; name: string }[];
   doctorServices: {
     id: string;
     customDuration: number | null;
@@ -200,12 +206,15 @@ export async function createBooking(
 export async function confirmBooking(
   slug: string,
   appointmentId: string,
-  paymentMethod: 'CASH' | 'STATIC_QR',
+  paymentMethod: 'CASH' | 'STATIC_QR' | 'INSURANCE',
   phone: string,
+  /// Requerido cuando paymentMethod=INSURANCE (doctor en modo seguro).
+  tenantInsuranceId?: string,
 ): Promise<{ id: string; status: string }> {
   return apiPost(`/api/public/tenants/${slug}/appointments/${appointmentId}/confirm`, {
     paymentMethod,
     phone,
+    ...(tenantInsuranceId && { tenantInsuranceId }),
   });
 }
 

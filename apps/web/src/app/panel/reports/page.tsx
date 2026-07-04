@@ -12,7 +12,7 @@ import {
   CartesianGrid,
   Tooltip,
 } from 'recharts';
-import { Download } from 'lucide-react';
+import { Download, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/lib/panel-auth';
 import {
@@ -154,6 +154,30 @@ function Reports() {
             <StatCard label="Canceladas" value={String(data.totals.cancelled)} />
             <StatCard label="No se presentó" value={String(data.totals.noShow)} />
           </div>
+
+          {/* Desglose de ingresos: Efectivo · QR · una columna por seguro */}
+          <section className="rounded-2xl border border-border bg-surface p-5">
+            <h2 className="mb-1 text-sm font-semibold text-text-secondary">Desglose de ingresos</h2>
+            <p className="mb-4 text-xs text-text-muted">
+              Las citas por seguro no generan cobro al paciente (Bs 0); su valor referencial es el
+              precio de lista del servicio.
+            </p>
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+              <StatCard label="Efectivo" value={money(data.incomeByMethod.cash)} />
+              <StatCard label="QR Bancario" value={money(data.incomeByMethod.qr)} />
+              {data.byInsurance.map((ins) => (
+                <div key={ins.name} className="rounded-2xl border border-border bg-surface p-4">
+                  <p className="flex items-center gap-1.5 text-xs text-text-muted">
+                    <ShieldCheck className="size-3.5" /> {ins.name}
+                  </p>
+                  <p className="mt-1 text-2xl font-bold text-text-primary">{ins.count}</p>
+                  <p className="text-xs text-text-muted">
+                    citas · valor ref. {money(ins.referentialValue)}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </section>
 
           {/* Ingresos en el tiempo */}
           <section className="rounded-2xl border border-border bg-surface p-5">

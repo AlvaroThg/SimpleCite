@@ -178,6 +178,23 @@ export class AppointmentReportPdfService {
               ],
               ['Servicio:', appt.service.name],
               ['Fecha de la cita:', fmtDate(appt.startTime)],
+              // Pago: las citas por seguro muestran el nombre congelado
+              // (snapshot inmutable) y Bs 0.00 al paciente.
+              ...(appt.paymentMethod === 'INSURANCE'
+                ? [
+                    ['Tipo de pago:', 'Seguro médico'],
+                    ['Seguro:', appt.insuranceNameSnapshot ?? '—'],
+                    ['Monto paciente:', 'Bs 0.00'],
+                  ]
+                : [
+                    [
+                      'Tipo de pago:',
+                      appt.paymentMethod === 'STATIC_QR' ? 'QR Bancario' : 'Efectivo',
+                    ],
+                    ...(appt.price !== null
+                      ? [['Monto:', `Bs ${Number(appt.price).toFixed(2)}`]]
+                      : []),
+                  ]),
             ].map(([k, v]) => [
               { text: k, bold: true, color: '#374151' },
               { text: v, color: '#111827' },

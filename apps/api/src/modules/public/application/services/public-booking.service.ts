@@ -4,6 +4,7 @@ import {
   ConflictException,
   BadRequestException,
   ForbiddenException,
+  UnprocessableEntityException,
   HttpException,
   HttpStatus,
 } from '@nestjs/common';
@@ -189,8 +190,9 @@ export class PublicBookingService {
     phone: string;
     appointmentId: string;
     paymentMethod: PaymentMethod;
+    tenantInsuranceId?: string;
   }) {
-    const { tenantId, phone, appointmentId, paymentMethod } = params;
+    const { tenantId, phone, appointmentId, paymentMethod, tenantInsuranceId } = params;
 
     const appointment = await this.prisma.client.appointment.findFirst({
       where: { id: appointmentId, tenantId },
@@ -224,6 +226,57 @@ export class PublicBookingService {
         data: { status: 'CANCELLED', expiresAt: null },
       });
       throw new BadRequestException('La reserva expiró. Inicia el proceso de nuevo.');
+    }
+
+    // ─── Modo seguro (Addendum G): auto-confirmación, sin cobro ───
+    // El paciente elige con qué seguro asiste; validamos que el seguro esté
+    // activo Y asignado al doctor de esta cita, congelamos el nombre
+    // (insuranceNameSnapshot, inmutable) y confirmamos directo: no hay pago
+    // que aprobar, así que nunca pasa por PENDING_PAYMENT.
+    if (paymentMethod === 'INSURANCE') {
+      const doctorProfile = await this.prisma.client.doctorProfile.findFirst({
+        where: { userId: appointment.doctorId, insuranceMode: true },
+        select: { id: true },
+      });
+      if (!doctorProfile) {
+        throw new BadRequestException('Este especialista no atiende por seguro médico');
+      }
+
+      const insurance = await this.prisma.client.tenantInsurance.findFirst({
+        where: {
+          id: tenantInsuranceId,
+          tenantId,
+          isActive: true,
+          doctorAssignments: { some: { doctorId: appointment.doctorId, isActive: true } },
+        },
+        select: { id: true, name: true },
+      });
+      if (!insurance) {
+        throw new UnprocessableEntityException('Seguro no válido para este especialista');
+      }
+
+      const confirmed = await this.prisma.client.appointment.update({
+        where: { id: appointmentId },
+        data: {
+          tenantInsuranceId: insurance.id,
+          insuranceNameSnapshot: insurance.name, // ← inmutable desde aquí
+          paymentMethod: 'INSURANCE',
+          status: 'CONFIRMED',
+          expiresAt: null,
+        },
+      });
+
+      this.logger.log(
+        {
+          event: 'public.appointment.confirmed-insurance',
+          tenantId,
+          appointmentId,
+          phone,
+          insurance: insurance.name,
+        },
+        'PublicBookingService',
+      );
+      return confirmed;
     }
 
     // Estado tras confirmar:

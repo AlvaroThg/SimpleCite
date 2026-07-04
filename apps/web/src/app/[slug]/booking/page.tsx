@@ -30,6 +30,7 @@ type Step =
   | 'select-slot'
   | 'patient-info'
   | 'payment-method'
+  | 'select-insurance' // doctor en modo seguro: reemplaza al paso de pago
   | 'confirmed';
 
 interface State {
@@ -46,7 +47,8 @@ interface State {
   patientCi: string;
   phone: string;
   appointmentId: string;
-  chosenMethod: '' | 'CASH' | 'STATIC_QR'; // método de pago elegido al confirmar
+  chosenMethod: '' | 'CASH' | 'STATIC_QR' | 'INSURANCE'; // método elegido al confirmar
+  selectedInsurance: { id: string; name: string } | null; // seguro elegido (modo seguro)
   loading: boolean;
   error: string;
 }
@@ -118,6 +120,7 @@ export default function BookingWizard() {
     phone: '',
     appointmentId: '',
     chosenMethod: '',
+    selectedInsurance: null,
     loading: true,
     error: '',
   });
@@ -272,7 +275,10 @@ export default function BookingWizard() {
 
       set({
         appointmentId: booking.appointmentId,
-        step: 'payment-method',
+        // Doctor en modo seguro: el paso de pago se reemplaza por el de seguro.
+        step: state.selectedDoctor?.doctorProfile?.insuranceMode
+          ? 'select-insurance'
+          : 'payment-method',
         loading: false,
       });
     } catch (e) {
@@ -289,6 +295,27 @@ export default function BookingWizard() {
     try {
       await confirmBooking(slug, state.appointmentId, method, state.phone);
       set({ chosenMethod: method, step: 'confirmed', loading: false });
+    } catch (e) {
+      set({
+        error: e instanceof ApiError ? e.message : 'No se pudo confirmar la cita',
+        loading: false,
+      });
+    }
+  }
+
+  /** Confirma la cita cubierta por el seguro elegido (modo seguro, sin pago). */
+  async function handleConfirmInsurance() {
+    if (!state.selectedInsurance) return;
+    set({ loading: true });
+    try {
+      await confirmBooking(
+        slug,
+        state.appointmentId,
+        'INSURANCE',
+        state.phone,
+        state.selectedInsurance.id,
+      );
+      set({ chosenMethod: 'INSURANCE', step: 'confirmed', loading: false });
     } catch (e) {
       set({
         error: e instanceof ApiError ? e.message : 'No se pudo confirmar la cita',
@@ -338,7 +365,13 @@ export default function BookingWizard() {
   return (
     <div className={`mx-auto px-4 py-8 space-y-6 ${wideStep ? 'max-w-5xl' : 'max-w-2xl'}`}>
       {/* Stepper visual — oculto en el primer paso para dar aire al hero */}
-      {state.step !== 'select-doctor' && <Stepper step={state.step} primary={primary} />}
+      {state.step !== 'select-doctor' && (
+        <Stepper
+          step={state.step}
+          primary={primary}
+          insurance={!!state.selectedDoctor?.doctorProfile?.insuranceMode}
+        />
+      )}
 
       {/* Error banner */}
       {state.error && (
@@ -587,7 +620,11 @@ export default function BookingWizard() {
                 <TurnstileWidget onToken={setTurnstileToken} />
 
                 <Btn
-                  label="Continuar al pago"
+                  label={
+                    state.selectedDoctor?.doctorProfile?.insuranceMode
+                      ? 'Continuar'
+                      : 'Continuar al pago'
+                  }
                   color={primary}
                   loading={state.loading}
                   disabled={!state.patientName.trim() || !/^[1-9]\d{7,14}$/.test(state.phone)}
@@ -644,6 +681,74 @@ export default function BookingWizard() {
             </StepCard>
           )}
 
+          {/* ── Paso 5 (modo seguro): Elegir cobertura ── */}
+          {state.step === 'select-insurance' && state.selectedSlot && (
+            <StepCard title="Tu cobertura de seguro">
+              <div className="bg-accent rounded-xl p-3 mb-5 text-sm text-accent-foreground">
+                <span className="font-medium">{state.selectedDoctor?.name}</span>
+                <br />
+                <span className="font-medium">
+                  {slotSummary(state.selectedSlot.startTime, state.selectedSlot.endTime, tz)}
+                </span>
+              </div>
+
+              <p className="mb-4 text-sm text-text-muted">
+                Esta consulta está cubierta por seguro médico. ¿Con qué seguro asistirás?
+              </p>
+
+              {(state.selectedDoctor?.insurances?.length ?? 0) === 0 ? (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-left text-sm text-amber-800">
+                  Este especialista no tiene seguros configurados. Contacta a la clínica.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {state.selectedDoctor!.insurances!.map((ins) => {
+                    const active = state.selectedInsurance?.id === ins.id;
+                    return (
+                      <button
+                        key={ins.id}
+                        onClick={() => set({ selectedInsurance: ins })}
+                        aria-pressed={active}
+                        className={`flex min-h-20 w-full items-center gap-3 rounded-2xl border bg-surface p-4 text-left transition-all active:scale-[.99] ${
+                          active
+                            ? 'border-primary shadow-sm ring-2 ring-primary/25'
+                            : 'border-border hover:border-primary hover:shadow-sm'
+                        }`}
+                      >
+                        <span
+                          className="flex size-10 flex-shrink-0 items-center justify-center rounded-full"
+                          style={{ backgroundColor: `${primary}1a`, color: primary }}
+                          aria-hidden
+                        >
+                          <svg viewBox="0 0 24 24" className="size-5" fill="none">
+                            <path
+                              d="M12 3l7 3v5c0 4.5-3 8.5-7 10-4-1.5-7-5.5-7-10V6l7-3z"
+                              stroke="currentColor"
+                              strokeWidth="1.8"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+                        </span>
+                        <div>
+                          <p className="font-semibold text-text-primary">{ins.name}</p>
+                          <p className="text-sm text-text-muted">Sin costo para ti</p>
+                        </div>
+                      </button>
+                    );
+                  })}
+
+                  <Btn
+                    label="Confirmar cita"
+                    color={primary}
+                    loading={state.loading}
+                    disabled={!state.selectedInsurance}
+                    onClick={handleConfirmInsurance}
+                  />
+                </div>
+              )}
+            </StepCard>
+          )}
+
           {/* ── Paso 7: Confirmado ── */}
           {state.step === 'confirmed' && state.selectedSlot && (
             <StepCard title="">
@@ -683,6 +788,14 @@ export default function BookingWizard() {
                       {clinicWaLink && <WhatsAppSendButton href={clinicWaLink} />}
                     </div>
                   )
+                ) : state.chosenMethod === 'INSURANCE' ? (
+                  <p className="text-sm text-text-muted">
+                    Tu cita está confirmada y cubierta por{' '}
+                    <span className="font-semibold text-text-secondary">
+                      {state.selectedInsurance?.name ?? 'tu seguro médico'}
+                    </span>
+                    . No necesitas pagar nada; solo trae tu credencial del seguro.
+                  </p>
                 ) : (
                   <p className="text-sm text-text-muted">
                     💵 Tu cita quedó registrada. Paga en efectivo en la clínica el día de tu cita.
@@ -722,18 +835,35 @@ function WhatsAppSendButton({ href }: { href: string }) {
   );
 }
 
-const STEPS: Step[] = [
-  'select-doctor',
-  'select-service',
-  'select-slot',
-  'patient-info',
-  'payment-method',
-  'confirmed',
-];
-
-function Stepper({ step, primary }: { step: Step; primary: string }) {
+function Stepper({
+  step,
+  primary,
+  insurance,
+}: {
+  step: Step;
+  primary: string;
+  /** Doctor en modo seguro: el paso de pago se reemplaza por el de seguro. */
+  insurance: boolean;
+}) {
+  // El stepper se construye dinámicamente según el modo del doctor elegido;
+  // si el paciente vuelve atrás y cambia de doctor, se recalcula solo.
+  const STEPS: Step[] = [
+    'select-doctor',
+    'select-service',
+    'select-slot',
+    'patient-info',
+    insurance ? 'select-insurance' : 'payment-method',
+    'confirmed',
+  ];
+  const labels = [
+    'Doctor',
+    'Servicio',
+    'Horario',
+    'Datos',
+    insurance ? 'Seguro' : 'Pago',
+    '¡Listo!',
+  ];
   const idx = STEPS.indexOf(step);
-  const labels = ['Doctor', 'Servicio', 'Horario', 'Datos', 'Pago', '¡Listo!'];
   return (
     <div className="flex items-center gap-1 overflow-x-auto">
       {STEPS.map((s, i) => (
