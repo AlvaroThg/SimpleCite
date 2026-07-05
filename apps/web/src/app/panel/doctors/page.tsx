@@ -31,6 +31,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar } from '@/components/ui/avatar';
 import { Switch } from '@/components/ui/switch';
 import { Stethoscope, Upload, Shield } from 'lucide-react';
+import { compressImageFile } from '@/lib/compress-image';
 import { toast } from 'sonner';
 
 /** Iniciales (máx. 2) a partir del nombre del doctor, para el avatar. */
@@ -94,15 +95,10 @@ function Doctors() {
     if (!file || !session || !draft?.id) return;
     setUploadingQr(true);
     try {
-      const base64 = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve((reader.result as string).split(',')[1]);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
+      const { base64, mimeType } = await compressImageFile(file);
       const updated = await uploadDoctorQr(session.token, session.slug, draft.id, {
         imageBase64: base64,
-        mimeType: file.type,
+        mimeType,
       });
       setDraft((d) => (d ? { ...d, qrUrl: updated.qrUrl ?? '' } : d));
       await load();
@@ -434,15 +430,10 @@ function PhotoAvatar({ doctor, onUploaded }: { doctor: Doctor; onUploaded: () =>
     if (!file || !session) return;
     setUploading(true);
     try {
-      const base64 = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve((reader.result as string).split(',')[1]);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
+      const { base64, mimeType } = await compressImageFile(file);
       await uploadDoctorPhoto(session.token, session.slug, doctor.id, {
         imageBase64: base64,
-        mimeType: file.type,
+        mimeType,
       });
       setImgError(false);
       onUploaded();

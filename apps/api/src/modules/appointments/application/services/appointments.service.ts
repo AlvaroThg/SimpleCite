@@ -161,18 +161,29 @@ export class AppointmentsService {
       to?: Date;
     } = {},
   ) {
+    // Ventana por defecto cuando no se pide un rango explícito: últimos 30 días
+    // + próximos 15. Evita que el panel cargue TODO el historial del tenant en
+    // cada request a medida que crece. El historial completo sale por Reportes
+    // (analytics con rango + export CSV). El historial por paciente pasa su
+    // propio rango, así que no lo afecta.
+    const hasExplicitRange = !!(filters.from || filters.to || filters.patientId);
+    const defaultFrom = new Date(Date.now() - 30 * 86_400_000);
+    const defaultTo = new Date(Date.now() + 15 * 86_400_000);
+
     return this.prisma.client.appointment.findMany({
       where: {
         tenantId,
         ...(filters.doctorId && { doctorId: filters.doctorId }),
         ...(filters.patientId && { patientId: filters.patientId }),
         ...(filters.status && { status: filters.status }),
-        ...((filters.from || filters.to) && {
-          startTime: {
-            ...(filters.from && { gte: filters.from }),
-            ...(filters.to && { lte: filters.to }),
-          },
-        }),
+        ...(hasExplicitRange
+          ? (filters.from || filters.to) && {
+              startTime: {
+                ...(filters.from && { gte: filters.from }),
+                ...(filters.to && { lte: filters.to }),
+              },
+            }
+          : { startTime: { gte: defaultFrom, lte: defaultTo } }),
       },
       include: {
         patient: { select: { id: true, name: true, phone: true, ci: true } },

@@ -88,27 +88,6 @@ export interface BookingResult {
   expiresAt: string;
 }
 
-export type PaymentStatus = 'PENDING' | 'PAID' | 'FAILED' | 'EXPIRED';
-
-export interface PaymentIntentResult {
-  intentId: string;
-  amount: number;
-  currency: string;
-  qrPayload: string;
-  expiresAt: string;
-  status: PaymentStatus;
-}
-
-export interface PaymentStatusResult {
-  intentId: string;
-  status: PaymentStatus;
-  appointmentStatus: string;
-  amount: number;
-  currency: string;
-  expiresAt: string;
-  paidAt: string | null;
-}
-
 // ─── Helpers ────────────────────────────────────────────────────────
 
 async function apiGet<T>(path: string, options?: RequestInit): Promise<T> {
@@ -259,26 +238,5 @@ export async function cancelAppointment(token: string): Promise<CancelAppointmen
   );
 }
 
-// ─── Payments API ────────────────────────────────────────────────────
-
-export async function createPayment(
-  slug: string,
-  sessionToken: string,
-  appointmentId: string,
-): Promise<PaymentIntentResult> {
-  return apiPost(
-    `/api/public/tenants/${slug}/appointments/${appointmentId}/payment`,
-    {},
-    sessionToken,
-  );
-}
-
-export async function getPaymentStatus(
-  slug: string,
-  sessionToken: string,
-  intentId: string,
-): Promise<PaymentStatusResult> {
-  return apiGet(`/api/public/tenants/${slug}/payments/${intentId}`, {
-    headers: { Authorization: `Bearer ${sessionToken}` },
-  });
-}
+// (La API de pagos con pasarela — PaymentIntent/QR Simple — se eliminó junto
+// con el módulo legacy del backend. El cobro es manual: QR estático + staff.)

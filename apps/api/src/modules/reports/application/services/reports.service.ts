@@ -217,4 +217,105 @@ export class ReportsService {
         .sort((a, b) => a.date.localeCompare(b.date)),
     };
   }
+
+  /**
+   * Historial completo de citas del tenant como CSV (Excel-friendly).
+   * Sin from/to exporta TODO; con rango, esa franja. Sin contenido clínico.
+   */
+  async appointmentsCsv(
+    tenantId: string,
+    fromIso?: string,
+    toIso?: string,
+  ): Promise<{ csv: string; filename: string }> {
+    const tenant = await this.prisma.client.tenant.findUnique({
+      where: { id: tenantId },
+      select: { slug: true, timezone: true },
+    });
+    const tz = tenant?.timezone ?? 'America/La_Paz';
+
+    const appts = await this.prisma.client.appointment.findMany({
+      where: {
+        tenantId,
+        ...((fromIso || toIso) && {
+          startTime: {
+            ...(fromIso && { gte: new Date(fromIso) }),
+            ...(toIso && { lte: new Date(toIso) }),
+          },
+        }),
+      },
+      select: {
+        startTime: true,
+        endTime: true,
+        status: true,
+        paymentMethod: true,
+        isPaid: true,
+        price: true,
+        insuranceNameSnapshot: true,
+        createdAt: true,
+        patient: { select: { name: true, phone: true, ci: true } },
+        doctor: { select: { name: true } },
+        service: { select: { name: true, price: true } },
+      },
+      orderBy: { startTime: 'asc' },
+    });
+
+    const METHOD: Record<string, string> = {
+      CASH: 'Efectivo',
+      STATIC_QR: 'QR Bancario',
+      INSURANCE: 'Seguro',
+    };
+    const STATUS: Record<string, string> = {
+      TENTATIVE: 'Tentativa',
+      PENDING_PAYMENT: 'Pendiente de pago',
+      CONFIRMED: 'Confirmada',
+      COMPLETED: 'Completada',
+      CANCELLED: 'Cancelada',
+      NO_SHOW: 'No asistió',
+    };
+    // Comillas dobles escapadas y celda entre comillas (CSV RFC 4180).
+    const cell = (v: string | number | null | undefined) =>
+      `"${String(v ?? '').replace(/"/g, '""')}"`;
+
+    const header = [
+      'Fecha',
+      'Hora',
+      'Paciente',
+      'CI',
+      'Teléfono',
+      'Doctor',
+      'Servicio',
+      'Estado',
+      'Método de pago',
+      'Seguro',
+      'Monto (Bs)',
+      'Pagada',
+      'Creada',
+    ].join(',');
+
+    const rows = appts.map((a) =>
+      [
+        cell(formatInTimeZone(a.startTime, tz, 'yyyy-MM-dd')),
+        cell(formatInTimeZone(a.startTime, tz, 'HH:mm')),
+        cell(a.patient.name),
+        cell(a.patient.ci),
+        cell(a.patient.phone),
+        cell(a.doctor.name),
+        cell(a.service.name),
+        cell(STATUS[a.status] ?? a.status),
+        cell(METHOD[a.paymentMethod] ?? a.paymentMethod),
+        cell(a.insuranceNameSnapshot),
+        // Seguro = Bs 0 al paciente; el resto usa el monto congelado.
+        cell(
+          a.paymentMethod === 'INSURANCE' ? '0.00' : Number(a.price ?? a.service.price).toFixed(2),
+        ),
+        cell(a.isPaid ? 'Sí' : 'No'),
+        cell(formatInTimeZone(a.createdAt, tz, 'yyyy-MM-dd HH:mm')),
+      ].join(','),
+    );
+
+    return {
+      csv: [header, ...rows].join('\r\n'),
+      filename: `citas-${tenant?.slug ?? 'clinica'}-${formatInTimeZone(new Date(), tz, 'yyyyMMdd')}.csv`,
+    };
+  }
 }

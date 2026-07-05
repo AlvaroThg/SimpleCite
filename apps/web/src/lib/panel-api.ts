@@ -42,6 +42,9 @@ export interface AppointmentListItem {
   isPaid: boolean;
   paymentMethod: PaymentMethod;
   receiptUrl: string | null;
+  /// Monto congelado al crear la cita (override del doctor ?? precio del
+  /// servicio). Null en citas legacy → usar service.price como fallback.
+  price: string | null;
   /// Nombre del seguro congelado al crear la cita (solo INSURANCE).
   insuranceNameSnapshot?: string | null;
   patient: { id: string; name: string; phone: string; ci?: string | null };
@@ -533,6 +536,38 @@ export async function downloadReportsPdf(
   const a = document.createElement('a');
   a.href = url;
   a.download = 'reporte.pdf';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+/** Descarga el historial de citas del tenant como CSV (sin rango = todo). */
+export async function downloadAppointmentsCsv(
+  token: string,
+  slug: string,
+  from?: string,
+  to?: string,
+): Promise<void> {
+  const qs = new URLSearchParams();
+  if (from) qs.set('from', from);
+  if (to) qs.set('to', to);
+  const suffix = qs.toString() ? `?${qs.toString()}` : '';
+  const res = await fetch(`${BASE}/api/reports/appointments/csv${suffix}`, {
+    headers: { Authorization: `Bearer ${token}`, 'x-tenant-slug': slug },
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new PanelApiError(
+      res.status,
+      (body as { message?: string }).message ?? 'No se pudo exportar el historial',
+    );
+  }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `citas-${slug}.csv`;
   document.body.appendChild(a);
   a.click();
   a.remove();

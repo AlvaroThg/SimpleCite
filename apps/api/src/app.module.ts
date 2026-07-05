@@ -21,7 +21,6 @@ import { SlotsModule } from './modules/slots/slots.module';
 import { PublicModule } from './modules/public/public.module';
 import { WhatsappModule } from './modules/whatsapp/whatsapp.module';
 import { WhatsappCloudModule } from './modules/whatsapp-cloud/whatsapp-cloud.module';
-import { PaymentsModule } from './modules/payments/payments.module';
 import { PatientsModule } from './modules/patients/patients.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { BillingModule } from './modules/billing/billing.module';
@@ -102,7 +101,6 @@ import { InsurancesModule } from './modules/insurances/insurances.module';
     PublicModule,
     WhatsappModule,
     WhatsappCloudModule,
-    PaymentsModule,
     ReportsModule,
     BillingModule,
     MedicalRecordsModule,

@@ -18,6 +18,7 @@ import { useAuth } from '@/lib/panel-auth';
 import {
   getReportsAnalytics,
   downloadReportsPdf,
+  downloadAppointmentsCsv,
   PanelApiError,
   type ReportAnalytics,
 } from '@/lib/panel-api';
@@ -55,6 +56,7 @@ function Reports() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [downloading, setDownloading] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const range = useCallback(
     () => ({
@@ -137,6 +139,28 @@ function Reports() {
           <Button variant="outline" size="sm" disabled={downloading || !data} onClick={download}>
             <Download className="size-4" />
             {downloading ? 'Generando…' : 'PDF'}
+          </Button>
+          {/* Historial COMPLETO del tenant (todas las citas, sin rango). */}
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={exporting}
+            onClick={async () => {
+              if (!session) return;
+              setExporting(true);
+              try {
+                await downloadAppointmentsCsv(session.token, session.slug);
+              } catch (err) {
+                toast.error(
+                  err instanceof PanelApiError ? err.message : 'No se pudo exportar el historial',
+                );
+              } finally {
+                setExporting(false);
+              }
+            }}
+          >
+            <Download className="size-4" />
+            {exporting ? 'Exportando…' : 'Historial CSV'}
           </Button>
         </div>
       </div>

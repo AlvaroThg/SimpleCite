@@ -71,9 +71,11 @@ export class PrescriptionsService {
 
   /**
    * Descuenta stock de los productos referenciados por la receta (1 unidad por
-   * item con productId; el stock nunca baja de 0). Best-effort: un fallo de
-   * inventario no rompe la emisión de la receta. Devuelve los productos que
-   * quedaron en o bajo su lowStockThreshold para el toast de advertencia.
+   * item con productId; el stock nunca baja de 0). El descuento es un UPDATE
+   * atómico (GREATEST en SQL): dos recetas simultáneas nunca pierden unidades
+   * por carrera lectura-escritura. Best-effort: un fallo de inventario no rompe
+   * la emisión de la receta. Devuelve los productos que quedaron en o bajo su
+   * lowStockThreshold para el toast de advertencia.
    */
   private async decrementLinkedStock(
     tenantId: string,
@@ -88,15 +90,16 @@ export class PrescriptionsService {
     const lowStock: { id: string; name: string; stock: number }[] = [];
     try {
       for (const [productId, qty] of counts) {
-        const product = await this.prisma.client.product.findFirst({
-          where: { id: productId, tenantId },
-          select: { id: true, name: true, stock: true, lowStockThreshold: true },
-        });
-        if (!product) continue; // texto libre con id inválido: se ignora
-        const stock = Math.max(0, product.stock - qty);
-        await this.prisma.client.product.update({ where: { id: productId }, data: { stock } });
-        if (product.lowStockThreshold !== null && stock <= product.lowStockThreshold) {
-          lowStock.push({ id: product.id, name: product.name, stock });
+        // UPDATE atómico: decremento y clamp a 0 en un solo statement.
+        const rows = await this.prisma.client.$queryRaw<
+          { id: string; name: string; stock: number; lowStockThreshold: number | null }[]
+        >`UPDATE "products"
+          SET "stock" = GREATEST(0, "stock" - ${qty}), "updatedAt" = NOW()
+          WHERE "id" = ${productId} AND "tenantId" = ${tenantId}
+          RETURNING "id", "name", "stock", "lowStockThreshold"`;
+        const p = rows[0]; // texto libre con id inválido: 0 filas, se ignora
+        if (p && p.lowStockThreshold !== null && p.stock <= p.lowStockThreshold) {
+          lowStock.push({ id: p.id, name: p.name, stock: p.stock });
         }
       }
     } catch (err) {

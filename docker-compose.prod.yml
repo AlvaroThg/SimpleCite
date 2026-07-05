@@ -105,9 +105,9 @@ services:
     labels:
       - traefik.enable=true
       - traefik.docker.network=dokploy-network
-    # Socket Docker para que el InstanceManager cree contenedores Baileys.
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
+    # SIN socket de Docker: solo lo usaba el InstanceManager de Baileys (bot
+    # por clínica, descartado). Montarlo daría control total del host a quien
+    # comprometa el API. Si algún día vuelve un bot, será un servicio aparte.
     extra_hosts:
       - 'host.docker.internal:host-gateway'
     healthcheck:

@@ -82,7 +82,8 @@ function PayCell({ a }: { a: AppointmentListItem }) {
       <span className="rounded-md border border-border bg-canvas px-1.5 py-px font-mono text-[11px] text-text-muted">
         QR
       </span>
-      Bs {a.service.price}
+      {/* Monto congelado de la cita (respeta overrides); legacy → precio actual. */}
+      Bs {a.price ?? a.service.price}
     </span>
   );
 }

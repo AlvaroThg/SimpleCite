@@ -144,7 +144,7 @@ function AppointmentDetailView() {
               <Info label="Método de pago" value={payLabel(appt)} />
               <Info
                 label="Precio"
-                value={`Bs ${Number(appt.service.price).toFixed(2)} · ${appt.isPaid ? 'Pagado' : 'Pendiente'}`}
+                value={`Bs ${Number(appt.price ?? appt.service.price).toFixed(2)} · ${appt.isPaid ? 'Pagado' : 'Pendiente'}`}
               />
             </>
           )}

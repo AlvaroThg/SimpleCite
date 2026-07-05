@@ -17,6 +17,7 @@ import { PanelShell } from '@/components/panel/PanelShell';
 import { ErrorBox } from '@/components/panel/ui';
 import { SkeletonCards } from '@/components/panel/Skeleton';
 import { PhoneField } from '@/components/PhoneField';
+import { compressImageFile } from '@/lib/compress-image';
 import { toast } from 'sonner';
 
 /**
@@ -154,16 +155,12 @@ function Branding({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantConf
       if (!file) return;
       setUploading(true);
       try {
-        const reader = new FileReader();
-        const base64 = await new Promise<string>((resolve, reject) => {
-          reader.onload = () => resolve((reader.result as string).split(',')[1]);
-          reader.onerror = reject;
-          reader.readAsDataURL(file);
-        });
+        // Redimensiona/comprime en el navegador: sube rápido incluso en 4G.
+        const { base64, mimeType } = await compressImageFile(file);
         const updated = await uploadTenantAsset(session.token, session.slug, {
           type,
           imageBase64: base64,
-          mimeType: file.type,
+          mimeType,
         });
         onSaved(updated);
         toast.success(
@@ -595,16 +592,11 @@ function ContactInfo({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantC
     if (!file) return;
     setUploadingLocation(true);
     try {
-      const reader = new FileReader();
-      const base64 = await new Promise<string>((resolve, reject) => {
-        reader.onload = () => resolve((reader.result as string).split(',')[1]);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
+      const { base64, mimeType } = await compressImageFile(file);
       const updated = await uploadTenantAsset(session.token, session.slug, {
         type: 'location',
         imageBase64: base64,
-        mimeType: file.type,
+        mimeType,
       });
       onSaved(updated);
       toast.success('Foto de la fachada actualizada.');

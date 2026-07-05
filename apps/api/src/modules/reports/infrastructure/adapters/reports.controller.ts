@@ -46,4 +46,23 @@ export class ReportsController {
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.send(buffer);
   }
+
+  /**
+   * Historial completo de citas del tenant en CSV (abre en Excel). Sin rango,
+   * exporta TODO el historial; con from/to, esa franja.
+   */
+  @Get('appointments/csv')
+  @Roles('ADMIN')
+  async appointmentsCsv(
+    @CurrentUser('tenantId') tenantId: string,
+    @Res() res: Response,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    const { csv, filename } = await this.reports.appointmentsCsv(tenantId, from, to);
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    // BOM para que Excel detecte UTF-8 (tildes y ñ correctas).
+    res.send('﻿' + csv);
+  }
 }
