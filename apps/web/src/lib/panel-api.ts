@@ -93,7 +93,9 @@ export interface Page<T> {
 function authHeaders(token: string, slug: string): Record<string, string> {
   return {
     'Content-Type': 'application/json',
-    Authorization: `Bearer ${token}`,
+    // La sesión del panel viaja en una cookie httpOnly (credentials: 'include').
+    // El Bearer queda solo para sesiones antiguas que aún tengan token.
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
     'x-tenant-slug': slug,
   };
 }
@@ -116,10 +118,24 @@ export async function panelLogin(
   const res = await fetch(`${BASE}/api/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-tenant-slug': slug },
+    credentials: 'include', // recibe la cookie httpOnly de sesión
     body: JSON.stringify({ email, password }),
   });
   const json = await handle<{ data: { accessToken: string; user: PanelUser } }>(res);
   return json.data;
+}
+
+/** Cierra la sesión del panel: el API borra la cookie httpOnly. Best-effort. */
+export async function panelLogout(slug: string): Promise<void> {
+  try {
+    await fetch(`${BASE}/api/auth/logout`, {
+      method: 'POST',
+      headers: { 'x-tenant-slug': slug },
+      credentials: 'include',
+    });
+  } catch {
+    // sin red: la sesión local igual se limpia en el cliente
+  }
 }
 
 // ─── Appointments ────────────────────────────────────────────────────
@@ -134,6 +150,7 @@ export async function getAppointments(
   ).toString();
   const res = await fetch(`${BASE}/api/appointments${qs ? `?${qs}` : ''}`, {
     headers: authHeaders(token, slug),
+    credentials: 'include',
   });
   const json = await handle<{ data: AppointmentListItem[] }>(res);
   return json.data;
@@ -158,6 +175,7 @@ export async function transitionAppointment(
   const res = await fetch(`${BASE}/api/appointments/${id}/status`, {
     method: 'PATCH',
     headers: authHeaders(token, slug),
+    credentials: 'include',
     body: JSON.stringify({ status }),
   });
   await handle(res);
@@ -180,6 +198,7 @@ export async function createAppointment(
   const res = await fetch(`${BASE}/api/appointments`, {
     method: 'POST',
     headers: authHeaders(token, slug),
+    credentials: 'include',
     body: JSON.stringify(body),
   });
   const json = await handle<{ data: AppointmentListItem }>(res);
@@ -196,7 +215,8 @@ export async function downloadAppointmentReport(
   appointmentId: string,
 ): Promise<void> {
   const res = await fetch(`${BASE}/api/appointments/${appointmentId}/report`, {
-    headers: { Authorization: `Bearer ${token}`, 'x-tenant-slug': slug },
+    headers: authHeaders(token, slug),
+    credentials: 'include',
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
@@ -227,6 +247,7 @@ export async function rescheduleAppointment(
   const res = await fetch(`${BASE}/api/appointments/${id}/reschedule`, {
     method: 'PATCH',
     headers: authHeaders(token, slug),
+    credentials: 'include',
     body: JSON.stringify({ startTime: start.toISOString(), endTime: end.toISOString() }),
   });
   await handle(res);
@@ -243,6 +264,7 @@ export async function createPatient(
   const res = await fetch(`${BASE}/api/patients`, {
     method: 'POST',
     headers: authHeaders(token, slug),
+    credentials: 'include',
     body: JSON.stringify(body),
   });
   const json = await handle<{ data: PatientListItem }>(res);
@@ -261,6 +283,7 @@ export async function getPatients(
   ).toString();
   const res = await fetch(`${BASE}/api/patients${qs ? `?${qs}` : ''}`, {
     headers: authHeaders(token, slug),
+    credentials: 'include',
   });
   return handle<Page<PatientListItem>>(res);
 }
@@ -277,6 +300,7 @@ export async function getPatientHistory(
   const suffix = qs.toString() ? `?${qs.toString()}` : '';
   const res = await fetch(`${BASE}/api/patients/${patientId}/history${suffix}`, {
     headers: authHeaders(token, slug),
+    credentials: 'include',
   });
   const json = await handle<{ data: PatientHistory }>(res);
   return json.data;
@@ -292,6 +316,7 @@ export async function createNote(
   const res = await fetch(`${BASE}/api/patients/${patientId}/notes`, {
     method: 'POST',
     headers: authHeaders(token, slug),
+    credentials: 'include',
     body: JSON.stringify({ content, appointmentId }),
   });
   const json = await handle<{ data: ClinicalNote }>(res);
@@ -347,6 +372,7 @@ export async function getMedicalRecord(
 ): Promise<MedicalRecord | null> {
   const res = await fetch(`${BASE}/api/appointments/${appointmentId}/medical-record`, {
     headers: authHeaders(token, slug),
+    credentials: 'include',
   });
   const json = await handle<{ data: MedicalRecord | null }>(res);
   return json.data;
@@ -362,6 +388,7 @@ export async function saveMedicalRecord(
   const res = await fetch(`${BASE}/api/appointments/${appointmentId}/medical-record`, {
     method: 'PUT',
     headers: authHeaders(token, slug),
+    credentials: 'include',
     body: JSON.stringify(body),
   });
   const json = await handle<{ data: MedicalRecord }>(res);
@@ -378,6 +405,7 @@ export async function createPrescription(
   const res = await fetch(`${BASE}/api/medical-records/${recordId}/prescriptions`, {
     method: 'POST',
     headers: authHeaders(token, slug),
+    credentials: 'include',
     body: JSON.stringify(body),
   });
   const json = await handle<{
@@ -393,7 +421,8 @@ export async function downloadPrescriptionPdf(
   prescriptionId: string,
 ): Promise<void> {
   const res = await fetch(`${BASE}/api/prescriptions/${prescriptionId}/pdf`, {
-    headers: { Authorization: `Bearer ${token}`, 'x-tenant-slug': slug },
+    headers: authHeaders(token, slug),
+    credentials: 'include',
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
@@ -425,6 +454,7 @@ async function req<T>(
   const res = await fetch(`${BASE}${path}`, {
     method,
     headers: authHeaders(token, slug),
+    credentials: 'include',
     ...(body !== undefined && { body: JSON.stringify(body) }),
   });
   return handle<T>(res);
@@ -522,7 +552,8 @@ export async function downloadReportsPdf(
   if (to) qs.set('to', to);
   const suffix = qs.toString() ? `?${qs.toString()}` : '';
   const res = await fetch(`${BASE}/api/reports/analytics/pdf${suffix}`, {
-    headers: { Authorization: `Bearer ${token}`, 'x-tenant-slug': slug },
+    headers: authHeaders(token, slug),
+    credentials: 'include',
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
@@ -554,7 +585,8 @@ export async function downloadAppointmentsCsv(
   if (to) qs.set('to', to);
   const suffix = qs.toString() ? `?${qs.toString()}` : '';
   const res = await fetch(`${BASE}/api/reports/appointments/csv${suffix}`, {
-    headers: { Authorization: `Bearer ${token}`, 'x-tenant-slug': slug },
+    headers: authHeaders(token, slug),
+    credentials: 'include',
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));

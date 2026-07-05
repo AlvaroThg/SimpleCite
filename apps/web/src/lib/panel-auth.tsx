@@ -2,11 +2,17 @@
 
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { panelLogin, type PanelUser } from './panel-api';
+import { panelLogin, panelLogout, type PanelUser } from './panel-api';
 
 const STORAGE_KEY = 'simplecite_panel_session';
 
 interface Session {
+  /**
+   * Vacío en sesiones nuevas: el JWT vive en una cookie httpOnly que el
+   * navegador adjunta solo (credentials: 'include'), fuera del alcance de XSS.
+   * Sesiones antiguas pueden traer un token persistido — sigue funcionando
+   * como Bearer hasta que expire.
+   */
   token: string;
   slug: string;
   user: PanelUser;
@@ -37,16 +43,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const login = useCallback(async (slug: string, email: string, password: string) => {
-    const { accessToken, user } = await panelLogin(slug, email, password);
-    const next: Session = { token: accessToken, slug, user };
+    const { user } = await panelLogin(slug, email, password);
+    // token: '' — el JWT quedó en la cookie httpOnly; NO se persiste en
+    // localStorage (un XSS ya no puede robarlo).
+    const next: Session = { token: '', slug, user };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
     setSession(next);
   }, []);
 
   const logout = useCallback(() => {
+    const slug = session?.slug;
     localStorage.removeItem(STORAGE_KEY);
     setSession(null);
-  }, []);
+    // Borra la cookie httpOnly en el API (best-effort, no bloquea el logout).
+    if (slug) void panelLogout(slug);
+  }, [session?.slug]);
 
   return (
     <AuthContext.Provider value={{ session, loading, login, logout }}>

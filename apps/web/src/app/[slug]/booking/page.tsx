@@ -107,6 +107,48 @@ function localDateStr(isoStr: string, tz: string) {
   }).format(new Date(isoStr));
 }
 
+// ─── Persistencia del wizard ──────────────────────────────────────────
+// Si el paciente refresca a mitad de la reserva (p.ej. en el paso de pago),
+// no pierde su progreso ni la cita TENTATIVE que ya bloqueó el slot. Se guarda
+// lo mínimo en sessionStorage y expira junto con el TTL de la reserva.
+
+const WIZARD_TTL_MS = 15 * 60 * 1000;
+
+interface SavedWizard {
+  savedAt: number;
+  step: Step;
+  doctorId: string;
+  serviceId: string;
+  selectedSlot: Slot | null;
+  patientName: string;
+  patientCi: string;
+  phone: string;
+  appointmentId: string;
+  chosenMethod: State['chosenMethod'];
+  selectedInsurance: State['selectedInsurance'];
+  patientMode: State['patientMode'];
+  foundPatient: State['foundPatient'];
+}
+
+function wizardKey(slug: string) {
+  return `sc-booking-${slug}`;
+}
+
+function loadWizard(slug: string): SavedWizard | null {
+  try {
+    const raw = sessionStorage.getItem(wizardKey(slug));
+    if (!raw) return null;
+    const saved = JSON.parse(raw) as SavedWizard;
+    if (Date.now() - saved.savedAt > WIZARD_TTL_MS) {
+      sessionStorage.removeItem(wizardKey(slug));
+      return null;
+    }
+    return saved;
+  } catch {
+    return null;
+  }
+}
+
 // ─── Component ────────────────────────────────────────────────────────
 
 export default function BookingWizard() {
@@ -153,11 +195,81 @@ export default function BookingWizard() {
   // ─── Carga inicial ─────────────────────────────────────────────────
   useEffect(() => {
     Promise.all([getTenantInfo(slug), getDoctors(slug)])
-      .then(([tenant, doctors]) => set({ tenant, doctors, loading: false }))
+      .then(([tenant, doctors]) => {
+        // Restaurar progreso guardado (refresh a mitad del wizard): se
+        // reconstruyen doctor/servicio desde el catálogo recién cargado.
+        const saved = loadWizard(slug);
+        const doctor = saved ? doctors.find((d) => d.id === saved.doctorId) : undefined;
+        const service = doctor?.doctorServices.find((ds) => ds.service.id === saved?.serviceId);
+        if (saved && doctor && service) {
+          set({
+            tenant,
+            doctors,
+            selectedDoctor: doctor,
+            selectedService: service,
+            selectedSlot: saved.selectedSlot,
+            patientName: saved.patientName,
+            patientCi: saved.patientCi,
+            phone: saved.phone,
+            appointmentId: saved.appointmentId,
+            chosenMethod: saved.chosenMethod,
+            selectedInsurance: saved.selectedInsurance,
+            patientMode: saved.patientMode,
+            foundPatient: saved.foundPatient,
+            step: saved.step,
+            loading: false,
+          });
+        } else {
+          set({ tenant, doctors, loading: false });
+        }
+      })
       .catch(() =>
         set({ error: 'Error al cargar la clínica. Intenta más tarde.', loading: false }),
       );
   }, [slug]);
+
+  // Guardar el progreso en cada cambio relevante (y limpiarlo al terminar).
+  useEffect(() => {
+    if (state.step === 'select-doctor' || !state.selectedDoctor || !state.selectedService) return;
+    if (state.step === 'confirmed') {
+      sessionStorage.removeItem(wizardKey(slug));
+      return;
+    }
+    const saved: SavedWizard = {
+      savedAt: Date.now(),
+      step: state.step,
+      doctorId: state.selectedDoctor.id,
+      serviceId: state.selectedService.service.id,
+      selectedSlot: state.selectedSlot,
+      patientName: state.patientName,
+      patientCi: state.patientCi,
+      phone: state.phone,
+      appointmentId: state.appointmentId,
+      chosenMethod: state.chosenMethod,
+      selectedInsurance: state.selectedInsurance,
+      patientMode: state.patientMode,
+      foundPatient: state.foundPatient,
+    };
+    try {
+      sessionStorage.setItem(wizardKey(slug), JSON.stringify(saved));
+    } catch {
+      /* storage lleno/bloqueado: seguir sin persistencia */
+    }
+  }, [
+    slug,
+    state.step,
+    state.selectedDoctor,
+    state.selectedService,
+    state.selectedSlot,
+    state.patientName,
+    state.patientCi,
+    state.phone,
+    state.appointmentId,
+    state.chosenMethod,
+    state.selectedInsurance,
+    state.patientMode,
+    state.foundPatient,
+  ]);
 
   // ─── Disponibilidad al cambiar doctor/servicio ──────────────────────
   // Traemos 4 semanas de entrada (la lista usa 7 días; el calendario puede
@@ -167,7 +279,18 @@ export default function BookingWizard() {
     const { selectedDoctor, selectedService } = state;
     if (!selectedDoctor || !selectedService) return;
 
-    set({ loading: true, slots: [], selectedSlot: null, availableDates: [] });
+    // No borrar el slot elegido si ya pasamos del paso de horario (p.ej. al
+    // restaurar el wizard tras un refresh en el paso de datos/pago).
+    const pastSlotStep =
+      state.step !== 'select-doctor' &&
+      state.step !== 'select-service' &&
+      state.step !== 'select-slot';
+    set({
+      loading: true,
+      slots: [],
+      availableDates: [],
+      ...(pastSlotStep ? {} : { selectedSlot: null }),
+    });
 
     // Ventana de reserva completa (hoy → +1 mes), igual que el clamp del
     // calendario: así "Siguiente" siempre tiene datos sin esperar el fetch.

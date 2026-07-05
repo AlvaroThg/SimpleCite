@@ -1,9 +1,11 @@
-import { Controller, Post, Body, BadRequestException } from '@nestjs/common';
+import { Controller, Post, Body, BadRequestException, Res } from '@nestjs/common';
+import type { Response } from 'express';
 import { Public } from '../../../../common/decorators/public.decorator';
 import { CurrentTenant } from '../../../../common/decorators/current-tenant.decorator';
 import { ZodValidationPipe } from '../../../../common/pipes/zod-validation.pipe';
 import { LoginSchema, type LoginDto } from '@simplecite/shared';
 import { AuthService } from '../../application/services/auth.service';
+import { SESSION_COOKIE, SESSION_COOKIE_MAX_AGE_MS, sessionCookieOptions } from './session-cookie';
 
 /**
  * Todas las rutas de auth son públicas — no requieren JWT previo.
@@ -23,6 +25,7 @@ export class AuthController {
   async login(
     @Body(new ZodValidationPipe(LoginSchema)) dto: LoginDto,
     @CurrentTenant() tenantId: string,
+    @Res({ passthrough: true }) res: Response,
   ) {
     if (!tenantId) {
       throw new BadRequestException(
@@ -31,6 +34,17 @@ export class AuthController {
     }
 
     const result = await this.authService.login(dto.email, dto.password, tenantId);
+    // Sesión del panel en cookie httpOnly: el JS del navegador no puede leer
+    // el token (mitiga robo por XSS). El accessToken se sigue devolviendo en el
+    // body para curl/Postman, pero el panel ya no lo persiste.
+    res.cookie(SESSION_COOKIE, result.accessToken, sessionCookieOptions(SESSION_COOKIE_MAX_AGE_MS));
     return { success: true, data: result };
+  }
+
+  /** Cierra la sesión del panel: borra la cookie httpOnly. */
+  @Post('logout')
+  logout(@Res({ passthrough: true }) res: Response) {
+    res.clearCookie(SESSION_COOKIE, sessionCookieOptions());
+    return { success: true };
   }
 }
