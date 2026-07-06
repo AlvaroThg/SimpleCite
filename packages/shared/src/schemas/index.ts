@@ -528,5 +528,7 @@ export const PublicTenantInfoSchema = z.object({
   qrAssignmentMode: z.enum(['SHARED', 'PER_DOCTOR']),
   timezone: z.string(),
   whatsappEnabled: z.boolean(),
+  /// Nombres de los seguros médicos activos de la clínica (landing pública).
+  insurances: z.array(z.string()),
 });
 export type PublicTenantInfo = z.infer<typeof PublicTenantInfoSchema>;

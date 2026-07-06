@@ -45,6 +45,8 @@ export interface TenantInfo {
   qrAssignmentMode: 'SHARED' | 'PER_DOCTOR';
   timezone: string;
   whatsappEnabled: boolean;
+  /// Nombres de los seguros médicos activos (sección "Seguros aceptados").
+  insurances: string[];
 }
 
 export interface DoctorWithServices {

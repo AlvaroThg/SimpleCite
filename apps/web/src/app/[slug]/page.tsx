@@ -1,7 +1,16 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import { ShieldCheck, CalendarCheck, MessageCircle, Clock, ArrowRight } from 'lucide-react';
+import {
+  ShieldCheck,
+  CalendarCheck,
+  MessageCircle,
+  Clock,
+  ArrowRight,
+  MapPin,
+  Stethoscope,
+  Banknote,
+} from 'lucide-react';
 import { getTenantInfo, getDoctors } from '@/lib/api';
 import { getServiceIcon } from '@/lib/service-icons';
 import { readableOn, accentOn } from '@/lib/tenant-color';
@@ -43,6 +52,10 @@ export default async function TenantLandingPage({ params }: Props) {
   const onPrimary = readableOn(primary);
   const accent = accentOn(primary);
 
+  // Defensivo: una respuesta cacheada (ISR) de un API anterior puede no traer
+  // el campo aún; la landing no debe romperse por eso.
+  const insurances = tenant.insurances ?? [];
+
   // Servicios únicos agregados desde los doctores (conserva el ícono).
   const services = Array.from(
     new Map(
@@ -50,62 +63,104 @@ export default async function TenantLandingPage({ params }: Props) {
     ).values(),
   );
 
+  // Especialidades únicas con cuántos profesionales las atienden.
+  const specialties = Array.from(
+    doctors.reduce((map, d) => {
+      const sp = d.doctorProfile?.specialty?.trim();
+      if (sp) map.set(sp, (map.get(sp) ?? 0) + 1);
+      return map;
+    }, new Map<string, number>()),
+  );
+
   // Textos editables con fallbacks por defecto.
   const heroTitle = tenant.heroTitle || `Tu salud, agendada en minutos en ${tenant.name}`;
   const heroSubtitle =
     tenant.heroSubtitle ||
-    'Reserva tu cita en línea con nuestros especialistas. Sin llamadas, sin esperas: elige, confirma por WhatsApp y listo.';
+    'Reserva tu cita en línea con nuestros especialistas. Sin llamadas, sin esperas: elige, confirma y listo.';
   const servicesTitle = tenant.servicesTitle || 'Nuestros servicios';
   const specialistsTitle = tenant.specialistsTitle || 'Nuestros especialistas';
   const ctaTitle = tenant.ctaTitle || '¿Listo para tu cita?';
   const ctaSubtitle =
     tenant.ctaSubtitle || `Reserva en menos de un minuto. Te esperamos en ${tenant.name}.`;
 
-  const stats = [
-    { value: `${doctors.length}`, label: doctors.length === 1 ? 'Especialista' : 'Especialistas' },
-    { value: `${services.length}`, label: services.length === 1 ? 'Servicio' : 'Servicios' },
-    { value: '24/7', label: 'Reserva online' },
-    { value: 'WhatsApp', label: 'Recordatorios' },
-  ];
+  // Imagen del hero: la de portada, o la fachada como respaldo con rostro real.
+  const heroImage = tenant.heroImageUrl || tenant.locationPhotoUrl;
+
+  const waLink = tenant.whatsappContact
+    ? `https://wa.me/${tenant.whatsappContact.replace(/\D/g, '')}`
+    : null;
+  const mapsLink =
+    tenant.mapsUrl ||
+    (tenant.address
+      ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(tenant.address)}`
+      : null);
+  const mapsEmbed = tenant.address
+    ? `https://maps.google.com/maps?q=${encodeURIComponent(tenant.address)}&z=16&output=embed`
+    : null;
 
   return (
     <div className="bg-surface text-text-primary">
       {/* ── Hero ── */}
       <section
         className="relative overflow-hidden"
-        style={{ background: `linear-gradient(135deg, ${primary}14, ${secondary}0d 60%, #ffffff)` }}
+        style={{ background: `linear-gradient(160deg, ${primary}14, ${secondary}0a 55%, #ffffff)` }}
       >
-        <div className="mx-auto grid max-w-6xl items-center gap-10 px-5 py-16 sm:py-24 lg:grid-cols-2">
+        <div className="mx-auto grid max-w-6xl items-center gap-10 px-5 pb-10 pt-14 sm:pt-20 lg:grid-cols-[1.05fr_0.95fr] lg:pb-16">
           <div>
-            <span
-              className="mb-5 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold"
-              style={{ backgroundColor: `${primary}1f`, color: accent }}
-            >
-              <ShieldCheck className="size-3.5" /> Atención médica de confianza
+            {/* Estado en vivo: la clínica recibe reservas ahora mismo. */}
+            <span className="mb-5 inline-flex items-center gap-2 rounded-full border border-border bg-surface px-3.5 py-1.5 text-[13px] font-medium text-text-secondary shadow-sm">
+              <span className="relative flex size-2">
+                <span
+                  className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-60 motion-reduce:hidden"
+                  style={{ backgroundColor: accent }}
+                />
+                <span
+                  className="relative inline-flex size-2 rounded-full"
+                  style={{ backgroundColor: accent }}
+                />
+              </span>
+              Reservas en línea abiertas
             </span>
-            <h1 className="text-balance text-4xl font-extrabold leading-tight tracking-tight sm:text-5xl">
+
+            <h1 className="text-balance text-4xl font-extrabold leading-[1.08] tracking-tight sm:text-5xl">
               {heroTitle}
             </h1>
-            <p className="mt-5 max-w-xl text-lg text-text-secondary">{heroSubtitle}</p>
+            <p className="mt-5 max-w-xl text-pretty text-lg text-text-secondary">{heroSubtitle}</p>
+
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Link
                 href={`/${slug}/booking`}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl px-7 py-3.5 text-lg font-bold text-white shadow-sm transition hover:opacity-90 active:scale-95"
+                className="inline-flex items-center justify-center gap-2 rounded-2xl px-7 py-3.5 text-lg font-bold shadow-sm transition hover:opacity-90 active:scale-95"
                 style={{ backgroundColor: primary, color: onPrimary }}
               >
                 Reservar cita <ArrowRight className="size-5" />
               </Link>
               <a
-                href="#especialistas"
-                className="inline-flex items-center justify-center rounded-2xl border border-border px-7 py-3.5 text-lg font-semibold text-text-secondary transition hover:bg-canvas active:scale-95"
+                href="#especialidades"
+                className="inline-flex items-center justify-center rounded-2xl border border-border bg-surface px-7 py-3.5 text-lg font-semibold text-text-secondary transition hover:bg-canvas active:scale-95"
               >
-                Ver especialistas
+                Ver especialidades
               </a>
             </div>
+
+            {/* Accesos rápidos: los servicios reales de la clínica. */}
+            {services.length > 0 && (
+              <div className="mt-8 flex flex-wrap gap-2">
+                {services.slice(0, 4).map((svc) => (
+                  <Link
+                    key={svc.id}
+                    href={`/${slug}/booking`}
+                    className="rounded-full border border-border bg-surface px-3.5 py-1.5 text-sm text-text-secondary shadow-sm transition hover:bg-canvas hover:text-text-primary"
+                  >
+                    {svc.name}
+                  </Link>
+                ))}
+              </div>
+            )}
           </div>
 
-          {/* Imagen de hero personalizada, o panel decorativo por defecto */}
-          {tenant.heroImageUrl ? (
+          {/* Visual del hero: foto de portada/fachada, o composición de marca. */}
+          {heroImage ? (
             <div className="relative hidden lg:block">
               <div
                 className="absolute -right-6 -top-6 h-40 w-40 rounded-full opacity-20 blur-2xl"
@@ -113,7 +168,7 @@ export default async function TenantLandingPage({ params }: Props) {
               />
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={tenant.heroImageUrl}
+                src={heroImage}
                 alt={tenant.name}
                 width={800}
                 height={600}
@@ -121,56 +176,67 @@ export default async function TenantLandingPage({ params }: Props) {
               />
             </div>
           ) : (
-            <div className="relative hidden lg:block">
+            <div className="relative hidden min-h-[380px] items-center justify-center lg:flex">
+              {/* Composición orbital: la clínica al centro, sus especialidades alrededor. */}
               <div
-                className="absolute -right-6 -top-6 h-40 w-40 rounded-full opacity-20 blur-2xl"
-                style={{ backgroundColor: secondary }}
+                className="absolute size-72 rounded-full border"
+                style={{ borderColor: `${primary}2e` }}
               />
-              <div className="relative rounded-3xl border border-border bg-surface/80 p-8 shadow-xl backdrop-blur">
-                <div
-                  className="flex h-16 w-16 items-center justify-center rounded-2xl text-white"
-                  style={{ backgroundColor: primary, color: onPrimary }}
-                >
-                  <CalendarCheck className="size-8" />
-                </div>
-                <p className="mt-5 text-xl font-bold">Reserva 100% online</p>
-                <p className="mt-1 text-text-muted">
-                  Agenda disponible en tiempo real. Recibe tu confirmación y recordatorios por
-                  WhatsApp.
-                </p>
-                <div className="mt-6 space-y-3">
-                  {[
-                    { icon: Clock, text: 'Disponibilidad al instante' },
-                    { icon: MessageCircle, text: 'Confirmación por WhatsApp' },
-                    { icon: ShieldCheck, text: 'Tus datos protegidos' },
-                  ].map(({ icon: Icon, text }) => (
-                    <div key={text} className="flex items-center gap-3 text-sm text-text-secondary">
-                      <span
-                        className="flex h-8 w-8 items-center justify-center rounded-lg"
-                        style={{ backgroundColor: `${primary}1f`, color: accent }}
-                      >
-                        <Icon className="size-4" />
-                      </span>
-                      {text}
-                    </div>
-                  ))}
-                </div>
+              <div
+                className="absolute size-[26rem] rounded-full border"
+                style={{ borderColor: `${primary}1a` }}
+              />
+              <div className="relative flex flex-col items-center rounded-3xl border border-border bg-surface px-10 py-8 text-center shadow-xl">
+                {tenant.logoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={tenant.logoUrl}
+                    alt={tenant.name}
+                    className="h-16 w-auto max-w-[180px] object-contain"
+                  />
+                ) : (
+                  <div
+                    className="flex size-16 items-center justify-center rounded-2xl"
+                    style={{ backgroundColor: primary, color: onPrimary }}
+                  >
+                    <Stethoscope className="size-8" />
+                  </div>
+                )}
+                <p className="mt-3 max-w-[220px] text-lg font-bold leading-snug">{tenant.name}</p>
               </div>
+              {specialties.slice(0, 4).map(([sp], i) => {
+                const pos = [
+                  'left-0 top-8',
+                  'right-0 top-16',
+                  'bottom-10 left-6',
+                  'bottom-2 right-10',
+                ][i];
+                return (
+                  <span
+                    key={sp}
+                    className={`absolute ${pos} rounded-full border border-border bg-surface px-3.5 py-1.5 text-sm font-medium text-text-secondary shadow-sm`}
+                  >
+                    {sp}
+                  </span>
+                );
+              })}
             </div>
           )}
         </div>
 
-        {/* Banda de stats */}
-        <div className="mx-auto max-w-6xl px-5 pb-12">
-          <div className="grid grid-cols-2 gap-4 rounded-2xl border border-border bg-surface p-6 shadow-sm sm:grid-cols-4">
-            {stats.map((s) => (
-              <div key={s.label} className="text-center">
-                <p className="text-2xl font-extrabold" style={{ color: accent }}>
-                  {s.value}
-                </p>
-                <p className="mt-1 text-sm text-text-muted">{s.label}</p>
-              </div>
-            ))}
+        {/* Franja de confianza: cómo funciona reservar aquí. */}
+        <div className="border-t border-border bg-surface/70 backdrop-blur-sm">
+          <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-x-10 gap-y-3 px-5 py-4 text-sm text-text-secondary">
+            <span className="inline-flex items-center gap-2">
+              <Clock className="size-4" style={{ color: accent }} /> Reserva online las 24 horas
+            </span>
+            <span className="inline-flex items-center gap-2">
+              <MessageCircle className="size-4" style={{ color: accent }} /> Coordinación por
+              WhatsApp
+            </span>
+            <span className="inline-flex items-center gap-2">
+              <Banknote className="size-4" style={{ color: accent }} /> Pago en efectivo o QR
+            </span>
           </div>
         </div>
       </section>
@@ -178,40 +244,45 @@ export default async function TenantLandingPage({ params }: Props) {
       {/* ── Servicios ── */}
       {services.length > 0 && (
         <section id="servicios" className="mx-auto max-w-6xl px-5 py-16 sm:py-20">
-          <div className="text-center">
-            <h2 className="text-3xl font-bold text-balance">{servicesTitle}</h2>
-            <p className="mt-2 text-text-muted">Atención profesional para lo que necesitas.</p>
+          <div className="max-w-2xl">
+            <h2 className="text-balance text-3xl font-bold">{servicesTitle}</h2>
+            <p className="mt-2 text-text-muted">
+              Precios claros y duración definida: sabes qué esperar antes de reservar.
+            </p>
           </div>
-          <div className="mt-12 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-10 divide-y divide-border overflow-hidden rounded-2xl border border-border bg-surface shadow-sm">
             {services.map((svc, i) => {
               const Icon = getServiceIcon(svc.icon, i);
               return (
                 <Link
                   key={svc.id}
                   href={`/${slug}/booking`}
-                  className="group rounded-2xl border border-border bg-surface p-6 shadow-sm transition-all hover:-translate-y-1 hover:shadow-md"
+                  className="group flex items-center gap-5 p-5 transition-colors hover:bg-canvas sm:p-6"
                 >
-                  <div
-                    className="flex h-12 w-12 items-center justify-center rounded-xl"
+                  <span
+                    className="flex size-12 flex-shrink-0 items-center justify-center rounded-xl"
                     style={{ backgroundColor: `${primary}1f`, color: accent }}
                   >
                     <Icon className="size-6" />
-                  </div>
-                  <h3 className="mt-4 text-lg font-semibold">{svc.name}</h3>
-                  {svc.description && (
-                    <p className="mt-1 line-clamp-2 text-sm text-text-muted">{svc.description}</p>
-                  )}
-                  <div className="mt-4 flex items-center justify-between">
-                    <span className="text-sm font-semibold text-text-secondary">
-                      Bs {Number(svc.price).toFixed(0)} · {svc.duration} min
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block font-semibold">{svc.name}</span>
+                    {svc.description && (
+                      <span className="mt-0.5 line-clamp-2 block text-sm text-text-muted">
+                        {svc.description}
+                      </span>
+                    )}
+                  </span>
+                  <span className="hidden flex-shrink-0 text-right sm:block">
+                    <span className="block font-semibold text-text-primary">
+                      Bs {Number(svc.price).toFixed(0)}
                     </span>
-                    <span
-                      className="inline-flex items-center gap-1 text-sm font-medium opacity-0 transition-opacity group-hover:opacity-100"
-                      style={{ color: accent }}
-                    >
-                      Reservar <ArrowRight className="size-4" />
-                    </span>
-                  </div>
+                    <span className="block text-sm text-text-muted">{svc.duration} min</span>
+                  </span>
+                  <ArrowRight
+                    className="size-5 flex-shrink-0 text-text-muted transition-transform group-hover:translate-x-1"
+                    style={{ color: accent }}
+                  />
                 </Link>
               );
             })}
@@ -219,22 +290,73 @@ export default async function TenantLandingPage({ params }: Props) {
         </section>
       )}
 
-      {/* ── Instagram (confianza social, debajo de Servicios) ── */}
-      <InstagramFeed
-        title={`Conocé a ${tenant.name}`}
-        profileUrl={tenant.instagramUrl}
-        lightWidgetId={process.env.NEXT_PUBLIC_LIGHTWIDGET_ID}
-      />
+      {/* ── Seguros aceptados ── */}
+      {insurances.length > 0 && (
+        <section className="bg-canvas">
+          <div className="mx-auto max-w-6xl px-5 py-14 sm:py-16">
+            <div className="flex flex-col items-start gap-6 sm:flex-row sm:items-center sm:justify-between">
+              <div className="max-w-md">
+                <h2 className="text-balance text-2xl font-bold">Seguros aceptados</h2>
+                <p className="mt-1.5 text-text-muted">
+                  Si tu consulta está cubierta, eliges tu seguro al reservar y no pagas en la
+                  clínica.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2.5">
+                {insurances.map((name) => (
+                  <span
+                    key={name}
+                    className="inline-flex items-center gap-2 rounded-full border bg-surface px-4 py-2 text-sm font-medium text-text-secondary"
+                    style={{ borderColor: `${primary}3d` }}
+                  >
+                    <ShieldCheck className="size-4" style={{ color: accent }} /> {name}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ── Especialidades (grilla al color de la clínica) ── */}
+      {specialties.length > 0 && (
+        <section id="especialidades" className="mx-auto max-w-6xl px-5 py-16 sm:py-20">
+          <div className="max-w-2xl">
+            <h2 className="text-balance text-3xl font-bold">Especialidades</h2>
+            <p className="mt-2 text-text-muted">
+              Toca una especialidad para reservar con el profesional que la atiende.
+            </p>
+          </div>
+          <div className="mt-10 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {specialties.map(([sp, count]) => (
+              <Link
+                key={sp}
+                href={`/${slug}/booking`}
+                className="group flex items-center justify-between gap-3 rounded-2xl px-5 py-4 font-semibold shadow-sm transition hover:opacity-90 active:scale-[.99]"
+                style={{ backgroundColor: primary, color: onPrimary }}
+              >
+                <span className="min-w-0">
+                  <span className="block truncate">{sp}</span>
+                  <span className="block text-sm font-normal opacity-75">
+                    {count} {count === 1 ? 'profesional' : 'profesionales'}
+                  </span>
+                </span>
+                <ArrowRight className="size-5 flex-shrink-0 transition-transform group-hover:translate-x-1" />
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* ── Especialistas ── */}
       {doctors.length > 0 && (
         <section id="especialistas" className="bg-canvas">
           <div className="mx-auto max-w-6xl px-5 py-16 sm:py-20">
-            <div className="text-center">
-              <h2 className="text-3xl font-bold text-balance">{specialistsTitle}</h2>
+            <div className="max-w-2xl">
+              <h2 className="text-balance text-3xl font-bold">{specialistsTitle}</h2>
               <p className="mt-2 text-text-muted">Profesionales listos para atenderte.</p>
             </div>
-            <div className="mt-12 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {doctors.map((doctor) => (
                 <div
                   key={doctor.id}
@@ -253,7 +375,7 @@ export default async function TenantLandingPage({ params }: Props) {
                       </div>
                     ) : (
                       <div
-                        className="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-full text-xl font-bold text-white"
+                        className="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-full text-xl font-bold"
                         style={{ backgroundColor: primary, color: onPrimary }}
                       >
                         {initials(doctor.name)}
@@ -299,8 +421,110 @@ export default async function TenantLandingPage({ params }: Props) {
         </section>
       )}
 
+      {/* ── Instagram (confianza social) ── */}
+      <InstagramFeed
+        title={`Conocé a ${tenant.name}`}
+        profileUrl={tenant.instagramUrl}
+        lightWidgetId={process.env.NEXT_PUBLIC_LIGHTWIDGET_ID}
+      />
+
+      {/* ── Contacto y ubicación ── */}
+      {(tenant.address || waLink) && (
+        <section id="contacto" className="mx-auto max-w-6xl px-5 py-16 sm:py-20">
+          <div className="max-w-2xl">
+            <h2 className="text-balance text-3xl font-bold">Cómo llegar y contactarnos</h2>
+            <p className="mt-2 text-text-muted">
+              Estamos para ayudarte antes, durante y después de tu cita.
+            </p>
+          </div>
+
+          <div className="mt-10 grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+            {/* Mapa (o fachada si no hay dirección) */}
+            {mapsEmbed ? (
+              <div className="overflow-hidden rounded-2xl border border-border shadow-sm">
+                <iframe
+                  src={mapsEmbed}
+                  title={`Ubicación de ${tenant.name}`}
+                  className="h-72 w-full sm:h-full sm:min-h-[320px]"
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                />
+              </div>
+            ) : tenant.locationPhotoUrl ? (
+              <div className="relative h-72 overflow-hidden rounded-2xl border border-border shadow-sm sm:h-auto sm:min-h-[320px]">
+                <Image
+                  src={tenant.locationPhotoUrl}
+                  alt={`Fachada de ${tenant.name}`}
+                  fill
+                  sizes="(max-width: 1024px) 100vw, 640px"
+                  className="object-cover"
+                />
+              </div>
+            ) : null}
+
+            {/* Tarjetas de contacto */}
+            <div className="space-y-3">
+              {waLink && (
+                <a
+                  href={waLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-4 rounded-2xl border border-border bg-surface p-4 shadow-sm transition hover:border-transparent hover:shadow-md"
+                >
+                  <span className="flex size-11 flex-shrink-0 items-center justify-center rounded-xl bg-whatsapp/15 text-whatsapp">
+                    <MessageCircle className="size-5" />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block font-semibold">WhatsApp</span>
+                    <span className="block text-sm text-text-muted">
+                      Respuesta directa de la clínica
+                    </span>
+                  </span>
+                </a>
+              )}
+              {tenant.address && (
+                <a
+                  href={mapsLink ?? '#'}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-4 rounded-2xl border border-border bg-surface p-4 shadow-sm transition hover:border-transparent hover:shadow-md"
+                >
+                  <span
+                    className="flex size-11 flex-shrink-0 items-center justify-center rounded-xl"
+                    style={{ backgroundColor: `${primary}1f`, color: accent }}
+                  >
+                    <MapPin className="size-5" />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block font-semibold">Dirección</span>
+                    <span className="block text-sm text-text-muted">{tenant.address}</span>
+                  </span>
+                </a>
+              )}
+              <Link
+                href={`/${slug}/booking`}
+                className="flex items-center gap-4 rounded-2xl border border-border bg-surface p-4 shadow-sm transition hover:border-transparent hover:shadow-md"
+              >
+                <span
+                  className="flex size-11 flex-shrink-0 items-center justify-center rounded-xl"
+                  style={{ backgroundColor: `${primary}1f`, color: accent }}
+                >
+                  <CalendarCheck className="size-5" />
+                </span>
+                <span className="min-w-0">
+                  <span className="block font-semibold">Reserva online</span>
+                  <span className="block text-sm text-text-muted">
+                    Agenda disponible las 24 horas
+                  </span>
+                </span>
+              </Link>
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* ── CTA final ── */}
-      <section className="mx-auto max-w-6xl px-5 py-16 sm:py-20">
+      <section className="mx-auto max-w-6xl px-5 pb-16 sm:pb-20">
         <div
           className="relative overflow-hidden rounded-3xl px-8 py-14 text-center"
           style={{
@@ -311,7 +535,7 @@ export default async function TenantLandingPage({ params }: Props) {
           <div className="absolute -right-10 -top-10 h-48 w-48 rounded-full bg-white/10" />
           <div className="absolute -bottom-12 -left-8 h-40 w-40 rounded-full bg-white/10" />
           <div className="relative">
-            <h2 className="text-3xl font-bold text-balance">{ctaTitle}</h2>
+            <h2 className="text-balance text-3xl font-bold">{ctaTitle}</h2>
             <p className="mx-auto mt-2 max-w-md opacity-80">{ctaSubtitle}</p>
             <Link
               href={`/${slug}/booking`}

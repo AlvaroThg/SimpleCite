@@ -50,7 +50,16 @@ export class PublicTenantService {
     if (!tenant || tenant.status === 'SUSPENDED') {
       throw new NotFoundException('Tenant no disponible');
     }
+
+    // Seguros activos de la clínica para la sección "Seguros aceptados".
+    const insurances = await this.prisma.client.tenantInsurance.findMany({
+      where: { tenantId, isActive: true },
+      select: { name: true },
+      orderBy: { name: 'asc' },
+    });
+
     return {
+      insurances: insurances.map((i) => i.name),
       slug: tenant.slug,
       name: tenant.name,
       logoUrl: tenant.logoUrl,

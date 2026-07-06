@@ -161,7 +161,10 @@ export async function getAppointment(
   slug: string,
   id: string,
 ): Promise<AppointmentDetail> {
-  const res = await fetch(`${BASE}/api/appointments/${id}`, { headers: authHeaders(token, slug) });
+  const res = await fetch(`${BASE}/api/appointments/${id}`, {
+    headers: authHeaders(token, slug),
+    credentials: 'include',
+  });
   const json = await handle<{ data: AppointmentDetail }>(res);
   return json.data;
 }
