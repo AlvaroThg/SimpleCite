@@ -38,7 +38,9 @@ async function main() {
   };
   const tenant = await prisma.tenant.upsert({
     where: { slug: 'clinica-demo' },
-    update: demoConfig,
+    // Re-seed: solo renovar la suscripción. NUNCA pisar el branding
+    // (colores, logo, textos) que el admin personalizó desde el panel.
+    update: { subscriptionStatus: 'ACTIVE', subscriptionEndDate: at(30) },
     create: { slug: 'clinica-demo', ...demoConfig },
   });
   console.log(`  ✅ Tenant: ${tenant.name} (${tenant.id}) — suscripción ACTIVE`);

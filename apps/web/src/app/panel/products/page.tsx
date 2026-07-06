@@ -19,6 +19,8 @@ import { PanelShell } from '@/components/panel/PanelShell';
 import { ErrorBox } from '@/components/panel/ui';
 import { SkeletonList } from '@/components/panel/Skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
+import { Switch } from '@/components/ui/switch';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 
 const CATEGORIES: { value: ProductCategory; label: string }[] = [
   { value: 'MEDICATION', label: 'Medicamento' },
@@ -140,13 +142,33 @@ function Products() {
     }
   }
 
+  // Producto pendiente de eliminación (abre el modal de confirmación).
+  const [toDelete, setToDelete] = useState<ProductItem | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
   async function remove(id: string) {
     if (!session) return;
+    setDeleting(true);
     try {
       await deleteProduct(session.token, session.slug, id);
+      setToDelete(null);
       await load();
     } catch (err) {
-      setError(err instanceof PanelApiError ? err.message : 'No se pudo archivar el producto');
+      setError(err instanceof PanelApiError ? err.message : 'No se pudo eliminar el producto');
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  /** Activa/inactiva sin eliminar: inactivo no aparece en recetas ni alertas. */
+  async function toggleActive(p: ProductItem) {
+    if (!session) return;
+    setItems((list) => list.map((x) => (x.id === p.id ? { ...x, isActive: !p.isActive } : x)));
+    try {
+      await updateProduct(session.token, session.slug, p.id, { isActive: !p.isActive });
+    } catch (err) {
+      setError(err instanceof PanelApiError ? err.message : 'No se pudo actualizar');
+      await load();
     }
   }
 
@@ -327,7 +349,11 @@ function Products() {
                       {doctorName(p.doctorId)}
                     </span>
                   )}
-                  {!p.isActive && <span className="text-xs text-red-500">archivado</span>}
+                  {!p.isActive && (
+                    <span className="inline-flex items-center rounded-full border border-border bg-canvas px-2 py-0.5 text-[11px] text-text-muted">
+                      Inactivo
+                    </span>
+                  )}
                 </p>
                 <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-sm text-text-muted">
                   <span>{catLabel(p.category)}</span>
@@ -368,6 +394,13 @@ function Products() {
                   </button>
                 </div>
 
+                {/* Activo/Inactivo: reversible, sin perder historial de stock. */}
+                <Switch
+                  checked={p.isActive}
+                  onCheckedChange={() => toggleActive(p)}
+                  aria-label={`${p.isActive ? 'Inactivar' : 'Activar'} ${p.name}`}
+                />
+
                 <div className="flex gap-3 text-sm">
                   <button
                     onClick={() =>
@@ -388,20 +421,34 @@ function Products() {
                   >
                     Editar
                   </button>
-                  {p.isActive && (
-                    <button
-                      onClick={() => remove(p.id)}
-                      className="text-red-500 hover:text-red-700"
-                    >
-                      Archivar
-                    </button>
-                  )}
+                  <button
+                    onClick={() => setToDelete(p)}
+                    className="text-red-500 hover:text-red-700"
+                  >
+                    Eliminar
+                  </button>
                 </div>
               </div>
             </li>
           ))}
         </ul>
       )}
+
+      {/* Confirmación de eliminación definitiva */}
+      <ConfirmDialog
+        open={!!toDelete}
+        title="¿Eliminar este producto?"
+        description={
+          toDelete
+            ? `"${toDelete.name}" se eliminará definitivamente del inventario. Las recetas ya emitidas no se ven afectadas. Si solo quieres sacarlo de circulación, usa el interruptor de activo.`
+            : undefined
+        }
+        confirmLabel="Eliminar"
+        variant="danger"
+        loading={deleting}
+        onConfirm={() => toDelete && remove(toDelete.id)}
+        onCancel={() => setToDelete(null)}
+      />
     </div>
   );
 }

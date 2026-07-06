@@ -88,8 +88,8 @@ export class ProductsController {
 
   @Delete(':id')
   @Roles('ADMIN')
-  async archive(@CurrentUser('tenantId') tenantId: string, @Param('id') id: string) {
-    const data = await this.products.archive(tenantId, id);
+  async remove(@CurrentUser('tenantId') tenantId: string, @Param('id') id: string) {
+    const data = await this.products.remove(tenantId, id);
     return { success: true, data };
   }
 }

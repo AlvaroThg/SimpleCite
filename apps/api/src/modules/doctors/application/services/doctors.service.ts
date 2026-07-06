@@ -92,6 +92,7 @@ export class DoctorsService {
             specialty: dto.specialty,
             licenseNumber: dto.licenseNumber,
             bio: dto.bio,
+            insuranceMode: dto.insuranceMode ?? false,
             tenantId,
           },
         },
@@ -127,14 +128,28 @@ export class DoctorsService {
   async update(tenantId: string, doctorId: string, dto: UpdateDoctorDto) {
     const doctor = await this.prisma.client.user.findFirst({
       where: { id: doctorId, tenantId, role: 'DOCTOR' },
-      select: { id: true },
+      select: { id: true, email: true },
     });
     if (!doctor) throw new NotFoundException('Doctor no encontrado');
+
+    // Cambio de correo: validar unicidad dentro del tenant.
+    if (dto.email !== undefined && dto.email !== doctor.email) {
+      const taken = await this.prisma.client.user.findFirst({
+        where: { email: dto.email, tenantId, id: { not: doctorId } },
+        select: { id: true },
+      });
+      if (taken) throw new ConflictException(`Ya existe un usuario con email ${dto.email}`);
+    }
+
+    // Cambio de contraseña: siempre hasheada, nunca en claro.
+    const hashedPassword = dto.password ? await bcrypt.hash(dto.password, SALT_ROUNDS) : undefined;
 
     const updated = await this.prisma.client.user.update({
       where: { id: doctorId },
       data: {
         ...(dto.name !== undefined && { name: dto.name }),
+        ...(dto.email !== undefined && { email: dto.email }),
+        ...(hashedPassword && { password: hashedPassword }),
         ...(dto.isActive !== undefined && { isActive: dto.isActive }),
         doctorProfile: {
           update: {

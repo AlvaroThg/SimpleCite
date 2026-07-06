@@ -708,8 +708,12 @@ export interface Doctor {
   /// Foto del especialista (R2). Null = avatar de iniciales.
   photoUrl: string | null;
 }
-export const getDoctorsAdmin = (t: string, s: string) =>
-  get<{ data: Doctor[] }>('/api/doctors', t, s).then((r) => r.data);
+export const getDoctorsAdmin = (t: string, s: string, includeArchived = false) =>
+  get<{ data: Doctor[] }>(
+    `/api/doctors${includeArchived ? '?includeArchived=true' : ''}`,
+    t,
+    s,
+  ).then((r) => r.data);
 export const createDoctor = (
   t: string,
   s: string,
@@ -720,6 +724,8 @@ export const createDoctor = (
     specialty: string;
     licenseNumber?: string;
     bio?: string;
+    /// Modo seguro desde el alta (las citas van por seguro médico).
+    insuranceMode?: boolean;
   },
 ) => post<{ data: Doctor }>('/api/doctors', t, s, body).then((r) => r.data);
 export const updateDoctor = (t: string, s: string, id: string, body: Record<string, unknown>) =>

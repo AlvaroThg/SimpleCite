@@ -11,6 +11,7 @@ import {
   type ServiceItem,
 } from '@/lib/panel-api';
 import { PanelShell } from '@/components/panel/PanelShell';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { ErrorBox } from '@/components/panel/ui';
 import { SkeletonList } from '@/components/panel/Skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -103,13 +104,21 @@ function Services() {
     }
   }
 
+  // Servicio pendiente de eliminación (abre el modal de confirmación).
+  const [toDelete, setToDelete] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
   async function remove(id: string) {
-    if (!session || !confirm('¿Eliminar este servicio?')) return;
+    if (!session) return;
+    setDeleting(true);
     try {
       await deleteService(session.token, session.slug, id);
+      setToDelete(null);
       await load();
     } catch (err) {
       setError(err instanceof PanelApiError ? err.message : 'No se pudo eliminar');
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -290,7 +299,7 @@ function Services() {
                     Editar
                   </button>
                   <button
-                    onClick={() => remove(s.id)}
+                    onClick={() => setToDelete(s.id)}
                     className="text-red-500 transition-colors hover:text-red-700"
                   >
                     Eliminar
@@ -301,6 +310,17 @@ function Services() {
           })}
         </ul>
       )}
+      {/* Confirmación de eliminación de servicio */}
+      <ConfirmDialog
+        open={!!toDelete}
+        title="¿Eliminar este servicio?"
+        description="Dejará de ofrecerse en el booking. Las citas ya agendadas con este servicio se conservan."
+        confirmLabel="Eliminar"
+        variant="danger"
+        loading={deleting}
+        onConfirm={() => toDelete && remove(toDelete)}
+        onCancel={() => setToDelete(null)}
+      />
     </div>
   );
 }

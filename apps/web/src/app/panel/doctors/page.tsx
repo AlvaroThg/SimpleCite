@@ -30,6 +30,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Button } from '@/components/ui/button';
 import { Avatar } from '@/components/ui/avatar';
 import { Switch } from '@/components/ui/switch';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Stethoscope, Upload, Shield } from 'lucide-react';
 import { compressImageFile } from '@/lib/compress-image';
 import { toast } from 'sonner';
@@ -115,7 +116,8 @@ function Doctors() {
     if (!session) return;
     setLoading(true);
     try {
-      setItems(await getDoctorsAdmin(session.token, session.slug));
+      // Incluye archivados: así se pueden reactivar desde Editar → Activo.
+      setItems(await getDoctorsAdmin(session.token, session.slug, true));
     } catch (err) {
       setError(err instanceof PanelApiError ? err.message : 'Error al cargar doctores');
     } finally {
@@ -138,22 +140,30 @@ function Doctors() {
           specialty: draft.specialty.trim(),
           licenseNumber: draft.licenseNumber.trim() || null,
           bio: draft.bio.trim() || null,
+          email: draft.email.trim() || undefined,
+          // Contraseña vacía = no cambiarla.
+          ...(draft.password ? { password: draft.password } : {}),
           qrUrl: draft.qrUrl.trim() || null,
           qrLabel: draft.qrLabel.trim() || null,
           isActive: draft.isActive,
           insuranceMode: draft.insuranceMode,
         });
+        setDraft(null);
       } else {
-        await createDoctor(session.token, session.slug, {
+        const created = await createDoctor(session.token, session.slug, {
           email: draft.email.trim(),
           password: draft.password,
           name: draft.name.trim(),
           specialty: draft.specialty.trim(),
           licenseNumber: draft.licenseNumber.trim() || undefined,
           bio: draft.bio.trim() || undefined,
+          insuranceMode: draft.insuranceMode,
         });
+        // Pasar directo a edición del recién creado: así puede subir su QR,
+        // foto y marcar los seguros que acepta sin buscarlo en la lista.
+        setDraft({ ...draft, id: created.id, password: '' });
+        toast.success('Doctor creado. Ahora puedes subir su QR y asignarle seguros.');
       }
-      setDraft(null);
       await load();
     } catch (err) {
       setError(err instanceof PanelApiError ? err.message : 'No se pudo guardar');
@@ -162,19 +172,30 @@ function Doctors() {
     }
   }
 
+  // Doctor pendiente de archivar (abre el modal de confirmación).
+  const [toArchive, setToArchive] = useState<Doctor | null>(null);
+  const [archiving, setArchiving] = useState(false);
+
   async function archive(id: string) {
-    if (!session || !confirm('¿Archivar este doctor? Dejará de aparecer en la agenda.')) return;
+    if (!session) return;
+    setArchiving(true);
     try {
       await archiveDoctor(session.token, session.slug, id);
+      setToArchive(null);
       await load();
     } catch (err) {
       setError(err instanceof PanelApiError ? err.message : 'No se pudo archivar');
+    } finally {
+      setArchiving(false);
     }
   }
 
   const canSave = draft
     ? draft.id
-      ? draft.name.trim() && draft.specialty.trim()
+      ? draft.name.trim() &&
+        draft.specialty.trim() &&
+        draft.email.trim() &&
+        (!draft.password || draft.password.length >= 8)
       : draft.email.trim() &&
         draft.password.length >= 8 &&
         draft.name.trim() &&
@@ -198,22 +219,22 @@ function Doctors() {
       {draft && (
         <div className="bg-surface rounded-2xl border border-brand-200 p-4 space-y-3">
           <p className="text-sm font-semibold">{draft.id ? 'Editar doctor' : 'Nuevo doctor'}</p>
-          {!draft.id && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Input
-                label="Correo (login)"
-                type="email"
-                value={draft.email}
-                onChange={(v) => setDraft({ ...draft, email: v })}
-              />
-              <Input
-                label="Contraseña (mín. 8)"
-                type="password"
-                value={draft.password}
-                onChange={(v) => setDraft({ ...draft, password: v })}
-              />
-            </div>
-          )}
+          {/* Credenciales: al crear son obligatorias; al editar, el correo es
+              editable y la contraseña vacía significa "no cambiarla". */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Input
+              label="Correo (login)"
+              type="email"
+              value={draft.email}
+              onChange={(v) => setDraft({ ...draft, email: v })}
+            />
+            <Input
+              label={draft.id ? 'Nueva contraseña (vacío = no cambia)' : 'Contraseña (mín. 8)'}
+              type="password"
+              value={draft.password}
+              onChange={(v) => setDraft({ ...draft, password: v })}
+            />
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input
               label="Nombre"
@@ -236,6 +257,12 @@ function Doctors() {
             value={draft.bio}
             onChange={(v) => setDraft({ ...draft, bio: v })}
           />
+          {!draft.id && (
+            <p className="rounded-lg border border-border bg-canvas px-3 py-2 text-xs text-text-muted">
+              El QR de cobro y la foto del especialista se suben en el siguiente paso, apenas
+              guardes.
+            </p>
+          )}
           {draft.id && (
             <div className="space-y-3 rounded-lg border border-border bg-canvas p-3">
               <div className="text-xs text-text-muted">
@@ -283,25 +310,30 @@ function Doctors() {
               />
             </div>
           )}
-          {draft.id && (
-            <div className="space-y-3 rounded-lg border border-border bg-canvas p-3">
-              <div className="flex items-center justify-between gap-2 text-sm">
-                <span className="flex items-center gap-2 font-medium text-text-secondary">
-                  <Shield className="size-4 text-text-muted" /> Modo seguro
-                </span>
-                <Switch
-                  checked={draft.insuranceMode}
-                  onCheckedChange={(v) => setDraft({ ...draft, insuranceMode: v })}
-                  aria-label="Modo seguro"
-                />
-              </div>
-              <p className="text-xs text-text-muted">
-                Con el modo seguro activo, las citas de este especialista se cubren por seguro
-                médico: el paciente elige su seguro al reservar y no paga en la clínica.
-              </p>
-              {draft.insuranceMode && <DoctorInsurances doctorId={draft.id} />}
+          <div className="space-y-3 rounded-lg border border-border bg-canvas p-3">
+            <div className="flex items-center justify-between gap-2 text-sm">
+              <span className="flex items-center gap-2 font-medium text-text-secondary">
+                <Shield className="size-4 text-text-muted" /> Modo seguro
+              </span>
+              <Switch
+                checked={draft.insuranceMode}
+                onCheckedChange={(v) => setDraft({ ...draft, insuranceMode: v })}
+                aria-label="Modo seguro"
+              />
             </div>
-          )}
+            <p className="text-xs text-text-muted">
+              Con el modo seguro activo, las citas de este especialista se cubren por seguro médico:
+              el paciente elige su seguro al reservar y no paga en la clínica.
+            </p>
+            {draft.insuranceMode &&
+              (draft.id ? (
+                <DoctorInsurances doctorId={draft.id} />
+              ) : (
+                <p className="text-xs text-text-muted">
+                  Al guardar podrás marcar qué seguros acepta.
+                </p>
+              ))}
+          </div>
           {draft.id && (
             <div className="flex items-center justify-between gap-2 rounded-lg border border-border bg-canvas p-3 text-sm">
               <div>
@@ -398,7 +430,7 @@ function Doctors() {
                   </button>
                   {d.isActive && (
                     <button
-                      onClick={() => archive(d.id)}
+                      onClick={() => setToArchive(d)}
                       className="text-red-500 hover:text-red-700 transition-colors"
                     >
                       Archivar
@@ -411,6 +443,22 @@ function Doctors() {
           ))}
         </ul>
       )}
+
+      {/* Confirmación de archivado (reversible desde Editar → Activo) */}
+      <ConfirmDialog
+        open={!!toArchive}
+        title="¿Archivar este doctor?"
+        description={
+          toArchive
+            ? `${toArchive.name} dejará de aparecer en la agenda y el booking. Sus citas pasadas se conservan, y puedes reactivarlo cuando quieras desde Editar → Activo.`
+            : undefined
+        }
+        confirmLabel="Archivar"
+        variant="danger"
+        loading={archiving}
+        onConfirm={() => toArchive && archive(toArchive.id)}
+        onCancel={() => setToArchive(null)}
+      />
     </div>
   );
 }

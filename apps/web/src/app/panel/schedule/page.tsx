@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { CalendarDays, CalendarOff, Coffee, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useAuth } from '@/lib/panel-auth';
 import {
   getDoctorsAdmin,
@@ -218,14 +219,22 @@ function Schedule() {
     }
   }
 
+  // Bloqueo pendiente de eliminación (abre el modal de confirmación).
+  const [blockToDelete, setBlockToDelete] = useState<string | null>(null);
+  const [deletingBlock, setDeletingBlock] = useState(false);
+
   async function removeBlock(id: string) {
-    if (!session || !confirm('¿Eliminar este bloqueo?')) return;
+    if (!session) return;
+    setDeletingBlock(true);
     try {
       await deleteBlock(session.token, session.slug, id);
+      setBlockToDelete(null);
       await loadDoctorData();
       toast.success('Bloqueo eliminado.');
     } catch (e) {
       toast.error(e instanceof PanelApiError ? e.message : 'No se pudo eliminar el bloqueo');
+    } finally {
+      setDeletingBlock(false);
     }
   }
 
@@ -474,7 +483,7 @@ function Schedule() {
                         {b.reason && <p className="truncate text-text-muted">{b.reason}</p>}
                       </div>
                       <button
-                        onClick={() => removeBlock(b.id)}
+                        onClick={() => setBlockToDelete(b.id)}
                         className="inline-flex flex-shrink-0 items-center gap-1 rounded-lg px-2 py-1 text-sm text-red-500 transition-colors hover:bg-red-50 hover:text-red-700"
                       >
                         <Trash2 className="size-4" /> Eliminar
@@ -487,6 +496,17 @@ function Schedule() {
           </Card>
         </>
       )}
+      {/* Confirmación de eliminación de bloqueo */}
+      <ConfirmDialog
+        open={!!blockToDelete}
+        title="¿Eliminar este bloqueo?"
+        description="El horario bloqueado volverá a estar disponible para reservas."
+        confirmLabel="Eliminar"
+        variant="danger"
+        loading={deletingBlock}
+        onConfirm={() => blockToDelete && removeBlock(blockToDelete)}
+        onCancel={() => setBlockToDelete(null)}
+      />
     </div>
   );
 }

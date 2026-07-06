@@ -111,6 +111,8 @@ export const CreateDoctorSchema = z.object({
   specialty: z.string().min(2).max(100),
   licenseNumber: z.string().max(50).optional(),
   bio: z.string().max(2000).optional(),
+  /// Modo seguro desde el alta: las citas van por seguro, sin cobro directo.
+  insuranceMode: z.boolean().optional(),
 });
 export type CreateDoctorDto = z.infer<typeof CreateDoctorSchema>;
 
@@ -120,6 +122,10 @@ export const UpdateDoctorSchema = z.object({
   licenseNumber: z.string().max(50).nullable().optional(),
   bio: z.string().max(2000).nullable().optional(),
   isActive: z.boolean().optional(),
+  /// Cambiar el correo de login del doctor (único dentro del tenant).
+  email: z.string().email('Email inválido').optional(),
+  /// Nueva contraseña (opcional; vacío/omitido = no cambia).
+  password: z.string().min(8, 'La contraseña debe tener al menos 8 caracteres').optional(),
   /// QR bancario propio del doctor (modo PER_DOCTOR).
   qrUrl: z.string().url('URL de QR inválida').max(500).nullable().optional(),
   qrLabel: z.string().max(60).nullable().optional(),

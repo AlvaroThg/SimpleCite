@@ -79,9 +79,14 @@ export class ProductsService {
     return this.prisma.client.product.update({ where: { id }, data: { stock } });
   }
 
-  async archive(tenantId: string, id: string) {
+  /**
+   * Eliminación definitiva. Es segura: las recetas guardan nombre y dosis en su
+   * propio JSON (el productId colgante solo desactiva el autocompletado). Para
+   * "sacar de circulación" sin borrar, usar isActive:false (PATCH).
+   */
+  async remove(tenantId: string, id: string) {
     await this.findById(tenantId, id);
-    await this.prisma.client.product.update({ where: { id }, data: { isActive: false } });
+    await this.prisma.client.product.delete({ where: { id } });
     return { success: true };
   }
 }
