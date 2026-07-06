@@ -23,6 +23,11 @@ function IgGlyph({ className }: { className?: string }) {
   );
 }
 
+export interface GalleryMediaItem {
+  url: string;
+  type: 'IMAGE' | 'VIDEO';
+}
+
 interface InstagramFeedProps {
   /** Título de la sección. */
   title?: string;
@@ -35,6 +40,8 @@ interface InstagramFeedProps {
   lightWidgetId?: string;
   /** Alternativa: ID de app de Elfsight (requiere cargar su script). */
   elfsightAppId?: string;
+  /** Galería propia de la clínica (carrusel infinito de fotos/videos). */
+  media?: GalleryMediaItem[];
 }
 
 /**
@@ -47,10 +54,11 @@ export function InstagramFeed({
   profileUrl,
   lightWidgetId,
   elfsightAppId,
+  media = [],
 }: InstagramFeedProps) {
   const hasWidget = Boolean(lightWidgetId || elfsightAppId);
-  // Sin widget ni perfil no hay nada que mostrar.
-  if (!hasWidget && !profileUrl) return null;
+  // Sin widget, perfil ni galería propia no hay nada que mostrar.
+  if (!hasWidget && !profileUrl && media.length === 0) return null;
 
   return (
     <section id="instagram" className="bg-white">
@@ -63,6 +71,10 @@ export function InstagramFeed({
           <p className="max-w-md text-gray-500">
             Mirá nuestro día a día, casos y novedades antes de reservar.
           </p>
+
+          {/* Carrusel infinito con la galería propia de la clínica */}
+          {media.length > 0 && <MediaMarquee media={media} />}
+
           {profileUrl && (
             <a
               href={profileUrl}
@@ -75,17 +87,68 @@ export function InstagramFeed({
           )}
         </div>
 
-        <div className="mt-10">
-          {lightWidgetId ? (
-            <LightWidget id={lightWidgetId} />
-          ) : elfsightAppId ? (
-            <Elfsight appId={elfsightAppId} />
-          ) : (
-            <ProfileFallback profileUrl={profileUrl!} />
-          )}
-        </div>
+        {(hasWidget || media.length === 0) && (
+          <div className="mt-10">
+            {lightWidgetId ? (
+              <LightWidget id={lightWidgetId} />
+            ) : elfsightAppId ? (
+              <Elfsight appId={elfsightAppId} />
+            ) : profileUrl ? (
+              <ProfileFallback profileUrl={profileUrl} />
+            ) : null}
+          </div>
+        )}
       </div>
     </section>
+  );
+}
+
+/**
+ * Carrusel infinito (marquee CSS): la pista se duplica y se desplaza en loop;
+ * se pausa al pasar el mouse y cada foto/video se agranda suavemente al
+ * hacer hover para apreciarlo mejor. Con prefers-reduced-motion la pista no se
+ * anima y queda como scroll horizontal manual.
+ */
+function MediaMarquee({ media }: { media: GalleryMediaItem[] }) {
+  // Repetir hasta llenar cómodo el ancho (mínimo 6 elementos por vuelta).
+  const base =
+    media.length >= 6
+      ? media
+      : Array(Math.ceil(6 / media.length))
+          .fill(media)
+          .flat();
+  const track = [...base, ...base]; // dos vueltas → el -50% empalma perfecto
+
+  return (
+    <div className="group/marquee relative mt-6 w-full overflow-hidden motion-reduce:overflow-x-auto">
+      {/* Degradados laterales para que el loop no corte en seco */}
+      <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-12 bg-gradient-to-r from-white to-transparent" />
+      <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-12 bg-gradient-to-l from-white to-transparent" />
+
+      <div className="flex w-max animate-sc-marquee gap-4 py-3 group-hover/marquee:[animation-play-state:paused] motion-reduce:animate-none">
+        {track.map((m, i) => (
+          <div
+            key={`${m.url}-${i}`}
+            className="relative h-44 w-64 flex-shrink-0 overflow-hidden rounded-2xl border border-gray-100 shadow-sm transition-transform duration-300 ease-out hover:z-10 hover:scale-[1.07] hover:shadow-lg sm:h-52 sm:w-80"
+          >
+            {m.type === 'VIDEO' ? (
+              <video
+                src={m.url}
+                muted
+                loop
+                playsInline
+                autoPlay
+                preload="metadata"
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={m.url} alt="" loading="lazy" className="h-full w-full object-cover" />
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 

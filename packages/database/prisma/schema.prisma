@@ -92,6 +92,11 @@ enum ProductCategory {
   OTHER /// Otro producto vendible
 }
 
+enum MediaType {
+  IMAGE
+  VIDEO
+}
+
 // ─────────────────────────────────────
 // MODELS
 // ─────────────────────────────────────
@@ -157,11 +162,29 @@ model Tenant {
   products          Product[]
   tenantInsurances  TenantInsurance[]
   doctorInsurances  DoctorInsurance[]
+  media             TenantMedia[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@map("tenants")
+}
+
+/// Foto o video corto de la galería pública de la clínica (carrusel de la
+/// landing). Los archivos viven en R2 bajo `<slug>/gallery/`.
+model TenantMedia {
+  id       String    @id @default(uuid())
+  tenantId String
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  url      String
+  type     MediaType @default(IMAGE)
+  /// Orden en el carrusel (menor = primero).
+  sortOrder Int      @default(0)
+
+  createdAt DateTime @default(now())
+
+  @@index([tenantId])
+  @@map("tenant_media")
 }
 
 /// Usuario del sistema — Doctor, Staff o Admin de una clínica.

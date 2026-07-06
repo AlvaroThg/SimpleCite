@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { MapPin, MessageCircle, X } from 'lucide-react';
 import { accentOn } from '@/lib/tenant-color';
+import { mapsEmbedSrc } from '@/lib/maps';
 
 // Número de soporte de SimpleCite (E.164 sin '+').
 const SUPPORT_WA = '59161869814';
@@ -83,9 +84,8 @@ export function TenantFooter({
 
   const nameColor = accentOn(primaryColor);
   const waLink = whatsappContact ? `https://wa.me/${whatsappContact.replace(/\D/g, '')}` : null;
-  const mapsSrc = address
-    ? `https://maps.google.com/maps?q=${encodeURIComponent(address)}&z=16&output=embed`
-    : null;
+  // Coordenadas exactas del link de Maps si el admin lo pegó; texto de respaldo.
+  const mapsSrc = mapsEmbedSrc(mapsUrl, address);
   // El link compartido de Maps (si existe) es más preciso que buscar el texto.
   const mapsLink =
     mapsUrl ||

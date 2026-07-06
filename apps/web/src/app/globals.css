@@ -304,13 +304,25 @@
     animation: iphone-float 5s ease-in-out infinite;
     will-change: transform;
   }
+  /* Carrusel infinito de la galería del tenant (pista duplicada → -50%). */
+  .animate-sc-marquee {
+    animation: sc-marquee 45s linear infinite;
+    will-change: transform;
+  }
   @media (prefers-reduced-motion: reduce) {
     .animate-breathe,
     .animate-pulse-dot,
     .animate-qr-wait,
-    .animate-iphone-float {
+    .animate-iphone-float,
+    .animate-sc-marquee {
       animation: none;
     }
+  }
+}
+
+@keyframes sc-marquee {
+  to {
+    transform: translateX(-50%);
   }
 }
 

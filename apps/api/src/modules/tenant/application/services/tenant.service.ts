@@ -177,4 +177,57 @@ export class TenantService implements TenantServicePort {
 
     return this.getConfig(tenantId);
   }
+
+  // ───── Galería pública (carrusel de la landing) ─────
+
+  async listGallery(tenantId: string) {
+    return this.prisma.client.tenantMedia.findMany({
+      where: { tenantId },
+      select: { id: true, url: true, type: true, sortOrder: true },
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+    });
+  }
+
+  /**
+   * Sube una foto o video corto a `<slug>/gallery/` en R2 y lo registra.
+   * Solo formatos web-friendly; el límite de tamaño real lo pone el body del
+   * API (~8mb ≈ video de ~6MB).
+   */
+  async uploadGalleryItem(tenantId: string, fileBase64: string, mimeType: string) {
+    const IMAGE_MIMES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
+    const VIDEO_MIMES = ['video/mp4', 'video/webm'];
+    const isImage = IMAGE_MIMES.includes(mimeType);
+    const isVideo = VIDEO_MIMES.includes(mimeType);
+    if (!isImage && !isVideo) {
+      throw new NotFoundException(
+        'Formato no soportado. Imágenes: PNG/JPG/WebP/GIF · Videos: MP4/WebM.',
+      );
+    }
+
+    const tenant = await this.prisma.client.tenant.findUnique({
+      where: { id: tenantId },
+      select: { slug: true },
+    });
+    if (!tenant) throw new NotFoundException('Tenant no encontrado');
+
+    const url = await this.storage.uploadImageFromBase64(
+      `${tenant.slug}/gallery`,
+      fileBase64,
+      mimeType,
+    );
+    await this.prisma.client.tenantMedia.create({
+      data: { tenantId, url, type: isVideo ? 'VIDEO' : 'IMAGE' },
+    });
+    return this.listGallery(tenantId);
+  }
+
+  async removeGalleryItem(tenantId: string, id: string) {
+    const item = await this.prisma.client.tenantMedia.findFirst({
+      where: { id, tenantId },
+      select: { id: true },
+    });
+    if (!item) throw new NotFoundException('Elemento de galería no encontrado');
+    await this.prisma.client.tenantMedia.delete({ where: { id } });
+    return this.listGallery(tenantId);
+  }
 }

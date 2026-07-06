@@ -51,15 +51,24 @@ export class PublicTenantService {
       throw new NotFoundException('Tenant no disponible');
     }
 
-    // Seguros activos de la clínica para la sección "Seguros aceptados".
-    const insurances = await this.prisma.client.tenantInsurance.findMany({
-      where: { tenantId, isActive: true },
-      select: { name: true },
-      orderBy: { name: 'asc' },
-    });
+    // Seguros activos + galería (carrusel) para la landing pública.
+    const [insurances, gallery] = await Promise.all([
+      this.prisma.client.tenantInsurance.findMany({
+        where: { tenantId, isActive: true },
+        select: { name: true },
+        orderBy: { name: 'asc' },
+      }),
+      this.prisma.client.tenantMedia.findMany({
+        where: { tenantId },
+        select: { url: true, type: true },
+        orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+        take: 12,
+      }),
+    ]);
 
     return {
       insurances: insurances.map((i) => i.name),
+      gallery,
       slug: tenant.slug,
       name: tenant.name,
       logoUrl: tenant.logoUrl,

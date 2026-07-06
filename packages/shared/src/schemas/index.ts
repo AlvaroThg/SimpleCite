@@ -530,5 +530,7 @@ export const PublicTenantInfoSchema = z.object({
   whatsappEnabled: z.boolean(),
   /// Nombres de los seguros médicos activos de la clínica (landing pública).
   insurances: z.array(z.string()),
+  /// Galería pública (carrusel): fotos y videos cortos en R2.
+  gallery: z.array(z.object({ url: z.string(), type: z.enum(['IMAGE', 'VIDEO']) })),
 });
 export type PublicTenantInfo = z.infer<typeof PublicTenantInfoSchema>;

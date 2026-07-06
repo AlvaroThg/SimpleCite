@@ -48,12 +48,22 @@ export class ServicesService {
     });
   }
 
-  async archive(tenantId: string, id: string) {
+  /**
+   * Eliminación definitiva. Bloqueada si el servicio tiene citas: borrarlas en
+   * cascada destruiría historial clínico y de ingresos. En ese caso el camino
+   * es inactivarlo (isActive:false vía PATCH), que lo saca del booking.
+   */
+  async remove(tenantId: string, id: string) {
     await this.findById(tenantId, id);
-    await this.prisma.client.service.update({
-      where: { id },
-      data: { isActive: false },
+    const appointments = await this.prisma.client.appointment.count({
+      where: { serviceId: id, tenantId },
     });
+    if (appointments > 0) {
+      throw new ConflictException(
+        `Este servicio tiene ${appointments} cita(s) en el historial y no se puede eliminar. Inactívalo para que deje de ofrecerse.`,
+      );
+    }
+    await this.prisma.client.service.delete({ where: { id } });
     return { success: true };
   }
 

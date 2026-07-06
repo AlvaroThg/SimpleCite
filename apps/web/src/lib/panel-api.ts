@@ -125,6 +125,18 @@ export async function panelLogin(
   return json.data;
 }
 
+/**
+ * Pide a Next regenerar la landing/booking del tenant YA (sin esperar el ISR
+ * de 60s). Best-effort y fire-and-forget: si falla, el ISR lo cubre igual.
+ */
+export function revalidateTenantLanding(slug: string): void {
+  void fetch('/api/revalidate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ slug }),
+  }).catch(() => {});
+}
+
 /** Cierra la sesión del panel: el API borra la cookie httpOnly. Best-effort. */
 export async function panelLogout(slug: string): Promise<void> {
   try {
@@ -782,6 +794,27 @@ export const updateDoctorService = (
     (r) => r.data,
   );
 
+// ─── Galería pública (carrusel de la landing) ─────────────────────────
+
+export interface GalleryItem {
+  id: string;
+  url: string;
+  type: 'IMAGE' | 'VIDEO';
+  sortOrder: number;
+}
+
+export const getGallery = (t: string, s: string) =>
+  get<{ data: GalleryItem[] }>('/api/tenants/current/gallery', t, s).then((r) => r.data);
+export const uploadGalleryItem = (
+  t: string,
+  s: string,
+  body: { fileBase64: string; mimeType: string },
+) => post<{ data: GalleryItem[] }>('/api/tenants/current/gallery', t, s, body).then((r) => r.data);
+export const removeGalleryItem = (t: string, s: string, id: string) =>
+  del<{ data: GalleryItem[] }>(`/api/tenants/current/gallery/${id}`, t, s).then(
+    (r) => (r as { data: GalleryItem[] }).data,
+  );
+
 // ─── Seguros médicos (Addendum G) ─────────────────────────────────────
 
 export interface TenantInsurance {
@@ -834,8 +867,12 @@ export interface ServiceItem {
   icon: string | null;
   color: string | null;
 }
-export const getServices = (t: string, s: string) =>
-  get<{ data: ServiceItem[] }>('/api/services', t, s).then((r) => r.data);
+export const getServices = (t: string, s: string, includeInactive = false) =>
+  get<{ data: ServiceItem[] }>(
+    `/api/services${includeInactive ? '?includeInactive=true' : ''}`,
+    t,
+    s,
+  ).then((r) => r.data);
 export const createService = (
   t: string,
   s: string,

@@ -14,6 +14,7 @@ import {
 import { getTenantInfo, getDoctors } from '@/lib/api';
 import { getServiceIcon } from '@/lib/service-icons';
 import { readableOn, accentOn } from '@/lib/tenant-color';
+import { mapsEmbedSrc } from '@/lib/maps';
 import { InstagramFeed } from '@/components/InstagramFeed';
 
 interface Props {
@@ -94,9 +95,9 @@ export default async function TenantLandingPage({ params }: Props) {
     (tenant.address
       ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(tenant.address)}`
       : null);
-  const mapsEmbed = tenant.address
-    ? `https://maps.google.com/maps?q=${encodeURIComponent(tenant.address)}&z=16&output=embed`
-    : null;
+  // Coordenadas exactas del link de Maps del admin; la dirección textual es
+  // solo el respaldo (Google puede geocodificarla al negocio equivocado).
+  const mapsEmbed = mapsEmbedSrc(tenant.mapsUrl, tenant.address);
 
   return (
     <div className="bg-surface text-text-primary">
@@ -421,11 +422,12 @@ export default async function TenantLandingPage({ params }: Props) {
         </section>
       )}
 
-      {/* ── Instagram (confianza social) ── */}
+      {/* ── Instagram + galería propia (confianza social) ── */}
       <InstagramFeed
         title={`Conocé a ${tenant.name}`}
         profileUrl={tenant.instagramUrl}
         lightWidgetId={process.env.NEXT_PUBLIC_LIGHTWIDGET_ID}
+        media={tenant.gallery ?? []}
       />
 
       {/* ── Contacto y ubicación ── */}

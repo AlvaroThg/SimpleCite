@@ -1153,11 +1153,21 @@ export default function BookingWizard() {
                   </div>
                 )}
 
+                {/* Botón real con la marca del tenant (no un link plano). */}
                 <button
-                  className="mt-4 text-sm underline text-text-muted"
                   onClick={() => router.push(`/${slug}`)}
+                  className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl border-2 px-6 py-3 font-semibold transition-all hover:shadow-md active:scale-[.98] sm:w-auto"
+                  style={{ borderColor: primary, color: primary }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = primary;
+                    e.currentTarget.style.color = readableOn(primary);
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                    e.currentTarget.style.color = primary;
+                  }}
                 >
-                  Volver al inicio
+                  Volver al inicio de {state.tenant?.name ?? 'la clínica'}
                 </button>
               </div>
             </StepCard>

@@ -47,6 +47,8 @@ export interface TenantInfo {
   whatsappEnabled: boolean;
   /// Nombres de los seguros médicos activos (sección "Seguros aceptados").
   insurances: string[];
+  /// Galería pública (carrusel de la landing): fotos y videos cortos.
+  gallery: { url: string; type: 'IMAGE' | 'VIDEO' }[];
 }
 
 export interface DoctorWithServices {

@@ -68,14 +68,44 @@ export class DoctorsService {
     return this.toPublic(updated);
   }
 
+  /**
+   * Nombre normalizado para detectar duplicados: sin puntos/espacios extra,
+   * sin tildes y en minúsculas ("Dr. Bryan" ≡ "dr bryan" ≡ "Dr Bryan").
+   */
+  private normalizeName(name: string): string {
+    return name
+      .normalize('NFD')
+      .replace(/[̀-ͯ]/g, '')
+      .replace(/[.,]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .toLowerCase();
+  }
+
   async create(tenantId: string, dto: CreateDoctorDto) {
-    // Email Ãºnico dentro del tenant
+    // Email único dentro del tenant
     const existing = await this.prisma.client.user.findFirst({
       where: { email: dto.email, tenantId },
       select: { id: true },
     });
     if (existing) {
       throw new ConflictException(`Ya existe un usuario con email ${dto.email}`);
+    }
+
+    // Anti-duplicados: mismo nombre (ignorando puntos, tildes y mayúsculas).
+    // Evita el caso "Dr. Bryan" / "Dr Bryan" conviviendo sin que nadie lo note.
+    const doctors = await this.prisma.client.user.findMany({
+      where: { tenantId, role: 'DOCTOR' },
+      select: { name: true, isActive: true },
+    });
+    const normalized = this.normalizeName(dto.name);
+    const dup = doctors.find((d) => this.normalizeName(d.name) === normalized);
+    if (dup) {
+      throw new ConflictException(
+        `Ya existe un doctor con un nombre muy similar: "${dup.name}"${
+          dup.isActive ? '' : ' (archivado — puedes reactivarlo desde su edición)'
+        }. Usa un nombre distinto si es otra persona.`,
+      );
     }
 
     const hashedPassword = await bcrypt.hash(dto.password, SALT_ROUNDS);

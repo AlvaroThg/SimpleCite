@@ -12,6 +12,7 @@ import {
 } from '@/lib/panel-api';
 import { PanelShell } from '@/components/panel/PanelShell';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { Switch } from '@/components/ui/switch';
 import { ErrorBox } from '@/components/panel/ui';
 import { SkeletonList } from '@/components/panel/Skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -68,7 +69,8 @@ function Services() {
     if (!session) return;
     setLoading(true);
     try {
-      setItems(await getServices(session.token, session.slug));
+      // Incluye inactivos: se reactivan con el switch de cada fila.
+      setItems(await getServices(session.token, session.slug, true));
     } catch (err) {
       setError(err instanceof PanelApiError ? err.message : 'Error al cargar servicios');
     } finally {
@@ -119,6 +121,18 @@ function Services() {
       setError(err instanceof PanelApiError ? err.message : 'No se pudo eliminar');
     } finally {
       setDeleting(false);
+    }
+  }
+
+  /** Activa/inactiva sin eliminar: inactivo deja de ofrecerse en el booking. */
+  async function toggleActive(svc: ServiceItem) {
+    if (!session) return;
+    setItems((list) => list.map((x) => (x.id === svc.id ? { ...x, isActive: !svc.isActive } : x)));
+    try {
+      await updateService(session.token, session.slug, svc.id, { isActive: !svc.isActive });
+    } catch (err) {
+      setError(err instanceof PanelApiError ? err.message : 'No se pudo actualizar');
+      await load();
     }
   }
 
@@ -275,13 +289,19 @@ function Services() {
                       {!s.isActive && (
                         <>
                           <span className="text-text-disabled">·</span>
-                          <span className="text-red-500">inactivo</span>
+                          <span className="text-text-muted">Inactivo</span>
                         </>
                       )}
                     </p>
                   </div>
                 </div>
-                <div className="flex gap-3 flex-shrink-0 text-sm">
+                <div className="flex items-center gap-3 flex-shrink-0 text-sm">
+                  {/* Activo/Inactivo: reversible, no borra historial. */}
+                  <Switch
+                    checked={s.isActive}
+                    onCheckedChange={() => toggleActive(s)}
+                    aria-label={`${s.isActive ? 'Inactivar' : 'Activar'} ${s.name}`}
+                  />
                   <button
                     onClick={() =>
                       setDraft({
@@ -314,7 +334,7 @@ function Services() {
       <ConfirmDialog
         open={!!toDelete}
         title="¿Eliminar este servicio?"
-        description="Dejará de ofrecerse en el booking. Las citas ya agendadas con este servicio se conservan."
+        description="Se eliminará definitivamente. Si tiene citas en el historial, el sistema lo bloqueará: en ese caso usa el interruptor para inactivarlo."
         confirmLabel="Eliminar"
         variant="danger"
         loading={deleting}

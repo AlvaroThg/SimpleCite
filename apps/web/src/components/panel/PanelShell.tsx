@@ -19,10 +19,79 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { useAuth, useRequireAuth } from '@/lib/panel-auth';
-import { getBillingStatus, type BillingStatus } from '@/lib/panel-api';
+import { getBillingStatus, getTenantConfig, type BillingStatus } from '@/lib/panel-api';
 import { BrandSpinner } from '@/components/panel/Skeleton';
 import { Avatar } from '@/components/ui/avatar';
 import { ThemeToggle } from '@/components/theme-toggle';
+
+// ─── Marca del tenant en el panel ─────────────────────────────────────
+// El panel viste la marca de CADA clínica: su logo en el sidebar y su color
+// primario en botones/acentos. Se cachea en sessionStorage para no pedir la
+// config en cada navegación.
+
+interface TenantBrand {
+  name: string;
+  logoUrl: string | null;
+  primaryColor: string;
+}
+
+function useTenantBrand(session: { token: string; slug: string } | null): TenantBrand | null {
+  const [brand, setBrand] = useState<TenantBrand | null>(() => {
+    if (typeof window === 'undefined' || !session) return null;
+    try {
+      const raw = sessionStorage.getItem(`sc-brand-${session.slug}`);
+      return raw ? (JSON.parse(raw) as TenantBrand) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  useEffect(() => {
+    if (!session) return;
+    getTenantConfig(session.token, session.slug)
+      .then((cfg) => {
+        const next: TenantBrand = {
+          name: cfg.name,
+          logoUrl: cfg.logoUrl,
+          primaryColor: cfg.primaryColor || '#2563eb',
+        };
+        setBrand(next);
+        try {
+          sessionStorage.setItem(`sc-brand-${session.slug}`, JSON.stringify(next));
+        } catch {
+          /* storage lleno: seguimos sin cache */
+        }
+      })
+      .catch(() => {});
+  }, [session]);
+
+  return brand;
+}
+
+/**
+ * Deriva la escala brand-* y los tokens de acción desde el color del tenant.
+ * `color-mix` genera los tonos claros/oscuros; las utilidades Tailwind v4
+ * (bg-brand-600, text-brand-700, bg-primary…) leen estas variables en cascada,
+ * así que basta con setearlas en el contenedor raíz del panel.
+ */
+function brandVars(primary: string): React.CSSProperties {
+  const mix = (pct: number, base: string) => `color-mix(in srgb, ${primary} ${pct}%, ${base})`;
+  return {
+    ['--primary' as never]: primary,
+    ['--primary-hover' as never]: mix(85, 'black'),
+    ['--accent' as never]: mix(10, 'white'),
+    ['--color-brand-50' as never]: mix(8, 'white'),
+    ['--color-brand-100' as never]: mix(15, 'white'),
+    ['--color-brand-200' as never]: mix(25, 'white'),
+    ['--color-brand-300' as never]: mix(40, 'white'),
+    ['--color-brand-400' as never]: mix(60, 'white'),
+    ['--color-brand-500' as never]: mix(88, 'white'),
+    ['--color-brand-600' as never]: primary,
+    ['--color-brand-700' as never]: mix(85, 'black'),
+    ['--color-brand-800' as never]: mix(70, 'black'),
+    ['--color-brand-900' as never]: mix(55, 'black'),
+  };
+}
 
 /** Marca del shell oscuro: cuadro azul con punto blanco + wordmark. */
 function LogoDot({ className = '' }: { className?: string }) {
@@ -93,6 +162,7 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
   const session = useRequireAuth();
   const { logout } = useAuth();
   const pathname = usePathname();
+  const brand = useTenantBrand(session);
 
   const [billing, setBilling] = useState<BillingStatus | null>(null);
   useEffect(() => {
@@ -128,15 +198,28 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
   const onBilling = pathname.startsWith('/panel/billing');
 
   return (
-    <div className="flex min-h-screen bg-canvas">
+    <div
+      className="flex min-h-screen bg-canvas"
+      style={brand ? brandVars(brand.primaryColor) : undefined}
+    >
       {/* ── Sidebar oscuro (desktop) ── */}
       <aside className="hidden w-60 flex-shrink-0 flex-col bg-sidebar text-white/70 md:flex">
+        {/* Marca de la clínica: su logo y nombre (fallback: SimpleCite). */}
         <Link
           href="/panel"
           className="flex h-16 items-center gap-2.5 px-5 text-base font-bold tracking-[-0.01em] text-white transition-opacity hover:opacity-90"
         >
-          <LogoDot />
-          SimpleCite
+          {brand?.logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={brand.logoUrl}
+              alt={brand.name}
+              className="size-9 flex-none rounded-lg bg-white object-contain p-1"
+            />
+          ) : (
+            <LogoDot />
+          )}
+          <span className="truncate leading-tight">{brand?.name ?? 'SimpleCite'}</span>
         </Link>
 
         <nav className="flex-1 overflow-y-auto py-2">
@@ -192,13 +275,18 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
         <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b border-border bg-surface px-4 md:px-6">
           {/* Logo solo en móvil; en desktop el título de la vista */}
           <Link href="/panel" className="md:hidden">
-            <Image
-              src="/logo.png"
-              alt="SimpleCite"
-              width={2031}
-              height={774}
-              className="h-8 w-auto"
-            />
+            {brand?.logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={brand.logoUrl} alt={brand.name} className="h-9 w-auto object-contain" />
+            ) : (
+              <Image
+                src="/logo.png"
+                alt="SimpleCite"
+                width={2031}
+                height={774}
+                className="h-8 w-auto"
+              />
+            )}
           </Link>
           <h1 className="hidden text-[22px] font-semibold tracking-[-0.01em] text-text-primary md:block">
             {current?.label ?? 'Panel'}

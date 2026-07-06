@@ -9,9 +9,14 @@ import {
   getTenantInsurances,
   createTenantInsurance,
   updateTenantInsurance,
+  getGallery,
+  uploadGalleryItem,
+  removeGalleryItem,
+  revalidateTenantLanding,
   PanelApiError,
   type TenantConfig,
   type TenantInsurance,
+  type GalleryItem,
 } from '@/lib/panel-api';
 import { PanelShell } from '@/components/panel/PanelShell';
 import { ErrorBox } from '@/components/panel/ui';
@@ -77,6 +82,7 @@ function Settings() {
           <>
             <Branding cfg={cfg} onSaved={setCfg} />
             <ContactInfo cfg={cfg} onSaved={setCfg} />
+            <Gallery />
             <Insurances />
           </>
         ) : (
@@ -137,6 +143,7 @@ function Branding({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantConf
         ctaSubtitle: ctaSubtitle.trim() || null,
       });
       onSaved(updated);
+      revalidateTenantLanding(session.slug); // la landing refleja el cambio ya
       toast.success('Cambios guardados.');
     } catch (e) {
       toast.error(e instanceof PanelApiError ? e.message : 'No se pudo guardar');
@@ -163,6 +170,7 @@ function Branding({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantConf
           mimeType,
         });
         onSaved(updated);
+        revalidateTenantLanding(session.slug);
         toast.success(
           type === 'logo'
             ? 'Logo actualizado.'
@@ -599,6 +607,7 @@ function ContactInfo({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantC
         mimeType,
       });
       onSaved(updated);
+      revalidateTenantLanding(session.slug);
       toast.success('Foto de la fachada actualizada.');
     } catch (err) {
       toast.error(
@@ -622,6 +631,7 @@ function ContactInfo({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantC
         whatsappContact: whatsappContact.trim() || null,
       });
       onSaved(updated);
+      revalidateTenantLanding(session.slug); // la landing refleja el cambio ya
       toast.success('Cambios guardados.');
     } catch (e) {
       toast.error(e instanceof PanelApiError ? e.message : 'No se pudo guardar');
@@ -661,8 +671,9 @@ function ContactInfo({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantC
           className="w-full border border-border-strong rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
         />
         <span className="text-xs text-text-muted">
-          En Google Maps: busca tu clínica → Compartir → Copiar enlace. Si lo dejas vacío, el mapa
-          se genera buscando la dirección de arriba.
+          Abre tu clínica en Google Maps y copia el enlace COMPLETO de la barra del navegador (el
+          que contiene coordenadas). Con ese enlace el mapa de tu página apunta al lugar exacto; si
+          lo dejas vacío se busca por la dirección de arriba y puede fallar.
         </span>
       </label>
 
@@ -744,6 +755,138 @@ function ContactInfo({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantC
           {saving ? 'Guardando…' : 'Guardar'}
         </button>
       </div>
+    </section>
+  );
+}
+
+// ─── Galería pública (carrusel de la landing) ─────────────────────────────
+function Gallery() {
+  const { session } = useAuth();
+  const [items, setItems] = useState<GalleryItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!session) return;
+    getGallery(session.token, session.slug)
+      .then(setItems)
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [session]);
+
+  async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    if (!session) return;
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      let payload: { base64: string; mimeType: string };
+      if (file.type.startsWith('video/')) {
+        // Videos: sin compresión en el navegador; límite duro del API ~8mb.
+        if (file.size > 6 * 1024 * 1024) {
+          toast.error('El video supera 6 MB. Usa un clip más corto o comprímelo.');
+          return;
+        }
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve((reader.result as string).split(',')[1]);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+        payload = { base64, mimeType: file.type };
+      } else {
+        payload = await compressImageFile(file);
+      }
+      const updated = await uploadGalleryItem(session.token, session.slug, {
+        fileBase64: payload.base64,
+        mimeType: payload.mimeType,
+      });
+      setItems(updated);
+      revalidateTenantLanding(session.slug);
+      toast.success('Agregado a la galería.');
+    } catch (err) {
+      toast.error(err instanceof PanelApiError ? err.message : 'No se pudo subir');
+    } finally {
+      setUploading(false);
+      e.target.value = '';
+    }
+  }
+
+  async function remove(id: string) {
+    if (!session) return;
+    try {
+      setItems(await removeGalleryItem(session.token, session.slug, id));
+      revalidateTenantLanding(session.slug);
+      toast.success('Eliminado de la galería.');
+    } catch (err) {
+      toast.error(err instanceof PanelApiError ? err.message : 'No se pudo eliminar');
+    }
+  }
+
+  return (
+    <section className="bg-surface rounded-2xl border border-border p-5 space-y-4">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-semibold text-text-secondary">Galería de la página</h2>
+          <p className="text-xs text-text-muted">
+            Fotos y videos cortos que aparecen en el carrusel de tu página pública. Videos MP4 de
+            hasta 6 MB.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          disabled={uploading}
+          className="flex-shrink-0 px-4 py-2 rounded-xl bg-brand-600 text-white text-sm font-semibold hover:bg-brand-700 disabled:opacity-50"
+        >
+          {uploading ? 'Subiendo…' : '+ Agregar'}
+        </button>
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm"
+          className="hidden"
+          onChange={handleUpload}
+        />
+      </div>
+
+      {loading ? (
+        <p className="text-sm text-text-muted">Cargando…</p>
+      ) : items.length === 0 ? (
+        <p className="text-sm text-text-muted">
+          Aún no hay fotos ni videos. Lo que subas aquí se mostrará en el carrusel de tu página.
+        </p>
+      ) : (
+        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {items.map((m) => (
+            <li
+              key={m.id}
+              className="group relative aspect-video overflow-hidden rounded-xl border border-border bg-canvas"
+            >
+              {m.type === 'VIDEO' ? (
+                <video src={m.url} muted loop playsInline className="h-full w-full object-cover" />
+              ) : (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={m.url} alt="" className="h-full w-full object-cover" />
+              )}
+              <button
+                type="button"
+                onClick={() => remove(m.id)}
+                aria-label="Eliminar de la galería"
+                className="absolute right-1.5 top-1.5 rounded-md bg-black/55 px-2 py-1 text-xs font-medium text-white opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+              >
+                Eliminar
+              </button>
+              {m.type === 'VIDEO' && (
+                <span className="absolute bottom-1.5 left-1.5 rounded bg-black/55 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                  VIDEO
+                </span>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
     </section>
   );
 }

@@ -1,4 +1,13 @@
-import { Controller, Get, Patch, Post, Body, Param, BadRequestException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Patch,
+  Post,
+  Delete,
+  Body,
+  Param,
+  BadRequestException,
+} from '@nestjs/common';
 import { UpdateTenantBrandingSchema, type UpdateTenantBrandingDto } from '@simplecite/shared';
 import { Public } from '../../../../common/decorators/public.decorator';
 import { CurrentUser, Roles } from '../../../../common/decorators';
@@ -77,6 +86,40 @@ export class TenantController {
       throw new BadRequestException('imageBase64 y mimeType son requeridos');
     }
     const data = await this.tenantService.uploadAsset(tenantId, type, imageBase64, mimeType);
+    return { success: true, data };
+  }
+
+  // ───── Galería pública (carrusel de la landing) ─────
+
+  @Get('current/gallery')
+  @Roles('ADMIN')
+  async listGallery(@CurrentUser('tenantId') tenantId: string) {
+    const data = await this.tenantService.listGallery(tenantId);
+    return { success: true, data };
+  }
+
+  /** Sube foto o video corto (base64) a la galería. */
+  @Post('current/gallery')
+  @Roles('ADMIN')
+  async uploadGalleryItem(
+    @CurrentUser('tenantId') tenantId: string,
+    @Body() body: { fileBase64?: string; mimeType?: string },
+  ) {
+    if (!body.fileBase64 || !body.mimeType) {
+      throw new BadRequestException('fileBase64 y mimeType son requeridos');
+    }
+    const data = await this.tenantService.uploadGalleryItem(
+      tenantId,
+      body.fileBase64,
+      body.mimeType,
+    );
+    return { success: true, data };
+  }
+
+  @Delete('current/gallery/:id')
+  @Roles('ADMIN')
+  async removeGalleryItem(@CurrentUser('tenantId') tenantId: string, @Param('id') id: string) {
+    const data = await this.tenantService.removeGalleryItem(tenantId, id);
     return { success: true, data };
   }
 }

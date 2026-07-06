@@ -60,8 +60,8 @@ export class ServicesController {
 
   @Roles('ADMIN')
   @Delete(':id')
-  async archive(@CurrentUser('tenantId') tenantId: string, @Param('id') id: string) {
-    return this.servicesService.archive(tenantId, id);
+  async remove(@CurrentUser('tenantId') tenantId: string, @Param('id') id: string) {
+    return this.servicesService.remove(tenantId, id);
   }
 
   // â”€â”€â”€â”€â”€ Asignaciones doctor â†” servicio â”€â”€â”€â”€â”€
