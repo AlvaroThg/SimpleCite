@@ -5,6 +5,7 @@ import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ScheduleModule as CronScheduleModule } from '@nestjs/schedule';
 import { LoggerModule } from 'nestjs-pino';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { validateEnv } from './common/config/env.schema';
 import { DatabaseModule } from './common/database/database.module';
 import { TenantMiddleware } from './common/middleware/tenant.middleware';
 import { TenantContextInterceptor } from './common/interceptors/tenant-context.interceptor';
@@ -33,6 +34,8 @@ import { InsurancesModule } from './modules/insurances/insurances.module';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+      // Falla RÁPIDO y claro si falta una env crítica (ver env.schema.ts).
+      validate: validateEnv,
       // Rutas relativas al CWD. Al correr vía Turbo el CWD es apps/api, por eso
       // se incluyen también las variantes de la raíz del monorepo (../../). El
       // primer archivo que define cada clave gana, así que el .env.<entorno>

@@ -45,6 +45,7 @@ export class SlotsService {
         where: {
           doctorId: query.doctorId,
           serviceId: query.serviceId,
+          tenantId, // aislamiento: un doctorId de otra clínica no resuelve
           isActive: true,
         },
         include: { service: { select: { duration: true } } },
@@ -60,11 +61,12 @@ export class SlotsService {
 
     const [rules, blocks, existingAppointments] = await Promise.all([
       this.prisma.client.doctorScheduleRule.findMany({
-        where: { doctorId: query.doctorId, isActive: true },
+        where: { doctorId: query.doctorId, tenantId, isActive: true },
       }),
       this.prisma.client.doctorScheduleBlock.findMany({
         where: {
           doctorId: query.doctorId,
+          tenantId,
           endTime: { gte: from },
           startTime: { lte: to },
         },
@@ -72,6 +74,7 @@ export class SlotsService {
       this.prisma.client.appointment.findMany({
         where: {
           doctorId: query.doctorId,
+          tenantId,
           // TENTATIVE también ocupa: hay un paciente verificando OTP en este slot.
           // Coherente con el exclusion constraint que también incluye TENTATIVE.
           status: { in: ['TENTATIVE', 'PENDING_PAYMENT', 'CONFIRMED'] },
