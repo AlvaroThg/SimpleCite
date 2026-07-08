@@ -45,7 +45,7 @@ export class TenantMiddleware implements NestMiddleware {
         tenantId = tenant.id;
         this.logger.debug(`Tenant resuelto por path público "${slug}": ${tenantId}`);
       }
-      (req as any).tenantId = tenantId;
+      req.tenantId = tenantId;
       return next();
     }
 
@@ -96,12 +96,13 @@ export class TenantMiddleware implements NestMiddleware {
     }
 
     // ─── Estrategia 3: JWT claim (fallback) ────────────────────────
-    if (!tenantId && (req as any).user?.tenantId) {
-      tenantId = (req as any).user.tenantId;
+    const jwtUser = (req as { user?: { tenantId?: string } }).user;
+    if (!tenantId && jwtUser?.tenantId) {
+      tenantId = jwtUser.tenantId;
       this.logger.debug(`Tenant resuelto por JWT: ${tenantId}`);
     }
 
-    (req as any).tenantId = tenantId;
+    req.tenantId = tenantId;
     next();
   }
 }
