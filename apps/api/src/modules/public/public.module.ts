@@ -36,7 +36,9 @@ import { WhatsAppService } from '../../common/services/whatsapp.service';
 @Module({
   imports: [
     SlotsModule,
-    WhatsappModule,
+    // Bot de WhatsApp: solo con el flag activo. Sin él, WhatsAppService y
+    // PublicBookingService reciben WaMessageService como @Optional (no envían).
+    ...(process.env.ENABLE_WHATSAPP === 'true' ? [WhatsappModule] : []),
     PatientsModule,
     BillingModule,
     AppointmentsModule,

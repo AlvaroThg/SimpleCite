@@ -1,5 +1,4 @@
 import { Module } from '@nestjs/common';
-import { ScheduleModule } from '@nestjs/schedule';
 
 import { BillingModule } from '../billing/billing.module';
 import { StorageService } from '../../common/services/storage.service';
@@ -19,11 +18,13 @@ import { WhatsappInternalController } from './infrastructure/adapters/whatsapp-i
  *   - WaMessageService       → para enviar mensajes (OTP, notificaciones, bot)
  *
  * Requiere en AppModule:
- *   - ScheduleModule.forRoot() para el @Cron de health checks
+ *   - ScheduleModule.forRoot() (registrado allí, global) para los @Cron
+ *
+ * Este módulo se carga SOLO con ENABLE_WHATSAPP=true (ver AppModule).
  *   - Que el Docker socket esté montado en el contenedor del API
  */
 @Module({
-  imports: [ScheduleModule.forRoot(), BillingModule],
+  imports: [BillingModule],
   controllers: [WhatsappAdminController, WhatsappInternalController],
   providers: [
     StorageService,

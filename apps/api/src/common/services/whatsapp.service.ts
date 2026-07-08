@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { Logger } from 'nestjs-pino';
 import { PrismaService } from '../database/prisma.service';
 import { WaMessageService } from '../../modules/whatsapp/application/services/wa-message.service';
@@ -16,7 +16,8 @@ import { WaMessageService } from '../../modules/whatsapp/application/services/wa
 @Injectable()
 export class WhatsAppService {
   constructor(
-    private readonly waMessage: WaMessageService,
+    // Ausente cuando ENABLE_WHATSAPP != true (main/prod): cae al fallback de log.
+    @Optional() private readonly waMessage: WaMessageService | null,
     private readonly prisma: PrismaService,
     private readonly logger: Logger,
   ) {}
@@ -50,6 +51,7 @@ export class WhatsAppService {
     }
 
     try {
+      if (!this.waMessage) throw new Error('WhatsApp deshabilitado (ENABLE_WHATSAPP != true)');
       await this.waMessage.send({
         tenantId,
         tenantSlug: tenant.slug,

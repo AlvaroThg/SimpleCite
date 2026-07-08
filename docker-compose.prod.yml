@@ -84,6 +84,8 @@ services:
       TENTATIVE_APPOINTMENT_TTL_MINUTES: ${TENTATIVE_APPOINTMENT_TTL_MINUTES:-15}
       # Booking sin bot en main: OTP desactivado (Turnstile + rate limit protegen).
       PUBLIC_BOOKING_REQUIRE_OTP: ${PUBLIC_BOOKING_REQUIRE_OTP:-false}
+      # Bot de WhatsApp (Baileys): apagado en main/prod. develop lo enciende.
+      ENABLE_WHATSAPP: ${ENABLE_WHATSAPP:-false}
       R2_ACCOUNT_ID: ${R2_ACCOUNT_ID}
       R2_ENDPOINT: ${R2_ENDPOINT:-}
       R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID}

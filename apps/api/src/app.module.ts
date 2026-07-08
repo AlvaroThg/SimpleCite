@@ -2,6 +2,7 @@ import type { MiddlewareConsumer, NestModule } from '@nestjs/common';
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
+import { ScheduleModule as CronScheduleModule } from '@nestjs/schedule';
 import { LoggerModule } from 'nestjs-pino';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { DatabaseModule } from './common/database/database.module';
@@ -88,6 +89,10 @@ import { InsurancesModule } from './modules/insurances/insurances.module';
       { name: 'default', ttl: 60_000, limit: 100 }, // 100 req/min por IP
     ]),
 
+    // Registro de crons (@Cron). Vive AQUÍ (no en un módulo flaggeable):
+    // la limpieza de citas TENTATIVE (AppointmentsCleanupService) depende de él.
+    CronScheduleModule.forRoot(),
+
     DatabaseModule,
     HealthModule,
     TenantModule,
@@ -99,8 +104,12 @@ import { InsurancesModule } from './modules/insurances/insurances.module';
     SlotsModule,
     PatientsModule,
     PublicModule,
-    WhatsappModule,
-    WhatsappCloudModule,
+    // Bot de WhatsApp (Baileys por tenant): APAGADO en main/producción.
+    // ENABLE_WHATSAPP=true lo enciende (rama develop / bot futuro).
+    // WhatsappCloudModule (Cloud API de Meta) igual se instancia vía
+    // MessagingModule como adaptador del puerto de mensajería; sin las envs
+    // META_* es inerte (no envía nada, best-effort).
+    ...(process.env.ENABLE_WHATSAPP === 'true' ? [WhatsappModule, WhatsappCloudModule] : []),
     ReportsModule,
     BillingModule,
     MedicalRecordsModule,

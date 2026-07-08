@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Optional,
   NotFoundException,
   ConflictException,
   BadRequestException,
@@ -41,7 +42,8 @@ export class PublicBookingService {
     private readonly config: ConfigService,
     private readonly turnstile: TurnstileService,
     private readonly patients: PatientsService,
-    private readonly waMessage: WaMessageService,
+    // Ausente cuando ENABLE_WHATSAPP != true: el envío del QR por bot no corre.
+    @Optional() private readonly waMessage: WaMessageService | null,
     private readonly logger: Logger,
   ) {}
 
@@ -354,6 +356,7 @@ export class PublicBookingService {
    * el comprobante. Best-effort: si no hay instancia conectada (dev), se ignora.
    */
   private async sendStaticQrByWhatsApp(tenantId: string, phone: string, appointmentId: string) {
+    if (!this.waMessage) return; // bot apagado (ENABLE_WHATSAPP != true)
     try {
       const tenant = await this.prisma.client.tenant.findUnique({
         where: { id: tenantId },
