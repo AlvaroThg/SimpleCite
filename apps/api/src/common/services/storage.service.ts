@@ -26,9 +26,11 @@ export class StorageService {
     const accountId = config.get<string>('R2_ACCOUNT_ID');
     const accessKeyId = config.get<string>('R2_ACCESS_KEY_ID');
     const secretAccessKey = config.get<string>('R2_SECRET_ACCESS_KEY');
-    // Endpoint explícito o derivado del account id.
+    // Endpoint explícito o derivado del account id. `||` a propósito: en el
+    // compose de prod R2_ENDPOINT llega como string vacío (${R2_ENDPOINT:-})
+    // y con `??` ese vacío anulaba el fallback y dejaba el cliente en null.
     const endpoint =
-      config.get<string>('R2_ENDPOINT') ??
+      config.get<string>('R2_ENDPOINT') ||
       (accountId ? `https://${accountId}.r2.cloudflarestorage.com` : '');
 
     this.bucket = config.get<string>('R2_BUCKET') ?? '';
