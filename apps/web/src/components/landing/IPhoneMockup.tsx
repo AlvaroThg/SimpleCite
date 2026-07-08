@@ -100,7 +100,7 @@ export function IPhoneMockup() {
 
       <div className={reduce ? '' : 'animate-iphone-float'}>
         {/* Cuerpo (titanio natural) */}
-        <div className="relative aspect-[393/852] w-full rounded-[54px] bg-[#1C1C1E] p-[12px] shadow-[0_50px_100px_rgba(0,0,0,0.35)] ring-1 ring-white/20">
+        <div className="relative aspect-[393/760] w-full rounded-[54px] bg-[#1C1C1E] p-[12px] shadow-[0_50px_100px_rgba(0,0,0,0.35)] ring-1 ring-white/20">
           {/* Botones laterales */}
           <span className="absolute right-[-3px] top-[160px] h-[80px] w-[4px] rounded-r-[3px] bg-[#2C2C2E]" />
           <span className="absolute left-[-3px] top-[120px] h-[34px] w-[4px] rounded-l-[3px] bg-[#2C2C2E]" />

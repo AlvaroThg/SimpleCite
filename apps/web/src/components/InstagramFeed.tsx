@@ -125,12 +125,15 @@ function MediaMarquee({ media }: { media: GalleryMediaItem[] }) {
       <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-12 bg-gradient-to-r from-white to-transparent" />
       <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-12 bg-gradient-to-l from-white to-transparent" />
 
-      <div className="flex w-max animate-sc-marquee gap-4 py-3 group-hover/marquee:[animation-play-state:paused] motion-reduce:animate-none">
+      <div className="flex w-max animate-sc-marquee items-center gap-4 py-3 group-hover/marquee:[animation-play-state:paused] motion-reduce:animate-none">
         {track.map((m, i) => (
           <div
             key={`${m.url}-${i}`}
-            className="relative h-44 w-64 flex-shrink-0 overflow-hidden rounded-2xl border border-gray-100 shadow-sm transition-transform duration-300 ease-out hover:z-10 hover:scale-[1.07] hover:shadow-lg sm:h-52 sm:w-80"
+            className="relative flex-shrink-0 overflow-hidden rounded-2xl border border-gray-100 shadow-sm transition-transform duration-300 ease-out hover:z-10 hover:scale-[1.07] hover:shadow-lg"
           >
+            {/* Proporción REAL del archivo: fila de altura fija y ancho natural.
+                El tope de ancho evita que una panorámica se coma el carrusel
+                (solo en ese caso extremo se recorta con object-cover). */}
             {m.type === 'VIDEO' ? (
               <video
                 src={m.url}
@@ -139,11 +142,16 @@ function MediaMarquee({ media }: { media: GalleryMediaItem[] }) {
                 playsInline
                 autoPlay
                 preload="metadata"
-                className="h-full w-full object-cover"
+                className="h-44 w-auto max-w-[24rem] object-cover sm:h-56 sm:max-w-[30rem]"
               />
             ) : (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={m.url} alt="" loading="lazy" className="h-full w-full object-cover" />
+              <img
+                src={m.url}
+                alt=""
+                loading="lazy"
+                className="h-44 w-auto max-w-[24rem] object-cover sm:h-56 sm:max-w-[30rem]"
+              />
             )}
           </div>
         ))}

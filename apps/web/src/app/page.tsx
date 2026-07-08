@@ -265,46 +265,33 @@ function Button({
 
 // ─── Pricing ──────────────────────────────────────────────────────────
 function Pricing() {
+  // Dos planes, MISMAS funciones (todo lo que el producto ya hace hoy). La
+  // diferencia es capacidad y acompañamiento, no features recortadas: menos
+  // fricción de decisión para el comprador y nada que gatear en el código.
   const plans = [
-    {
-      name: 'Básico',
-      price: '15',
-      tagline: 'Ideal para consultorios individuales que recién digitalizan su agenda.',
-      featured: false,
-      badge: null,
-      buttonLabel: 'Obtener Básico',
-      buttonVariant: 'outline' as const,
-      checkColor: 'text-text-muted',
-      features: [
-        'Agenda digital en la nube',
-        'Web Booking público (Subdominio propio)',
-        'Gestión de historias clínicas (EHR) básicas',
-        'Cobros físicos en clínica',
-        'Soporte por correo electrónico',
-      ],
-    },
     {
       name: 'Profesional',
       price: '35',
-      tagline: 'Todo lo que necesitas para automatizar tu clínica y evitar inasistencias.',
+      tagline: 'Todo incluido para consultorios y clínicas de hasta 10 especialistas.',
       featured: true,
       badge: 'Recomendado',
       buttonLabel: 'Obtener Profesional',
       buttonVariant: 'default' as const,
       checkColor: 'text-brand-500',
       features: [
-        'Todo lo del plan Básico, más:',
-        'Cobro por QR estático (Cero comisiones)',
-        'Confirmación de pago manual desde el panel',
-        'Reportes de ingresos por doctor',
-        'Bot de WhatsApp Propio (próximamente)',
-        'Recordatorios automáticos (próximamente)',
+        'Agenda online y página web con tu marca (subdominio propio)',
+        'Panel multiusuario: doctores, recepción y administración',
+        'Historias clínicas y recetas en PDF',
+        'Cobro por QR bancario sin comisiones y en efectivo',
+        'Seguros médicos por especialista',
+        'Inventario, reportes de ingresos y exportación a Excel',
+        'Hasta 10 especialistas',
       ],
     },
     {
       name: 'Clínica',
-      price: '75',
-      tagline: 'Para centros médicos con múltiples especialistas y secretarias.',
+      price: '70',
+      tagline: 'Para centros médicos grandes que necesitan capacidad y acompañamiento.',
       featured: false,
       badge: null,
       buttonLabel: 'Obtener Clínica',
@@ -312,10 +299,10 @@ function Pricing() {
       checkColor: 'text-text-muted',
       features: [
         'Todo lo del plan Profesional, más:',
-        'Multiusuario (Cuentas para Doctores y Staff)',
-        'Asignación de citas por especialista',
-        'Reportes avanzados de asistencia',
-        'Onboarding personalizado (Videollamada)',
+        'Especialistas ilimitados',
+        'Onboarding personalizado por videollamada',
+        'Soporte prioritario por WhatsApp',
+        'Bot de WhatsApp y recordatorios automáticos (próximamente, incluidos)',
       ],
     },
   ];
@@ -327,7 +314,7 @@ function Pricing() {
         Elige el que crece contigo. Precios en USD/mes.
       </p>
 
-      <div className="mt-12 grid md:grid-cols-3 gap-6 items-start">
+      <div className="mx-auto mt-12 grid max-w-3xl gap-6 items-start md:grid-cols-2">
         {plans.map((p) => (
           <Card key={p.name} featured={p.featured}>
             <CardHeader>
