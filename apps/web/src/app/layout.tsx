@@ -30,10 +30,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="es" className={`${inter.variable} ${jetbrainsMono.variable}`}>
       <head>
-        {/* Aplica el tema guardado antes de pintar para evitar el flash. */}
+        {/* Aplica el tema guardado antes de pintar para evitar el flash.
+            Claro por defecto (DESIGN.md: fondo blanco): el oscuro solo se
+            activa si el usuario lo eligió con el toggle, nunca por el
+            prefers-color-scheme del sistema. */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `try{var t=localStorage.getItem('sc-theme');var d=t?t==='dark':matchMedia('(prefers-color-scheme:dark)').matches;if(d){document.documentElement.setAttribute('data-theme','dark')}}catch(e){}`,
+            __html: `try{if(localStorage.getItem('sc-theme')==='dark'){document.documentElement.setAttribute('data-theme','dark')}}catch(e){}`,
           }}
         />
       </head>
