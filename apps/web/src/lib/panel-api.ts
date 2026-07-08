@@ -814,6 +814,11 @@ export const removeGalleryItem = (t: string, s: string, id: string) =>
   del<{ data: GalleryItem[] }>(`/api/tenants/current/gallery/${id}`, t, s).then(
     (r) => (r as { data: GalleryItem[] }).data,
   );
+/** Persiste el orden del carrusel (ids en el orden deseado). */
+export const reorderGallery = (t: string, s: string, ids: string[]) =>
+  patch<{ data: GalleryItem[] }>('/api/tenants/current/gallery/order', t, s, { ids }).then(
+    (r) => r.data,
+  );
 
 // ─── Seguros médicos (Addendum G) ─────────────────────────────────────
 

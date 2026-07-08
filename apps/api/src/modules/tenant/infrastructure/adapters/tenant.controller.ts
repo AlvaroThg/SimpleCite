@@ -116,6 +116,20 @@ export class TenantController {
     return { success: true, data };
   }
 
+  /** Reordena la galería (drag & drop del panel): lista de ids en orden. */
+  @Patch('current/gallery/order')
+  @Roles('ADMIN')
+  async reorderGallery(
+    @CurrentUser('tenantId') tenantId: string,
+    @Body() body: { ids?: string[] },
+  ) {
+    if (!Array.isArray(body.ids) || body.ids.some((id) => typeof id !== 'string')) {
+      throw new BadRequestException('ids debe ser una lista de ids');
+    }
+    const data = await this.tenantService.reorderGallery(tenantId, body.ids);
+    return { success: true, data };
+  }
+
   @Delete('current/gallery/:id')
   @Roles('ADMIN')
   async removeGalleryItem(@CurrentUser('tenantId') tenantId: string, @Param('id') id: string) {

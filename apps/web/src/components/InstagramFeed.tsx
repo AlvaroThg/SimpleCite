@@ -142,7 +142,7 @@ function MediaMarquee({ media }: { media: GalleryMediaItem[] }) {
                 playsInline
                 autoPlay
                 preload="metadata"
-                className="h-44 w-auto max-w-[24rem] object-cover sm:h-56 sm:max-w-[30rem]"
+                className="h-44 w-auto max-w-[24rem] object-cover sm:h-60 sm:max-w-[32rem] lg:h-72 lg:max-w-[40rem]"
               />
             ) : (
               // eslint-disable-next-line @next/next/no-img-element
@@ -150,7 +150,7 @@ function MediaMarquee({ media }: { media: GalleryMediaItem[] }) {
                 src={m.url}
                 alt=""
                 loading="lazy"
-                className="h-44 w-auto max-w-[24rem] object-cover sm:h-56 sm:max-w-[30rem]"
+                className="h-44 w-auto max-w-[24rem] object-cover sm:h-60 sm:max-w-[32rem] lg:h-72 lg:max-w-[40rem]"
               />
             )}
           </div>

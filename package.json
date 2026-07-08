@@ -20,7 +20,8 @@
     "db:migrate:deploy": "pnpm --filter @simplecite/database db:migrate:deploy",
     "db:seed": "pnpm --filter @simplecite/database db:seed",
     "db:studio": "pnpm --filter @simplecite/database db:studio",
-    "prepare": "husky"
+    "prepare": "husky",
+    "tenant:new": "pnpm --filter @simplecite/database tenant:new"
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx}": [

@@ -12,6 +12,7 @@ import {
   getGallery,
   uploadGalleryItem,
   removeGalleryItem,
+  reorderGallery,
   revalidateTenantLanding,
   PanelApiError,
   type TenantConfig,
@@ -671,9 +672,9 @@ function ContactInfo({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantC
           className="w-full border border-border-strong rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
         />
         <span className="text-xs text-text-muted">
-          Abre tu clínica en Google Maps y copia el enlace COMPLETO de la barra del navegador (el
-          que contiene coordenadas). Con ese enlace el mapa de tu página apunta al lugar exacto; si
-          lo dejas vacío se busca por la dirección de arriba y puede fallar.
+          Pega cualquier enlace de Google Maps de tu clínica (el de Compartir o el de la barra del
+          navegador): el sistema extrae la ubicación exacta para el mapa de tu página. Si lo dejas
+          vacío, se busca por la dirección de arriba y puede ser impreciso.
         </span>
       </label>
 
@@ -766,6 +767,48 @@ function Gallery() {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  // Reordenamiento por arrastre (HTML5 DnD): índice del elemento en vuelo.
+  const dragIndex = useRef<number | null>(null);
+
+  /** Al soltar: persiste el orden actual en el backend (best-effort). */
+  async function persistOrder(next: GalleryItem[]) {
+    if (!session) return;
+    try {
+      await reorderGallery(
+        session.token,
+        session.slug,
+        next.map((m) => m.id),
+      );
+      revalidateTenantLanding(session.slug);
+    } catch {
+      toast.error('No se pudo guardar el orden');
+    }
+  }
+
+  function handleDragStart(index: number) {
+    dragIndex.current = index;
+  }
+  /** Reordena en vivo mientras se arrastra sobre otro elemento. */
+  function handleDragOver(e: React.DragEvent, overIndex: number) {
+    e.preventDefault();
+    const from = dragIndex.current;
+    if (from === null || from === overIndex) return;
+    setItems((list) => {
+      const next = [...list];
+      const [moved] = next.splice(from, 1);
+      next.splice(overIndex, 0, moved);
+      return next;
+    });
+    dragIndex.current = overIndex;
+  }
+  function handleDragEnd() {
+    if (dragIndex.current === null) return;
+    dragIndex.current = null;
+    setItems((list) => {
+      void persistOrder(list);
+      return list;
+    });
+  }
 
   useEffect(() => {
     if (!session) return;
@@ -830,8 +873,8 @@ function Gallery() {
         <div>
           <h2 className="text-sm font-semibold text-text-secondary">Galería de la página</h2>
           <p className="text-xs text-text-muted">
-            Fotos y videos cortos que aparecen en el carrusel de tu página pública. Videos MP4 de
-            hasta 6 MB.
+            Fotos y videos cortos que aparecen en el carrusel de tu página pública. Arrastra para
+            reordenarlos. Videos MP4 de hasta 6 MB.
           </p>
         </div>
         <button
@@ -859,10 +902,14 @@ function Gallery() {
         </p>
       ) : (
         <ul className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {items.map((m) => (
+          {items.map((m, index) => (
             <li
               key={m.id}
-              className="group relative aspect-video overflow-hidden rounded-xl border border-border bg-canvas"
+              draggable
+              onDragStart={() => handleDragStart(index)}
+              onDragOver={(e) => handleDragOver(e, index)}
+              onDragEnd={handleDragEnd}
+              className="group relative aspect-video cursor-grab overflow-hidden rounded-xl border border-border bg-canvas active:cursor-grabbing"
             >
               {m.type === 'VIDEO' ? (
                 <video src={m.url} muted loop playsInline className="h-full w-full object-cover" />

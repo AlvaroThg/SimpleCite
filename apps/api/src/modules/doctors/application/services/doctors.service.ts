@@ -5,7 +5,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
-import type { CreateDoctorDto, UpdateDoctorDto } from '@simplecite/shared';
+import { PLAN_INFO, type CreateDoctorDto, type UpdateDoctorDto } from '@simplecite/shared';
 import { PrismaService } from '../../../../common/database/prisma.service';
 import { StorageService } from '../../../../common/services/storage.service';
 
@@ -90,6 +90,25 @@ export class DoctorsService {
     });
     if (existing) {
       throw new ConflictException(`Ya existe un usuario con email ${dto.email}`);
+    }
+
+    // Límite de especialistas del plan (Profesional: 10 activos; Clínica: sin
+    // límite). Los archivados no cuentan: archivar libera el cupo.
+    const tenant = await this.prisma.client.tenant.findUnique({
+      where: { id: tenantId },
+      select: { plan: true },
+    });
+    const planInfo = PLAN_INFO[tenant?.plan ?? 'PRO'];
+    if (planInfo.maxDoctors !== null) {
+      const activeCount = await this.prisma.client.user.count({
+        where: { tenantId, role: 'DOCTOR', isActive: true },
+      });
+      if (activeCount >= planInfo.maxDoctors) {
+        throw new ConflictException(
+          `Tu plan ${planInfo.label} permite hasta ${planInfo.maxDoctors} especialistas activos. ` +
+            'Archiva uno que ya no atienda, o pasa al plan Clínica para especialistas ilimitados.',
+        );
+      }
     }
 
     // Anti-duplicados: mismo nombre (ignorando puntos, tildes y mayúsculas).

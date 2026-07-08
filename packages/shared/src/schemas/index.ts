@@ -38,6 +38,19 @@ export type AppointmentStatus = z.infer<typeof AppointmentStatus>;
 export const SubscriptionPlan = z.enum(['BASIC', 'PRO', 'ELITE']);
 export type SubscriptionPlan = z.infer<typeof SubscriptionPlan>;
 
+/**
+ * Fuente de verdad de los planes comerciales. El enum de DB no cambia
+ * (BASIC/PRO/ELITE); aquí viven el nombre de venta y los límites reales:
+ *   PRO   = "Profesional" (US$35): todo incluido, hasta 10 especialistas.
+ *   ELITE = "Clínica" (US$70): especialistas ilimitados + acompañamiento.
+ *   BASIC = legacy (ya no se vende): mismo límite que Profesional.
+ */
+export const PLAN_INFO: Record<SubscriptionPlan, { label: string; maxDoctors: number | null }> = {
+  BASIC: { label: 'Básico (legacy)', maxDoctors: 10 },
+  PRO: { label: 'Profesional', maxDoctors: 10 },
+  ELITE: { label: 'Clínica', maxDoctors: null },
+};
+
 export const TenantStatus = z.enum(['TRIAL', 'ACTIVE', 'SUSPENDED']);
 export type TenantStatus = z.infer<typeof TenantStatus>;
 

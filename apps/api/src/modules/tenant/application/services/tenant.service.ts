@@ -104,6 +104,31 @@ export class TenantService implements TenantServicePort {
     return t;
   }
 
+  /**
+   * Expande un link corto de Google Maps (maps.app.goo.gl / goo.gl/maps) a su
+   * URL larga siguiendo redirects. El link corto NO trae coordenadas, así que
+   * el mapa embebido caería a buscar la dirección por texto (impreciso); el
+   * largo trae el pin exacto (!3d…!4d…). Best-effort: si falla, se guarda tal
+   * cual y el frontend usa la dirección como respaldo.
+   */
+  private async expandMapsUrl(url: string): Promise<string> {
+    if (!/^https:\/\/(maps\.app\.goo\.gl|goo\.gl\/maps)\//.test(url)) return url;
+    try {
+      let current = url;
+      for (let hop = 0; hop < 4; hop++) {
+        const res = await fetch(current, { method: 'HEAD', redirect: 'manual' });
+        const location = res.headers.get('location');
+        if (!location) break;
+        current = new URL(location, current).toString();
+        // Ya tenemos coordenadas: suficiente para el embed exacto.
+        if (/!3d-?\d+\.\d+!4d-?\d+\.\d+|@-?\d+\.\d+,-?\d+\.\d+/.test(current)) break;
+      }
+      return current;
+    } catch {
+      return url;
+    }
+  }
+
   /** Actualiza branding (nombre/logo/color/QR). Solo campos provistos. */
   async updateBranding(tenantId: string, dto: UpdateTenantBrandingDto): Promise<TenantConfig> {
     await this.prisma.client.tenant.update({
@@ -129,7 +154,9 @@ export class TenantService implements TenantServicePort {
         ...(dto.facebookUrl !== undefined && { facebookUrl: dto.facebookUrl }),
         ...(dto.instagramUrl !== undefined && { instagramUrl: dto.instagramUrl }),
         ...(dto.whatsappContact !== undefined && { whatsappContact: dto.whatsappContact }),
-        ...(dto.mapsUrl !== undefined && { mapsUrl: dto.mapsUrl }),
+        ...(dto.mapsUrl !== undefined && {
+          mapsUrl: dto.mapsUrl ? await this.expandMapsUrl(dto.mapsUrl) : dto.mapsUrl,
+        }),
       },
     });
     return this.getConfig(tenantId);
@@ -218,6 +245,24 @@ export class TenantService implements TenantServicePort {
     await this.prisma.client.tenantMedia.create({
       data: { tenantId, url, type: isVideo ? 'VIDEO' : 'IMAGE' },
     });
+    return this.listGallery(tenantId);
+  }
+
+  /** Reordena la galería: sortOrder = posición del id en la lista recibida. */
+  async reorderGallery(tenantId: string, ids: string[]) {
+    const items = await this.prisma.client.tenantMedia.findMany({
+      where: { tenantId },
+      select: { id: true },
+    });
+    const own = new Set(items.map((i) => i.id));
+    let order = 0;
+    for (const id of ids) {
+      if (!own.has(id)) continue; // ids ajenos o borrados: se ignoran
+      await this.prisma.client.tenantMedia.update({
+        where: { id },
+        data: { sortOrder: order++ },
+      });
+    }
     return this.listGallery(tenantId);
   }
 
