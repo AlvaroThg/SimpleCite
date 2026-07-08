@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { AuthProvider } from '@/lib/panel-auth';
+import { PanelErrorBoundary } from '@/components/panel/ErrorBoundary';
 
 export const metadata: Metadata = {
   title: 'SimpleCite — Panel',
@@ -7,10 +8,15 @@ export const metadata: Metadata = {
 };
 
 /**
- * Layout del panel profesional. Provee el contexto de auth a todo /panel.
- * El gating de sesión lo hace cada página vía useRequireAuth (client-side),
- * por eso el layout solo envuelve con el provider.
+ * Layout del panel profesional. Provee el contexto de auth a todo /panel y un
+ * Error Boundary: una excepción de render en cualquier página muestra un card
+ * accionable (reintentar / cerrar sesión) en vez del error genérico de Next.
+ * El gating de sesión lo hace cada página vía useRequireAuth (client-side).
  */
 export default function PanelLayout({ children }: { children: React.ReactNode }) {
-  return <AuthProvider>{children}</AuthProvider>;
+  return (
+    <PanelErrorBoundary>
+      <AuthProvider>{children}</AuthProvider>
+    </PanelErrorBoundary>
+  );
 }
