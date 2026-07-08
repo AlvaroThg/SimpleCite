@@ -66,10 +66,8 @@ jobs:
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/simplecite_test
       DIRECT_URL: postgresql://postgres:postgres@localhost:5432/simplecite_test
-      SUPABASE_URL: https://test.supabase.co
-      SUPABASE_ANON_KEY: test-anon-key
-      SUPABASE_SERVICE_ROLE_KEY: test-service-role-key
       JWT_SECRET: ci-secret-of-at-least-32-characters-long-xx
+      PATIENT_JWT_SECRET: ci-patient-secret-of-at-least-32-chars-xx
       NODE_ENV: test
 
     steps:
@@ -114,9 +112,14 @@ jobs:
           - image: api
             dockerfile: Dockerfile
             context: .
-          - image: whatsapp-instance
-            dockerfile: apps/whatsapp-instance/Dockerfile
-            context: apps/whatsapp-instance
+          # La web también se construye en CI: valida su Dockerfile y deja la
+          # imagen lista en GHCR. Las NEXT_PUBLIC_* reales se inyectan en el
+          # build del servidor de deploy (Dokploy), no aquí.
+          - image: web
+            dockerfile: apps/web/Dockerfile
+            context: .
+          # (whatsapp-instance se construye solo en develop: el bot está
+          # apagado en main con ENABLE_WHATSAPP=false.)
     steps:
       - name: Checkout
         uses: actions/checkout@v4

@@ -42,6 +42,11 @@ async function bootstrap() {
     credentials: true,
   });
 
+  // Graceful shutdown: con SIGTERM (rolling deploy de Docker/Dokploy) Nest
+  // deja de aceptar conexiones, drena las activas y dispara onModuleDestroy
+  // (PrismaService cierra su pool). Sin esto, cada deploy corta requests vivos.
+  app.enableShutdownHooks();
+
   const port = process.env.API_PORT || 3001;
   await app.listen(port);
 
