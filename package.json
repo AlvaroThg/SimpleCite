@@ -21,7 +21,8 @@
     "db:seed": "pnpm --filter @simplecite/database db:seed",
     "db:studio": "pnpm --filter @simplecite/database db:studio",
     "prepare": "husky",
-    "tenant:new": "pnpm --filter @simplecite/database tenant:new"
+    "tenant:new": "pnpm --filter @simplecite/database tenant:new",
+    "tenant:renew": "pnpm --filter @simplecite/database tenant:renew"
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx}": [

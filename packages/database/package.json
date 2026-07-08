@@ -16,7 +16,8 @@
     "db:seed": "dotenv -e ../../.env -- tsx prisma/seed.ts",
     "db:studio": "dotenv -e ../../.env -- prisma studio",
     "postinstall": "prisma generate",
-    "tenant:new": "dotenv -e ../../.env -- tsx scripts/new-tenant.ts"
+    "tenant:new": "dotenv -e ../../.env -- tsx scripts/new-tenant.ts",
+    "tenant:renew": "dotenv -e ../../.env -- tsx scripts/renew-tenant.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.8.2"
