@@ -1,6 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Logger } from 'nestjs-pino';
+import helmet from 'helmet';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
@@ -20,6 +21,10 @@ async function bootstrap() {
   app.useLogger(app.get(Logger));
 
   app.setGlobalPrefix('api');
+
+  // Headers de seguridad HTTP (API JSON puro: la CSP no aplica a respuestas
+  // de datos, pero X-Content-Type-Options, HSTS y compañía sí).
+  app.use(helmet({ contentSecurityPolicy: false }));
 
   // No hay ValidationPipe global — toda la validación se hace con ZodValidationPipe
   // aplicado explícitamente en cada controller. Un ValidationPipe global con

@@ -1,4 +1,5 @@
 import { Controller, Post, Body, BadRequestException, Res } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import type { Response } from 'express';
 import { Public } from '../../../../common/decorators/public.decorator';
 import { CurrentTenant } from '../../../../common/decorators/current-tenant.decorator';
@@ -21,6 +22,8 @@ import { SESSION_COOKIE, SESSION_COOKIE_MAX_AGE_MS, sessionCookieOptions } from 
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  // Anti fuerza-bruta: mucho más estricto que el rate limit global (100/min).
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post('login')
   async login(
     @Body(new ZodValidationPipe(LoginSchema)) dto: LoginDto,
