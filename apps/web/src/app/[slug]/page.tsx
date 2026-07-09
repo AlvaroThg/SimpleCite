@@ -32,6 +32,16 @@ function initials(name: string) {
     .toUpperCase();
 }
 
+/**
+ * Nombre corto para el CTA "Agendar con …". Si el nombre empieza con un
+ * honorífico (Dr., Dra., Lic.), solo el primer token dejaba "Agendar con Dr.";
+ * en ese caso se incluye también el nombre propio.
+ */
+function shortDoctorName(name: string) {
+  const [first, second] = name.trim().split(/\s+/);
+  return /^(dr|dra|lic|dn)\.?$/i.test(first ?? '') && second ? `${first} ${second}` : (first ?? '');
+}
+
 export default async function TenantLandingPage({ params }: Props) {
   const { slug } = await params;
 
@@ -104,9 +114,23 @@ export default async function TenantLandingPage({ params }: Props) {
       {/* ── Hero ── */}
       <section
         className="relative overflow-hidden"
-        style={{ background: `linear-gradient(160deg, ${primary}14, ${secondary}0a 55%, #ffffff)` }}
+        style={{
+          background: `linear-gradient(160deg, ${primary}1f, ${secondary}0f 55%, transparent)`,
+        }}
       >
-        <div className="mx-auto grid max-w-6xl items-center gap-10 px-5 pb-10 pt-14 sm:pt-20 lg:grid-cols-[1.05fr_0.95fr] lg:pb-16">
+        {/* Trama de puntos al color de la clínica: da textura al hero sin
+            competir con el texto (se desvanece hacia el centro). */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0"
+          style={{
+            backgroundImage: `radial-gradient(${primary}2e 1px, transparent 1px)`,
+            backgroundSize: '22px 22px',
+            maskImage: 'radial-gradient(ellipse 80% 90% at 12% 0%, black, transparent 68%)',
+            WebkitMaskImage: 'radial-gradient(ellipse 80% 90% at 12% 0%, black, transparent 68%)',
+          }}
+        />
+        <div className="relative mx-auto grid max-w-6xl items-center gap-10 px-5 pb-10 pt-14 sm:pt-20 lg:grid-cols-[1.05fr_0.95fr] lg:pb-16">
           <div>
             {/* Estado en vivo: la clínica recibe reservas ahora mismo. */}
             <span className="mb-5 inline-flex items-center gap-2 rounded-full border border-border bg-surface px-3.5 py-1.5 text-[13px] font-medium text-text-secondary shadow-sm">
@@ -160,21 +184,33 @@ export default async function TenantLandingPage({ params }: Props) {
             )}
           </div>
 
-          {/* Visual del hero: foto de portada/fachada, o composición de marca. */}
+          {/* Visual del hero: foto de portada/fachada, o composición de marca.
+              Marco de altura fija con relleno difuminado: la imagen se muestra
+              entera sin importar su proporción (banner, cuadrada o vertical). */}
           {heroImage ? (
             <div className="relative hidden lg:block">
               <div
                 className="absolute -right-6 -top-6 h-40 w-40 rounded-full opacity-20 blur-2xl"
                 style={{ backgroundColor: secondary }}
               />
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={heroImage}
-                alt={tenant.name}
-                width={800}
-                height={600}
-                className="relative max-h-[440px] w-full rounded-3xl object-cover shadow-xl"
-              />
+              <div className="relative h-[440px] overflow-hidden rounded-3xl border border-border shadow-xl">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={heroImage}
+                  alt=""
+                  aria-hidden
+                  className="absolute inset-0 h-full w-full scale-110 object-cover opacity-50 blur-2xl"
+                />
+                <div className="absolute inset-0" style={{ backgroundColor: `${primary}14` }} />
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={heroImage}
+                  alt={tenant.name}
+                  width={800}
+                  height={600}
+                  className="relative h-full w-full object-contain"
+                />
+              </div>
             </div>
           ) : (
             <div className="relative hidden min-h-[380px] items-center justify-center lg:flex">
@@ -413,7 +449,7 @@ export default async function TenantLandingPage({ params }: Props) {
                     className="mt-5 inline-flex items-center gap-1 text-sm font-semibold transition hover:gap-2"
                     style={{ color: accent }}
                   >
-                    Agendar con {doctor.name.split(' ')[0]} <ArrowRight className="size-4" />
+                    Agendar con {shortDoctorName(doctor.name)} <ArrowRight className="size-4" />
                   </Link>
                 </div>
               ))}
