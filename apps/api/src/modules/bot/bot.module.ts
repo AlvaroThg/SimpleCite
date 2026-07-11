@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { StorageService } from '../../common/services/storage.service';
 import { SlotsModule } from '../slots/slots.module';
 import { PatientsModule } from '../patients/patients.module';
 import { ConversationEngine } from './application/services/conversation-engine.service';
@@ -14,7 +15,7 @@ import { ConversationEngine } from './application/services/conversation-engine.s
  */
 @Module({
   imports: [ConfigModule, SlotsModule, PatientsModule],
-  providers: [ConversationEngine],
+  providers: [ConversationEngine, StorageService],
   exports: [ConversationEngine],
 })
 export class BotModule {}

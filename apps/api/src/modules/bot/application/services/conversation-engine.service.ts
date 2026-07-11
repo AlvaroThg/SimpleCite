@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Logger } from 'nestjs-pino';
 import { PrismaService } from '../../../../common/database/prisma.service';
+import { StorageService } from '../../../../common/services/storage.service';
 import { SlotsService } from '../../../slots/application/services/slots.service';
 import { PatientsService } from '../../../patients/application/services/patients.service';
 import { generateCancellationToken } from '../../../appointments/application/services/appointments.service';
@@ -41,6 +42,7 @@ export class ConversationEngine {
     private readonly prisma: PrismaService,
     private readonly slots: SlotsService,
     private readonly patients: PatientsService,
+    private readonly storage: StorageService,
     private readonly config: ConfigService,
     private readonly logger: Logger,
   ) {}
@@ -60,6 +62,9 @@ export class ConversationEngine {
       if (/cambiar de cl[ií]nica/i.test(input) || input === 'switch-clinic') {
         return await this.askClinic(convo);
       }
+
+      // Fotos: hoy solo tienen sentido como comprobante de pago.
+      if (msg.photo) return await this.onPhotoReceived(convo, msg.photo);
 
       switch (convo.step) {
         case 'IDLE':
@@ -82,6 +87,14 @@ export class ConversationEngine {
           return await this.onSlotChosen(convo, input);
         case 'CHOOSING_PAYMENT':
           return await this.onPaymentChosen(convo, input);
+        case 'AWAITING_RECEIPT':
+          return [
+            {
+              text:
+                'Estoy esperando la *foto de tu comprobante de pago* 📄. ' +
+                'Envíala por aquí, o escribe "cancelar" si prefieres no continuar.',
+            },
+          ];
         default:
           return await this.askClinic(convo);
       }
@@ -542,18 +555,7 @@ export class ConversationEngine {
   // ─── Paso 5: pago y cierre ─────────────────────────────────────────────
 
   private async onPaymentChosen(convo: Convo, input: string): Promise<BotOutbound[]> {
-    if (input === 'pay:qr') {
-      // Fase 2: envío del QR + espera del comprobante con revisión del staff.
-      return [
-        {
-          text:
-            'El pago por QR desde el chat llega muy pronto 🙌.\n\n' +
-            'Por ahora puedes pagar en efectivo al llegar a la clínica:',
-          buttons: [[{ label: '💵 Pagar en efectivo', data: 'pay:cash' }]],
-        },
-      ];
-    }
-    if (input !== 'pay:cash') {
+    if (input !== 'pay:cash' && input !== 'pay:qr') {
       return [{ text: '¿Cómo prefieres pagar? Toca una de las opciones 🙂' }];
     }
 
@@ -579,6 +581,8 @@ export class ConversationEngine {
         },
       ];
     }
+
+    if (input === 'pay:qr') return this.startQrPayment(convo, appointment.id);
 
     await this.prisma.client.appointment.update({
       where: { id: appointment.id },
@@ -623,16 +627,136 @@ export class ConversationEngine {
     ];
   }
 
+  /**
+   * Pago por QR: envía el QR correcto (compartido del tenant o el del doctor
+   * según QrAssignmentMode), deja la cita PENDING_PAYMENT y espera la foto
+   * del comprobante. La confirmación final la hace el staff desde el panel
+   * al revisar el comprobante (decisión del producto: el dinero se revisa).
+   */
+  private async startQrPayment(convo: Convo, appointmentId: string): Promise<BotOutbound[]> {
+    const tenant = await this.prisma.client.tenant.findUnique({
+      where: { id: convo.tenantId! },
+      select: { qrAssignmentMode: true, staticQrUrl: true, staticQrLabel: true },
+    });
+
+    let qrUrl = tenant?.staticQrUrl ?? null;
+    let qrLabel = tenant?.staticQrLabel ?? null;
+    if (tenant?.qrAssignmentMode === 'PER_DOCTOR') {
+      const profile = await this.prisma.client.doctorProfile.findFirst({
+        where: { userId: convo.data.doctorId!, user: { tenantId: convo.tenantId! } },
+        select: { qrUrl: true, qrLabel: true },
+      });
+      // El QR del doctor manda; si no tiene, el del tenant es el respaldo.
+      qrUrl = profile?.qrUrl || qrUrl;
+      qrLabel = profile?.qrLabel || qrLabel;
+    }
+
+    if (!qrUrl) {
+      return [
+        {
+          text:
+            'Esta clínica todavía no tiene QR de pago configurado 😕. ' +
+            'Puedes pagar en efectivo al llegar:',
+          buttons: [[{ label: '💵 Pagar en efectivo', data: 'pay:cash' }]],
+        },
+      ];
+    }
+
+    await this.prisma.client.appointment.update({
+      where: { id: appointmentId },
+      data: { status: 'PENDING_PAYMENT', paymentMethod: 'STATIC_QR', expiresAt: null },
+    });
+    await this.recordBookingNotification(convo.tenantId!, appointmentId);
+    await this.save(convo, 'AWAITING_RECEIPT', convo.data);
+
+    this.logger.log(
+      { event: 'bot.appointment.awaiting-receipt', tenantId: convo.tenantId, appointmentId },
+      'ConversationEngine',
+    );
+
+    const bank = qrLabel ? ` (${qrLabel})` : '';
+    return [
+      {
+        imageUrl: qrUrl,
+        text:
+          `📲 Escanea este QR${bank} y paga *Bs ${convo.data.price}*.\n\n` +
+          'Cuando termines, envíame la *foto del comprobante* por aquí. ' +
+          'La clínica la verificará y te confirmo tu cita por este chat.',
+      },
+    ];
+  }
+
+  /** Foto entrante: comprobante de pago si hay una cita esperándolo. */
+  private async onPhotoReceived(
+    convo: Convo,
+    photo: { buffer: Buffer; mimeType: string },
+  ): Promise<BotOutbound[]> {
+    if (convo.step !== 'AWAITING_RECEIPT' || !convo.data.appointmentId) {
+      // Fase 3: foto huérfana → buscar PENDING_PAYMENT recientes por teléfono.
+      return [
+        {
+          text:
+            'Recibí tu imagen 🙌 pero no tengo una reserva esperando comprobante en este chat. ' +
+            'Si quieres agendar una cita, escribe "hola".',
+        },
+      ];
+    }
+
+    const appointment = await this.prisma.client.appointment.findFirst({
+      where: {
+        id: convo.data.appointmentId,
+        tenantId: convo.tenantId!,
+        status: 'PENDING_PAYMENT',
+      },
+      select: { id: true },
+    });
+    if (!appointment) {
+      await this.save(convo, 'IDLE', { name: convo.data.name });
+      return [
+        { text: 'Esa reserva ya no está esperando pago 😕. Escribe "hola" para empezar de nuevo.' },
+      ];
+    }
+
+    // Comprobante a R2 (receipts/<tenantId>/<uuid>): visible en el panel para
+    // que el staff lo revise y confirme la cita.
+    const receiptUrl = await this.storage.uploadImage(
+      `receipts/${convo.tenantId}`,
+      photo.buffer,
+      photo.mimeType,
+    );
+    await this.prisma.client.appointment.update({
+      where: { id: appointment.id },
+      data: { receiptUrl },
+    });
+
+    this.logger.log(
+      { event: 'bot.receipt.received', tenantId: convo.tenantId, appointmentId: appointment.id },
+      'ConversationEngine',
+    );
+
+    const first = (convo.data.name ?? '').split(/\s+/)[0] || '';
+    await this.save(convo, 'IDLE', { name: convo.data.name });
+    return [
+      {
+        text:
+          `📄 ¡Comprobante recibido${first ? `, ${first}` : ''}! Tu horario queda reservado.\n\n` +
+          'La clínica verificará el pago y te confirmaré la cita por este chat. ' +
+          'Si algo no cuadra, se comunicarán contigo.',
+      },
+    ];
+  }
+
   // ─── Utilitarios ───────────────────────────────────────────────────────
 
   private async abort(convo: Convo): Promise<BotOutbound[]> {
-    // Liberar el slot si había una TENTATIVE a medio camino.
+    // Liberar el slot si había una reserva a medio camino (TENTATIVE del
+    // wizard, o PENDING_PAYMENT esperando un comprobante que nunca llegó).
     if (convo.data.appointmentId) {
       await this.prisma.client.appointment.updateMany({
         where: {
           id: convo.data.appointmentId,
           tenantId: convo.tenantId ?? undefined,
-          status: 'TENTATIVE',
+          status: { in: ['TENTATIVE', 'PENDING_PAYMENT'] },
         },
         data: { status: 'CANCELLED', expiresAt: null },
       });

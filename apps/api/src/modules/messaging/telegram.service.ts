@@ -54,17 +54,39 @@ export class TelegramService implements IMessagingService {
 
   @On('photo')
   async onPhoto(@Ctx() ctx: Context): Promise<void> {
-    // Fase 2: comprobantes de pago por foto (con revisión del staff).
-    await ctx.reply(
-      'Recibí tu imagen 🙌 pero todavía no proceso comprobantes por aquí. ' +
-        'Muy pronto podrás enviar tu comprobante de pago por este chat.',
-    );
+    // Comprobante de pago: descargar la foto (mejor resolución) y pasarla al
+    // motor. La descarga es responsabilidad del adaptador — en WhatsApp Cloud
+    // la media se baja distinto, pero el motor recibe los mismos bytes.
+    const message = ctx.message;
+    if (!message || !('photo' in message) || message.photo.length === 0) return;
+
+    try {
+      const best = message.photo[message.photo.length - 1];
+      const link = await ctx.telegram.getFileLink(best.file_id);
+      const res = await fetch(link.href);
+      if (!res.ok) throw new Error(`descarga de foto falló: HTTP ${res.status}`);
+      const buffer = Buffer.from(await res.arrayBuffer());
+      const mimeType = res.headers.get('content-type') ?? 'image/jpeg';
+
+      await this.dispatch(ctx, { photo: { buffer, mimeType } });
+    } catch (err) {
+      this.logger.error(
+        { event: 'telegram.photo.error', err: (err as Error).message },
+        'TelegramService',
+      );
+      await ctx.reply('No pude descargar tu imagen 😓. ¿La reenvías por favor?');
+    }
   }
 
   /** Traduce el update a BotInbound, corre el motor y renderiza la respuesta. */
   private async dispatch(
     ctx: Context,
-    input: { text?: string; callback?: string; startPayload?: string },
+    input: {
+      text?: string;
+      callback?: string;
+      startPayload?: string;
+      photo?: { buffer: Buffer; mimeType: string };
+    },
   ): Promise<void> {
     const chatId = ctx.chat?.id;
     if (!chatId) return;

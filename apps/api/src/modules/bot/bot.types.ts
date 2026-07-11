@@ -19,6 +19,9 @@ export interface BotInbound {
   callback?: string;
   /// Payload del deep link (t.me/bot?start=<slug> · wa.me con texto prellenado).
   startPayload?: string;
+  /// Foto enviada por el paciente (comprobante de pago). El adaptador de canal
+  /// ya descargó los bytes; el motor decide qué hacer con ellos.
+  photo?: { buffer: Buffer; mimeType: string };
 }
 
 export interface BotButton {
@@ -45,7 +48,8 @@ export type BotStep =
   | 'CHOOSING_SERVICE'
   | 'CHOOSING_DAY'
   | 'CHOOSING_SLOT'
-  | 'CHOOSING_PAYMENT';
+  | 'CHOOSING_PAYMENT'
+  | 'AWAITING_RECEIPT';
 
 /** Estado acumulado del wizard. Persiste en BotConversation.data (JSONB). */
 export interface ConvData {

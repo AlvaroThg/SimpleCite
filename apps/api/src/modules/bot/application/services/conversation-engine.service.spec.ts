@@ -18,6 +18,9 @@ const TENANT = {
   mapsUrl: 'https://maps.app.goo.gl/abc',
   locationPhotoUrl: 'https://pub.r2.dev/regenera/fachada.jpg',
   heroImageUrl: null,
+  qrAssignmentMode: 'SHARED',
+  staticQrUrl: 'https://pub.r2.dev/regenera/assets/qr.png',
+  staticQrLabel: 'Banco Unión',
 };
 
 function makeHarness(opts: {
@@ -27,6 +30,8 @@ function makeHarness(opts: {
   slots?: { startTime: string; endTime: string; available: boolean }[];
   appointment?: { id: string; status: string; expiresAt: Date | null; startTime: Date };
   doctors?: { id: string; name: string; doctorProfile: { specialty: string | null } | null }[];
+  tenant?: object;
+  doctorQr?: { qrUrl: string | null; qrLabel: string | null } | null;
 }) {
   const convoRow = {
     id: 'c1',
@@ -55,12 +60,13 @@ function makeHarness(opts: {
       findFirst: jest.fn().mockResolvedValue(opts.patientInTenant ?? null),
     },
     tenant: {
-      findFirst: jest.fn().mockResolvedValue(TENANT),
-      findUnique: jest.fn().mockResolvedValue(TENANT),
-      findMany: jest.fn().mockResolvedValue([TENANT]),
+      findFirst: jest.fn().mockResolvedValue({ ...TENANT, ...(opts.tenant ?? {}) }),
+      findUnique: jest.fn().mockResolvedValue({ ...TENANT, ...(opts.tenant ?? {}) }),
+      findMany: jest.fn().mockResolvedValue([{ ...TENANT, ...(opts.tenant ?? {}) }]),
     },
     doctorProfile: {
       findMany: jest.fn().mockResolvedValue([{ specialty: 'Fisioterapia' }]),
+      findFirst: jest.fn().mockResolvedValue(opts.doctorQr ?? null),
     },
     user: {
       findMany: jest
@@ -114,9 +120,18 @@ function makeHarness(opts: {
     ),
   } as never;
   const patients = { findOrCreate: jest.fn().mockResolvedValue({ id: 'p1' }) } as never;
+  const uploadImage = jest.fn().mockResolvedValue('https://pub.r2.dev/receipts/t1/rec.jpg');
+  const storage = { uploadImage } as never;
 
-  const engine = new ConversationEngine({ client } as never, slots, patients, config, logger);
-  return { engine, client, appointmentCreate, appointmentUpdate, convoUpdate };
+  const engine = new ConversationEngine(
+    { client } as never,
+    slots,
+    patients,
+    storage,
+    config,
+    logger,
+  );
+  return { engine, client, appointmentCreate, appointmentUpdate, convoUpdate, uploadImage };
 }
 
 const msg = (over: object) => ({ channel: 'telegram' as const, chatId: '6840926345', ...over });
@@ -284,9 +299,91 @@ describe('ConversationEngine — pago en efectivo y cierre', () => {
     const out = await engine.handle(msg({ text: 'cancelar' }));
     expect(client.appointment.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({ id: 'appt-1', status: 'TENTATIVE' }),
+        where: expect.objectContaining({
+          id: 'appt-1',
+          status: { in: ['TENTATIVE', 'PENDING_PAYMENT'] },
+        }),
       }),
     );
     expect(out[0].text).toContain('cancelé');
+  });
+});
+
+describe('ConversationEngine — pago por QR y comprobante', () => {
+  const paymentConvo = {
+    step: 'CHOOSING_PAYMENT',
+    tenantId: 't1',
+    data: {
+      name: 'Ana Fernández',
+      doctorId: 'doc1',
+      doctorName: 'Dr. Bryan',
+      price: '150',
+      appointmentId: 'appt-1',
+    },
+  };
+
+  it('QR compartido: manda el QR del tenant y deja la cita PENDING_PAYMENT', async () => {
+    const { engine, appointmentUpdate } = makeHarness({ conversation: paymentConvo });
+    const out = await engine.handle(msg({ callback: 'pay:qr' }));
+    expect(appointmentUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ status: 'PENDING_PAYMENT', paymentMethod: 'STATIC_QR' }),
+      }),
+    );
+    expect(out[0].imageUrl).toBe(TENANT.staticQrUrl);
+    expect(out[0].text).toContain('Bs 150');
+    expect(out[0].text).toContain('Banco Unión');
+  });
+
+  it('modo PER_DOCTOR: manda el QR propio del doctor', async () => {
+    const { engine } = makeHarness({
+      conversation: paymentConvo,
+      tenant: { qrAssignmentMode: 'PER_DOCTOR' },
+      doctorQr: { qrUrl: 'https://pub.r2.dev/regenera/doctors/doc1/qr.png', qrLabel: 'BNB' },
+    });
+    const out = await engine.handle(msg({ callback: 'pay:qr' }));
+    expect(out[0].imageUrl).toBe('https://pub.r2.dev/regenera/doctors/doc1/qr.png');
+    expect(out[0].text).toContain('BNB');
+  });
+
+  it('sin QR configurado: ofrece efectivo en vez de romperse', async () => {
+    const { engine } = makeHarness({
+      conversation: paymentConvo,
+      tenant: { staticQrUrl: null, staticQrLabel: null },
+    });
+    const out = await engine.handle(msg({ callback: 'pay:qr' }));
+    expect(out[0].text).toContain('no tiene QR');
+    expect(out[0].buttons!.flat().some((b) => b.data === 'pay:cash')).toBe(true);
+  });
+
+  it('la foto del comprobante sube a R2, guarda receiptUrl y avisa la revisión', async () => {
+    const { engine, uploadImage, appointmentUpdate } = makeHarness({
+      conversation: { ...paymentConvo, step: 'AWAITING_RECEIPT' },
+      appointment: {
+        id: 'appt-1',
+        status: 'PENDING_PAYMENT',
+        expiresAt: null,
+        startTime: new Date('2030-05-01T14:00:00Z'),
+      },
+    });
+    const out = await engine.handle(
+      msg({ photo: { buffer: Buffer.from('fake-jpg'), mimeType: 'image/jpeg' } }),
+    );
+    expect(uploadImage).toHaveBeenCalledWith('receipts/t1', expect.any(Buffer), 'image/jpeg');
+    expect(appointmentUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: { receiptUrl: 'https://pub.r2.dev/receipts/t1/rec.jpg' },
+      }),
+    );
+    expect(out[0].text).toContain('Comprobante recibido');
+  });
+
+  it('foto sin reserva esperando comprobante: mensaje amable, sin subir nada', async () => {
+    const { engine, uploadImage } = makeHarness({ conversation: { step: 'IDLE' } });
+    const out = await engine.handle(
+      msg({ photo: { buffer: Buffer.from('x'), mimeType: 'image/jpeg' } }),
+    );
+    expect(uploadImage).not.toHaveBeenCalled();
+    expect(out[0].text).toContain('no tengo una reserva');
   });
 });
