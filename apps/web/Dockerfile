@@ -46,6 +46,10 @@ ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 ARG NEXT_PUBLIC_TURNSTILE_SITE_KEY
 ENV NEXT_PUBLIC_TURNSTILE_SITE_KEY=${NEXT_PUBLIC_TURNSTILE_SITE_KEY}
 
+# Deep links al bot de reservas (t.me/... o wa.me/...). Vacío = sin CTAs de chat.
+ARG NEXT_PUBLIC_BOT_URL
+ENV NEXT_PUBLIC_BOT_URL=${NEXT_PUBLIC_BOT_URL}
+
 RUN pnpm turbo run build --filter=web
 
 # ─── runner: imagen final (standalone) ───────────────────────────────

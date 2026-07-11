@@ -17,6 +17,7 @@ import {
   type TenantInfo,
 } from '@/lib/api';
 import { readableOn } from '@/lib/tenant-color';
+import { botDeepLink } from '@/lib/bot-link';
 import { BookingCalendar } from '@/components/calendar/BookingCalendar';
 import { PaymentQRSelector, type BankQr } from '@/components/PaymentQRSelector';
 import { TurnstileWidget } from '@/components/TurnstileWidget';
@@ -390,6 +391,12 @@ export default function BookingWizard() {
           )}. Reservado desde simplecite.`,
         )}`
       : null;
+
+  // CTA preferido del comprobante: el bot de la plataforma con deep link a la
+  // reserva (`r-<id>`): el comprobante se adjunta solo y el staff lo aprueba
+  // desde el panel. Si NEXT_PUBLIC_BOT_URL no está configurada, se cae al
+  // WhatsApp general de la clínica (verificación manual).
+  const botReceiptLink = state.appointmentId ? botDeepLink(`r-${state.appointmentId}`) : null;
 
   // Link a WhatsApp de la clínica (número general del panel) para que el
   // paciente envíe el comprobante del pago QR. La verificación es manual por
@@ -1078,19 +1085,29 @@ export default function BookingWizard() {
                       </div>
                       <p className="text-sm text-text-muted">
                         Escanea el QR con la app de tu banco y realiza el pago. Luego{' '}
-                        <span className="font-semibold">envíanos el comprobante por WhatsApp</span>{' '}
+                        <span className="font-semibold">
+                          envíanos la foto del comprobante por chat
+                        </span>{' '}
                         y la clínica confirmará tu cita.
                       </p>
-                      {clinicWaLink && <WhatsAppSendButton href={clinicWaLink} />}
+                      {botReceiptLink ? (
+                        <BotSendButton href={botReceiptLink} primary={primary} />
+                      ) : (
+                        clinicWaLink && <WhatsAppSendButton href={clinicWaLink} />
+                      )}
                     </div>
                   ) : (
                     <div className="space-y-3">
                       <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-left text-sm text-amber-800">
                         Tu cita quedó registrada. Realiza el pago y{' '}
-                        <span className="font-semibold">envíanos el comprobante por WhatsApp</span>{' '}
-                        para confirmar tu cita.
+                        <span className="font-semibold">envíanos la foto del comprobante</span> para
+                        confirmar tu cita.
                       </div>
-                      {clinicWaLink && <WhatsAppSendButton href={clinicWaLink} />}
+                      {botReceiptLink ? (
+                        <BotSendButton href={botReceiptLink} primary={primary} />
+                      ) : (
+                        clinicWaLink && <WhatsAppSendButton href={clinicWaLink} />
+                      )}
                     </div>
                   )
                 ) : state.chosenMethod === 'INSURANCE' ? (
@@ -1179,6 +1196,21 @@ export default function BookingWizard() {
 }
 
 // ─── Sub-components ────────────────────────────────────────────────────
+
+/** CTA para enviar el comprobante por el bot de la plataforma (deep link). */
+function BotSendButton({ href, primary }: { href: string; primary: string }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+      className="flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 font-semibold transition hover:opacity-90 active:scale-[.99]"
+      style={{ backgroundColor: primary, color: readableOn(primary) }}
+    >
+      💬 Enviar comprobante por chat
+    </a>
+  );
+}
 
 /** CTA para enviar el comprobante al WhatsApp general de la clínica. */
 function WhatsAppSendButton({ href }: { href: string }) {

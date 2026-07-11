@@ -49,11 +49,12 @@ no arranca y dice exactamente cuál.
 
 ## Web (Next.js)
 
-| Variable                     | Descripción                                                                                                         |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `NEXT_PUBLIC_API_URL`        | URL pública del API para el navegador (`https://api.<dominio>`). **Build arg** — cambiarla exige rebuild de la web. |
-| `INTERNAL_API_URL`           | URL del API para SSR por red interna (`http://simplecite-api:3001`). Runtime.                                       |
-| `NEXT_PUBLIC_LIGHTWIDGET_ID` | Opcional: widget de Instagram (LightWidget) en la landing.                                                          |
+| Variable                     | Descripción                                                                                                                 |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `NEXT_PUBLIC_API_URL`        | URL pública del API para el navegador (`https://api.<dominio>`). **Build arg** — cambiarla exige rebuild de la web.         |
+| `INTERNAL_API_URL`           | URL del API para SSR por red interna (`http://simplecite-api:3001`). Runtime.                                               |
+| `NEXT_PUBLIC_LIGHTWIDGET_ID` | Opcional: widget de Instagram (LightWidget) en la landing.                                                                  |
+| `NEXT_PUBLIC_BOT_URL`        | Opcional: base del bot de reservas (`https://t.me/<bot>` o `https://wa.me/<nro>`). **Build arg.** Vacío = sin CTAs de chat. |
 
 ## Feature flags
 

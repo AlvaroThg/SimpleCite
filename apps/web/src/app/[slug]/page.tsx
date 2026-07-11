@@ -15,6 +15,7 @@ import { getTenantInfo, getDoctors } from '@/lib/api';
 import { getServiceIcon } from '@/lib/service-icons';
 import { readableOn, accentOn } from '@/lib/tenant-color';
 import { mapsEmbedSrc } from '@/lib/maps';
+import { botDeepLink } from '@/lib/bot-link';
 import { InstagramFeed } from '@/components/InstagramFeed';
 
 interface Props {
@@ -109,6 +110,9 @@ export default async function TenantLandingPage({ params }: Props) {
   // solo el respaldo (Google puede geocodificarla al negocio equivocado).
   const mapsEmbed = mapsEmbedSrc(tenant.mapsUrl, tenant.address);
 
+  // Deep link al bot de reservas con la clínica ya resuelta (null sin bot).
+  const botLink = botDeepLink(slug);
+
   return (
     <div className="bg-surface text-text-primary">
       {/* ── Hero ── */}
@@ -167,6 +171,20 @@ export default async function TenantLandingPage({ params }: Props) {
                 Ver especialidades
               </a>
             </div>
+
+            {/* Reserva conversacional: deep link al bot con la clínica ya
+                resuelta. Solo aparece si la plataforma tiene bot configurado. */}
+            {botLink && (
+              <a
+                href={botLink}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-text-secondary underline underline-offset-4 transition hover:text-text-primary"
+              >
+                <MessageCircle className="size-4" /> ¿Prefieres reservar por chat? Habla con nuestro
+                asistente
+              </a>
+            )}
 
             {/* Accesos rápidos: los servicios reales de la clínica. */}
             {services.length > 0 && (

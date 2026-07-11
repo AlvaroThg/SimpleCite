@@ -136,6 +136,8 @@ services:
       args:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
         NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${NEXT_PUBLIC_TURNSTILE_SITE_KEY:-}
+        # Bot de reservas (deep links en landing y checkout). Vacío = sin CTAs.
+        NEXT_PUBLIC_BOT_URL: ${NEXT_PUBLIC_BOT_URL:-}
     image: simplecite-web:prod
     container_name: simplecite-web
     restart: unless-stopped
