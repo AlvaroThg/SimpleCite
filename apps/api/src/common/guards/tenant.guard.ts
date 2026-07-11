@@ -24,6 +24,10 @@ export class TenantGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
+    // Los updates del bot (contexto 'telegraf') no tienen tenant resuelto por
+    // middleware; el flujo conversacional resuelve la clínica por su cuenta.
+    if (context.getType() !== 'http') return true;
+
     const request = context.switchToHttp().getRequest();
     const tenantId: string | undefined = request.tenantId;
 

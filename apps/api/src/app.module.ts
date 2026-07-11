@@ -4,12 +4,13 @@ import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ScheduleModule as CronScheduleModule } from '@nestjs/schedule';
 import { LoggerModule } from 'nestjs-pino';
-import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { validateEnv } from './common/config/env.schema';
 import { DatabaseModule } from './common/database/database.module';
 import { TenantMiddleware } from './common/middleware/tenant.middleware';
 import { TenantContextInterceptor } from './common/interceptors/tenant-context.interceptor';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
+import { HttpThrottlerGuard } from './common/guards/http-throttler.guard';
 import { TenantGuard } from './common/guards/tenant.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 import { HealthModule } from './modules/health/health.module';
@@ -121,10 +122,11 @@ import { InsurancesModule } from './modules/insurances/insurances.module';
   ],
   providers: [
     // ── Orden de ejecución de guards globales ──
-    // 1. ThrottlerGuard: rate limit antes que cualquier otra lógica
+    // 1. HttpThrottlerGuard: rate limit antes que cualquier otra lógica
+    //    (solo HTTP: los updates de Telegraf no deben pasar por aquí).
     {
       provide: APP_GUARD,
-      useClass: ThrottlerGuard,
+      useClass: HttpThrottlerGuard,
     },
     // 2. JwtAuthGuard: valida Bearer token → inyecta request.user
     {

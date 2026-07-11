@@ -26,6 +26,10 @@ export class TenantContextInterceptor implements NestInterceptor {
   constructor(private readonly prisma: PrismaService) {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
+    // Solo HTTP: en un update del bot (contexto 'telegraf') no hay request
+    // Express ni tenant resuelto por middleware.
+    if (context.getType() !== 'http') return next.handle();
+
     const request = context.switchToHttp().getRequest();
     const tenantId: string | undefined = request.tenantId;
 
