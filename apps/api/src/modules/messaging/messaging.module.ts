@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TelegrafModule } from 'nestjs-telegraf';
+import { BotModule } from '../bot/bot.module';
 import { WhatsappCloudModule } from '../whatsapp-cloud/whatsapp-cloud.module';
 import { WhatsappCloudService } from '../whatsapp-cloud/application/services/whatsapp-cloud.service';
 import { TelegramService } from './telegram.service';
@@ -21,6 +22,7 @@ const telegramEnabled = !!process.env.TELEGRAM_BOT_TOKEN;
 @Module({
   imports: [
     ConfigModule,
+    BotModule,
     WhatsappCloudModule,
     ...(telegramEnabled
       ? [
