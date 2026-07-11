@@ -11,7 +11,7 @@ import { PublicBookingService } from './public-booking.service';
 /**
  * Tests del flujo público de reserva (el camino más importante del producto):
  * creación TENTATIVE (anti-bot, rate limit, precio congelado, regresante por
- * CI) y confirmación (titularidad, expiración, efectivo→PENDING_PAYMENT en
+ * CI) y confirmación (titularidad, expiración, efectivo→CONFIRMED en
  * modo abierto, seguro→CONFIRMED con snapshot inmutable).
  */
 
@@ -201,7 +201,7 @@ describe('PublicBookingService.confirm', () => {
     );
   });
 
-  it('modo abierto (sin bot): efectivo queda PENDING_PAYMENT (staff confirma a mano)', async () => {
+  it('efectivo confirma directo (se cobra en recepción, alineado con el bot)', async () => {
     const { svc } = makeHarness({ appointment: tentative() });
     const res = (await svc.confirm({
       tenantId: 't1',
@@ -209,7 +209,7 @@ describe('PublicBookingService.confirm', () => {
       appointmentId: 'appt-1',
       paymentMethod: 'CASH',
     })) as { status: string };
-    expect(res.status).toBe('PENDING_PAYMENT');
+    expect(res.status).toBe('CONFIRMED');
   });
 
   it('seguro: rechaza si el doctor no está en modo seguro', async () => {

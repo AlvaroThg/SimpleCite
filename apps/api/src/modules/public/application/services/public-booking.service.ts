@@ -303,14 +303,12 @@ export class PublicBookingService {
       return confirmed;
     }
 
-    // Estado tras confirmar:
-    //  - Modo abierto (main, sin bot): TODA reserva pública queda PENDING_PAYMENT,
-    //    incluido efectivo. El staff la pasa a CONFIRMED a mano ("Confirmar pago
-    //    recibido"), evitando que una reserva no atendida bloquee el slot como
-    //    CONFIRMED permanente.
-    //  - Modo OTP (bot activo): efectivo → CONFIRMED directo; QR → PENDING_PAYMENT
-    //    (el comprobante llega por WhatsApp).
-    const status = this.requireOtp && paymentMethod === 'CASH' ? 'CONFIRMED' : 'PENDING_PAYMENT';
+    // Estado tras confirmar (alineado con el bot):
+    //  - Efectivo → CONFIRMED directo: en la práctica la cita está confirmada y
+    //    se cobra en recepción; dejarla PENDING_PAYMENT llenaba la agenda del
+    //    panel de "pendientes" que no lo eran.
+    //  - QR → PENDING_PAYMENT hasta que el staff revise el comprobante.
+    const status = paymentMethod === 'CASH' ? 'CONFIRMED' : 'PENDING_PAYMENT';
     const updated = await this.prisma.client.appointment.update({
       where: { id: appointmentId },
       data: { status, paymentMethod, expiresAt: null },
