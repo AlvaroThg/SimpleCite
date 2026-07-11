@@ -1,3 +1,6 @@
+// Primero SIEMPRE: puebla process.env desde los .env antes de que los
+// decoradores de módulos evalúen sus feature flags (ver load-env.ts).
+import './common/config/load-env';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Logger } from 'nestjs-pino';
