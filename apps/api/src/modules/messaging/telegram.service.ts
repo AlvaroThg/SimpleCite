@@ -5,9 +5,12 @@ import { InjectBot, Start, On, Update, Ctx } from 'nestjs-telegraf';
 import { Telegraf, type Context } from 'telegraf';
 import type { IMessagingService } from './messaging.port';
 
-const TEST_REPLY =
+// En fase de pruebas el chatId hace de "teléfono" del paciente; mostrarlo en
+// la respuesta evita tener que buscarlo con getUpdates o en los logs.
+const testReply = (chatId?: number) =>
   'Hola, soy el asistente virtual de SimpleCite (Fase de Pruebas en Telegram). ' +
-  'Próximamente podré agendar tus citas.';
+  'Próximamente podré agendar tus citas.' +
+  (chatId ? `\n\nTu chat ID para pruebas: ${chatId}` : '');
 
 /**
  * Adaptador de Telegram (Ports & Adapters) que implementa IMessagingService.
@@ -30,12 +33,12 @@ export class TelegramService implements IMessagingService {
 
   @Start()
   async onStart(@Ctx() ctx: Context): Promise<void> {
-    await ctx.reply(TEST_REPLY);
+    await ctx.reply(testReply(ctx.chat?.id));
   }
 
   @On('text')
   async onText(@Ctx() ctx: Context): Promise<void> {
-    await ctx.reply(TEST_REPLY);
+    await ctx.reply(testReply(ctx.chat?.id));
   }
 
   // ─── IMessagingService (salientes) ───
