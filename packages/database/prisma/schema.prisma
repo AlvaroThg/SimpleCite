@@ -163,6 +163,7 @@ model Tenant {
   tenantInsurances  TenantInsurance[]
   doctorInsurances  DoctorInsurance[]
   media             TenantMedia[]
+  botConversations  BotConversation[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -865,4 +866,34 @@ model PaymentEvent {
   @@index([eventId])
   @@index([paymentIntentId])
   @@map("payment_events")
+}
+
+/// Conversación del bot de reservas (Telegram en pruebas, WhatsApp Cloud después).
+/// Una fila por chat: guarda la clínica activa, el paso del wizard y el estado
+/// acumulado. NO está ligada a un Patient: la identidad es el canal (chatId /
+/// phone) y el paciente se resuelve por clínica al reservar.
+model BotConversation {
+  id      String @id @default(uuid())
+  channel String /// 'telegram' | 'whatsapp'
+  chatId  String /// chatId de Telegram; phone E.164 sin '+' en WhatsApp
+
+  /// Paso actual del wizard (IDLE, CHOOSING_CLINIC, CHOOSING_SLOT, ...).
+  step String @default("IDLE")
+
+  /// Clínica activa de la conversación (null hasta que el paciente la elige).
+  /// Cross-tenant a propósito: el bot es plataforma, no pertenece a un tenant.
+  tenantId String?
+  tenant   Tenant? @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+
+  /// Estado acumulado del wizard: nombre, doctorId, serviceId, día, página...
+  data Json @default("{}")
+
+  /// La conversación expira (se reinicia con gentileza) pasado este momento.
+  expiresAt DateTime
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([channel, chatId])
+  @@map("bot_conversations")
 }
