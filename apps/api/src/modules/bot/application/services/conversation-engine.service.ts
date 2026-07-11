@@ -72,8 +72,6 @@ export class ConversationEngine {
           return await this.onMainMenu(convo, input);
         case 'REGISTERING_NAME':
           return await this.onNameGiven(convo, msg.text ?? '');
-        case 'CHOOSING_SPECIALTY':
-          return await this.onSpecialtyChosen(convo, input);
         case 'CHOOSING_DOCTOR':
           return await this.onDoctorChosen(convo, input);
         case 'CHOOSING_SERVICE':
@@ -188,11 +186,14 @@ export class ConversationEngine {
   private async selectClinic(convo: Convo, tenantId: string): Promise<BotOutbound[]> {
     const tenant = await this.prisma.client.tenant.findFirst({
       where: { id: tenantId, status: { not: 'SUSPENDED' } },
-      select: { id: true, name: true },
+      select: { id: true, name: true, locationPhotoUrl: true, heroImageUrl: true },
     });
     if (!tenant) return this.askClinic(convo);
 
     convo.tenantId = tenant.id;
+    // La fachada da contexto visual de a dónde está reservando (o la portada
+    // como respaldo). Se adjunta al saludo como foto con caption.
+    const photo = tenant.locationPhotoUrl || tenant.heroImageUrl || undefined;
     const patient = await this.prisma.client.patient.findFirst({
       where: { phone: convo.chatId, tenantId: tenant.id },
       select: { name: true },
@@ -204,6 +205,7 @@ export class ConversationEngine {
       return [
         {
           text: `¡Hola ${first}! 👋 ¿Deseas registrar una cita en ${tenant.name}?`,
+          imageUrl: photo,
           buttons: [
             [{ label: 'Sí, reservar cita', data: 'book' }],
             [{ label: 'Cambiar de clínica', data: 'switch-clinic' }],
@@ -218,6 +220,7 @@ export class ConversationEngine {
         text:
           `¡Bienvenido a ${tenant.name}! 👋 Eres nuevo por aquí.\n\n` +
           'Para reservar tu cita solo necesito tu *nombre completo*:',
+        imageUrl: photo,
       },
     ];
   }
@@ -226,7 +229,7 @@ export class ConversationEngine {
 
   private async onMainMenu(convo: Convo, input: string): Promise<BotOutbound[]> {
     if (input === 'book' || /^(s[ií]|reservar|cita)/i.test(input)) {
-      return this.askSpecialty(convo);
+      return this.askDoctor(convo);
     }
     return [
       {
@@ -245,46 +248,13 @@ export class ConversationEngine {
       return [{ text: 'Necesito tu nombre y apellido (ej: "María Fernández") 🙂' }];
     }
     convo.data.name = name;
-    return this.askSpecialty(convo);
-  }
-
-  // ─── Paso 3: especialidad → doctor → servicio ──────────────────────────
-
-  private async askSpecialty(convo: Convo): Promise<BotOutbound[]> {
-    const profiles = await this.prisma.client.doctorProfile.findMany({
-      where: { user: { tenantId: convo.tenantId!, role: 'DOCTOR', isActive: true } },
-      select: { specialty: true },
-    });
-    const specialties = Array.from(
-      new Set(profiles.map((p) => p.specialty?.trim()).filter((s): s is string => !!s)),
-    ).slice(0, MAX_OPTIONS);
-
-    if (specialties.length === 0) {
-      return [
-        { text: 'Esta clínica aún no tiene especialistas configurados 😕. Intenta más tarde.' },
-      ];
-    }
-    if (specialties.length === 1) {
-      convo.data.specialty = specialties[0];
-      return this.askDoctor(convo);
-    }
-
-    await this.save(convo, 'CHOOSING_SPECIALTY', { ...convo.data, specialties });
-    return [
-      {
-        text: '¿Qué especialidad necesitas?',
-        buttons: specialties.map((s, i) => [{ label: s, data: `sp:${i}` }]),
-      },
-    ];
-  }
-
-  private async onSpecialtyChosen(convo: Convo, input: string): Promise<BotOutbound[]> {
-    const idx = input.startsWith('sp:') ? Number(input.slice(3)) : Number(input) - 1;
-    const specialty = convo.data.specialties?.[idx];
-    if (!specialty) return [{ text: 'Elige una especialidad de la lista tocando un botón 🙂' }];
-    convo.data.specialty = specialty;
     return this.askDoctor(convo);
   }
+
+  // ─── Paso 3: especialista → servicio ────────────────────────────────────
+  // El paciente elige directamente al especialista (nombre + especialidad),
+  // no una especialidad abstracta. Solo se listan doctores con al menos un
+  // servicio activo: un doctor sin servicios era un callejón sin salida.
 
   private async askDoctor(convo: Convo): Promise<BotOutbound[]> {
     const doctors = await this.prisma.client.user.findMany({
@@ -292,14 +262,18 @@ export class ConversationEngine {
         tenantId: convo.tenantId!,
         role: 'DOCTOR',
         isActive: true,
-        doctorProfile: { specialty: convo.data.specialty },
+        doctorServices: { some: { isActive: true, service: { isActive: true } } },
       },
-      select: { id: true, name: true },
+      select: { id: true, name: true, doctorProfile: { select: { specialty: true } } },
       take: MAX_OPTIONS,
     });
 
     if (doctors.length === 0) {
-      return [{ text: 'No hay especialistas disponibles en esa área por ahora 😕.' }];
+      return [
+        {
+          text: 'Esta clínica aún no tiene especialistas con servicios configurados 😕. Intenta más tarde.',
+        },
+      ];
     }
     if (doctors.length === 1) {
       convo.data.doctorId = doctors[0].id;
@@ -310,8 +284,11 @@ export class ConversationEngine {
     await this.save(convo, 'CHOOSING_DOCTOR', convo.data);
     return [
       {
-        text: `¿Con quién quieres atenderte en ${convo.data.specialty}?`,
-        buttons: doctors.map((d) => [{ label: d.name, data: `d:${d.id}` }]),
+        text: '¿Con qué especialista quieres atenderte?',
+        buttons: doctors.map((d) => {
+          const sp = d.doctorProfile?.specialty?.trim();
+          return [{ label: sp ? `${d.name} — ${sp}` : d.name, data: `d:${d.id}` }];
+        }),
       },
     ];
   }
@@ -319,7 +296,13 @@ export class ConversationEngine {
   private async onDoctorChosen(convo: Convo, input: string): Promise<BotOutbound[]> {
     if (!input.startsWith('d:')) return [{ text: 'Elige un especialista tocando un botón 🙂' }];
     const doctor = await this.prisma.client.user.findFirst({
-      where: { id: input.slice(2), tenantId: convo.tenantId!, role: 'DOCTOR', isActive: true },
+      where: {
+        id: input.slice(2),
+        tenantId: convo.tenantId!,
+        role: 'DOCTOR',
+        isActive: true,
+        doctorServices: { some: { isActive: true, service: { isActive: true } } },
+      },
       select: { id: true, name: true },
     });
     if (!doctor)
@@ -343,18 +326,8 @@ export class ConversationEngine {
       return [{ text: `${convo.data.doctorName} no tiene servicios configurados por ahora 😕.` }];
     }
 
-    const pick = (l: (typeof active)[number]) => {
-      convo.data.serviceId = l.service.id;
-      convo.data.serviceName = l.service.name;
-      convo.data.price = String(l.customPrice ?? l.service.price);
-      convo.data.durationMin = l.customDuration ?? l.service.duration;
-    };
-
-    if (active.length === 1) {
-      pick(active[0]);
-      return this.askDay(convo);
-    }
-
+    // Siempre se muestra la lista (aunque haya un solo servicio): el paciente
+    // debe ver y elegir qué se está reservando y a qué precio.
     await this.save(convo, 'CHOOSING_SERVICE', convo.data);
     return [
       {

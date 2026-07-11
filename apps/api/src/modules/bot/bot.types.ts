@@ -30,6 +30,8 @@ export interface BotOutbound {
   text: string;
   /// Filas de botones. Ausente = mensaje plano.
   buttons?: BotButton[][];
+  /// Foto adjunta (el texto va como caption): fachada de la clínica, QR, etc.
+  imageUrl?: string;
 }
 
 /** Pasos del wizard. Persisten en BotConversation.step. */
@@ -39,7 +41,6 @@ export type BotStep =
   | 'SEARCHING_CLINIC'
   | 'MAIN_MENU'
   | 'REGISTERING_NAME'
-  | 'CHOOSING_SPECIALTY'
   | 'CHOOSING_DOCTOR'
   | 'CHOOSING_SERVICE'
   | 'CHOOSING_DAY'
@@ -50,9 +51,6 @@ export type BotStep =
 export interface ConvData {
   /// Nombre completo del paciente (del registro o del Patient existente).
   name?: string;
-  /// Especialidades ofrecidas (cache para resolver el índice del botón).
-  specialties?: string[];
-  specialty?: string;
   doctorId?: string;
   doctorName?: string;
   serviceId?: string;

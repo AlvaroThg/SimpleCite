@@ -78,8 +78,7 @@ export class TelegramService implements IMessagingService {
   }
 
   private async render(ctx: Context, out: BotOutbound): Promise<void> {
-    await ctx.reply(out.text, {
-      parse_mode: 'Markdown',
+    const extra = {
       ...(out.buttons
         ? {
             reply_markup: {
@@ -89,7 +88,19 @@ export class TelegramService implements IMessagingService {
             },
           }
         : {}),
-    });
+    };
+
+    if (out.imageUrl) {
+      // Foto con el texto como caption (fachada, QR de pago...). Si Telegram
+      // no puede descargar la URL, degradar a texto para no perder el paso.
+      try {
+        await ctx.replyWithPhoto({ url: out.imageUrl }, { caption: out.text, ...extra });
+        return;
+      } catch {
+        /* cae al mensaje de texto */
+      }
+    }
+    await ctx.reply(out.text, { parse_mode: 'Markdown', ...extra });
   }
 
   // ─── IMessagingService (salientes) ───

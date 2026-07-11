@@ -16,6 +16,8 @@ const TENANT = {
   status: 'ACTIVE',
   timezone: 'America/La_Paz',
   mapsUrl: 'https://maps.app.goo.gl/abc',
+  locationPhotoUrl: 'https://pub.r2.dev/regenera/fachada.jpg',
+  heroImageUrl: null,
 };
 
 function makeHarness(opts: {
@@ -24,6 +26,7 @@ function makeHarness(opts: {
   conversation?: { step: string; tenantId?: string | null; data?: object };
   slots?: { startTime: string; endTime: string; available: boolean }[];
   appointment?: { id: string; status: string; expiresAt: Date | null; startTime: Date };
+  doctors?: { id: string; name: string; doctorProfile: { specialty: string | null } | null }[];
 }) {
   const convoRow = {
     id: 'c1',
@@ -60,7 +63,13 @@ function makeHarness(opts: {
       findMany: jest.fn().mockResolvedValue([{ specialty: 'Fisioterapia' }]),
     },
     user: {
-      findMany: jest.fn().mockResolvedValue([{ id: 'doc1', name: 'Dr. Bryan' }]),
+      findMany: jest
+        .fn()
+        .mockResolvedValue(
+          opts.doctors ?? [
+            { id: 'doc1', name: 'Dr. Bryan', doctorProfile: { specialty: 'Fisioterapia' } },
+          ],
+        ),
       findFirst: jest.fn().mockResolvedValue({ id: 'doc1', name: 'Dr. Bryan' }),
     },
     doctorService: {
@@ -134,6 +143,7 @@ describe('ConversationEngine — resolución de clínica', () => {
     expect(out[0].text).toContain('Hola Alvaro');
     expect(out[0].text).toContain('Regenera');
     expect(out[0].buttons!.flat().some((b) => b.data === 'book')).toBe(true);
+    expect(out[0].imageUrl).toBe(TENANT.locationPhotoUrl);
   });
 
   it('deep link, paciente nuevo en la clínica: pide el nombre completo', async () => {
@@ -152,13 +162,30 @@ describe('ConversationEngine — registro y wizard', () => {
     expect(out[0].text).toContain('nombre y apellido');
   });
 
-  it('con nombre válido avanza al wizard (especialidad única se auto-elige)', async () => {
+  it('con nombre válido avanza al wizard: doctor único se auto-elige, el servicio SIEMPRE se elige', async () => {
     const { engine } = makeHarness({
       conversation: { step: 'REGISTERING_NAME', tenantId: 't1' },
     });
     const out = await engine.handle(msg({ text: 'Ana Fernández' }));
-    // 1 especialidad + 1 doctor + 1 servicio → salta directo a elegir día.
-    expect(out[0].text).toContain('Qué día');
+    // 1 doctor → auto; aunque haya 1 solo servicio, el paciente lo confirma.
+    expect(out[0].text).toContain('Qué servicio');
+    expect(out[0].buttons!.flat().some((b) => b.data === 'sv:svc1')).toBe(true);
+  });
+
+  it('con varios doctores lista especialistas con nombre y especialidad', async () => {
+    const { engine } = makeHarness({
+      conversation: { step: 'MAIN_MENU', tenantId: 't1', data: { name: 'Ana Fernández' } },
+      doctors: [
+        { id: 'doc1', name: 'Dr. Bryan', doctorProfile: { specialty: 'Fisioterapia' } },
+        { id: 'doc2', name: 'Dra. Lupe', doctorProfile: { specialty: 'Estética' } },
+      ],
+    });
+    const out = await engine.handle(msg({ callback: 'book' }));
+    const flat = out[0].buttons!.flat();
+    expect(flat.some((b) => b.label === 'Dr. Bryan — Fisioterapia' && b.data === 'd:doc1')).toBe(
+      true,
+    );
+    expect(flat.some((b) => b.label === 'Dra. Lupe — Estética')).toBe(true);
   });
 
   it('elegir horario crea la cita TENTATIVE con precio congelado', async () => {
