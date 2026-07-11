@@ -59,6 +59,12 @@ export class ConversationEngine {
 
       // Comandos globales, en cualquier paso.
       if (/^\/?(cancelar|cancel)$/i.test(input)) return await this.abort(convo);
+      if (input.startsWith('cancel-appt:')) {
+        return await this.cancelUpcoming(convo, input.slice('cancel-appt:'.length));
+      }
+      if (input === 'keep-appts') {
+        return [{ text: 'Perfecto 👍 Tus citas siguen en pie. Escríbeme cuando necesites algo.' }];
+      }
       if (/cambiar de cl[ií]nica/i.test(input) || input === 'switch-clinic') {
         return await this.askClinic(convo);
       }
@@ -760,9 +766,101 @@ export class ConversationEngine {
         },
         data: { status: 'CANCELLED', expiresAt: null },
       });
+      await this.save(convo, 'IDLE', { name: convo.data.name });
+      return [
+        { text: 'Listo, cancelé el proceso 👍. Escríbeme cuando quieras reservar una cita.' },
+      ];
     }
-    await this.save(convo, 'IDLE', {});
-    return [{ text: 'Listo, cancelé el proceso 👍. Escríbeme cuando quieras reservar una cita.' }];
+
+    // Sin nada a medio camino: "cancelar" significa cancelar una cita próxima.
+    // Cross-tenant a propósito: se listan todas las citas del chat.
+    const upcoming = await this.prisma.client.appointment.findMany({
+      where: {
+        patient: { phone: convo.chatId },
+        status: { in: ['CONFIRMED', 'PENDING_PAYMENT'] },
+        startTime: { gt: new Date() },
+      },
+      orderBy: { startTime: 'asc' },
+      take: MAX_OPTIONS - 1,
+      select: {
+        id: true,
+        startTime: true,
+        doctor: { select: { name: true } },
+        tenant: { select: { name: true, timezone: true } },
+      },
+    });
+
+    await this.save(convo, 'IDLE', { name: convo.data.name });
+    if (upcoming.length === 0) {
+      return [
+        { text: 'No tienes citas próximas que cancelar 🙂. Escríbeme "hola" si quieres reservar.' },
+      ];
+    }
+
+    const rows: BotButton[][] = upcoming.map((a) => {
+      const when = new Intl.DateTimeFormat('es-BO', {
+        timeZone: a.tenant.timezone ?? 'America/La_Paz',
+        weekday: 'short',
+        day: 'numeric',
+        month: 'short',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      }).format(a.startTime);
+      return [
+        { label: `${when} — ${a.doctor.name} (${a.tenant.name})`, data: `cancel-appt:${a.id}` },
+      ];
+    });
+    rows.push([{ label: 'No, dejar todo así', data: 'keep-appts' }]);
+    return [{ text: '¿Cuál cita quieres cancelar?', buttons: rows }];
+  }
+
+  /** Cancela una cita próxima del paciente (verificando que sea suya). */
+  private async cancelUpcoming(convo: Convo, appointmentId: string): Promise<BotOutbound[]> {
+    const appointment = await this.prisma.client.appointment.findFirst({
+      where: {
+        id: appointmentId,
+        // Titularidad: la cita debe ser de un Patient con el phone/chatId de
+        // ESTE chat. Sin esto, cualquier chat podría cancelar citas ajenas.
+        patient: { phone: convo.chatId },
+        status: { in: ['CONFIRMED', 'PENDING_PAYMENT'] },
+      },
+      select: {
+        id: true,
+        startTime: true,
+        doctor: { select: { name: true } },
+        tenant: { select: { name: true, timezone: true } },
+      },
+    });
+    if (!appointment) {
+      return [{ text: 'Esa cita ya no se puede cancelar (quizá ya fue cancelada) 🙂.' }];
+    }
+
+    await this.prisma.client.appointment.update({
+      where: { id: appointment.id },
+      data: { status: 'CANCELLED', expiresAt: null },
+    });
+    this.logger.log(
+      { event: 'bot.appointment.cancelled-by-patient', appointmentId: appointment.id },
+      'ConversationEngine',
+    );
+
+    const when = new Intl.DateTimeFormat('es-BO', {
+      timeZone: appointment.tenant.timezone ?? 'America/La_Paz',
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).format(appointment.startTime);
+    return [
+      {
+        text:
+          `Tu cita del ${when} con ${appointment.doctor.name} en ${appointment.tenant.name} quedó cancelada 👍\n\n` +
+          'Escríbeme "hola" cuando quieras reservar de nuevo.',
+      },
+    ];
   }
 
   private async availableSlots(convo: Convo) {

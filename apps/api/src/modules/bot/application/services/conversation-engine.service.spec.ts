@@ -32,6 +32,7 @@ function makeHarness(opts: {
   doctors?: { id: string; name: string; doctorProfile: { specialty: string | null } | null }[];
   tenant?: object;
   doctorQr?: { qrUrl: string | null; qrLabel: string | null } | null;
+  upcoming?: object[];
 }) {
   const convoRow = {
     id: 'c1',
@@ -91,6 +92,7 @@ function makeHarness(opts: {
       create: appointmentCreate,
       update: appointmentUpdate,
       updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      findMany: jest.fn().mockResolvedValue(opts.upcoming ?? []),
       findFirst: jest.fn().mockResolvedValue(
         opts.appointment ?? {
           id: 'appt-1',
@@ -385,5 +387,64 @@ describe('ConversationEngine — pago por QR y comprobante', () => {
     );
     expect(uploadImage).not.toHaveBeenCalled();
     expect(out[0].text).toContain('no tengo una reserva');
+  });
+});
+
+describe('ConversationEngine — cancelar citas ya confirmadas', () => {
+  const upcomingAppt = {
+    id: 'appt-9',
+    startTime: new Date('2030-05-01T14:00:00Z'),
+    doctor: { name: 'Dr. Bryan' },
+    tenant: { name: 'Regenera', timezone: 'America/La_Paz' },
+  };
+
+  it('"cancelar" sin flujo activo lista las citas próximas para elegir', async () => {
+    const { engine } = makeHarness({
+      conversation: { step: 'IDLE', data: { name: 'Ana Fernández' } },
+      upcoming: [upcomingAppt],
+    });
+    const out = await engine.handle(msg({ text: 'cancelar' }));
+    const flat = out[0].buttons!.flat();
+    expect(out[0].text).toContain('Cuál cita');
+    expect(flat.some((b) => b.data === 'cancel-appt:appt-9' && b.label.includes('Dr. Bryan'))).toBe(
+      true,
+    );
+    expect(flat.some((b) => b.data === 'keep-appts')).toBe(true);
+  });
+
+  it('"cancelar" sin citas próximas: mensaje amable', async () => {
+    const { engine } = makeHarness({ conversation: { step: 'IDLE' }, upcoming: [] });
+    const out = await engine.handle(msg({ text: 'cancelar' }));
+    expect(out[0].text).toContain('No tienes citas próximas');
+  });
+
+  it('cancel-appt cancela la cita del paciente (verificando titularidad)', async () => {
+    const { engine, client, appointmentUpdate } = makeHarness({
+      conversation: { step: 'IDLE' },
+    });
+    client.appointment.findFirst.mockResolvedValueOnce(upcomingAppt as never);
+    const out = await engine.handle(msg({ callback: 'cancel-appt:appt-9' }));
+    expect(client.appointment.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          id: 'appt-9',
+          patient: { phone: '6840926345' },
+        }),
+      }),
+    );
+    expect(appointmentUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ status: 'CANCELLED' }) }),
+    );
+    expect(out[0].text).toContain('quedó cancelada');
+  });
+
+  it('cancel-appt de una cita ajena o inexistente no cancela nada', async () => {
+    const { engine, client, appointmentUpdate } = makeHarness({
+      conversation: { step: 'IDLE' },
+    });
+    client.appointment.findFirst.mockResolvedValueOnce(null as never);
+    const out = await engine.handle(msg({ callback: 'cancel-appt:ajena' }));
+    expect(appointmentUpdate).not.toHaveBeenCalled();
+    expect(out[0].text).toContain('ya no se puede cancelar');
   });
 });
