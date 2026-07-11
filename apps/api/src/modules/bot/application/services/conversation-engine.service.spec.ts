@@ -448,3 +448,115 @@ describe('ConversationEngine — cancelar citas ya confirmadas', () => {
     expect(out[0].text).toContain('ya no se puede cancelar');
   });
 });
+
+describe('ConversationEngine — comprobantes desde el booking web (Fase 3)', () => {
+  const webAppt = {
+    id: 'web-appt-1',
+    tenantId: 't1',
+    startTime: new Date('2030-05-01T14:00:00Z'),
+    patient: { name: 'Ana Fernández' },
+    doctor: { name: 'Dr. Bryan' },
+    tenant: { name: 'Regenera', timezone: 'America/La_Paz' },
+  };
+
+  it('deep link r-<id>: prepara la conversación para recibir el comprobante', async () => {
+    const { engine, client, convoUpdate } = makeHarness({ conversation: { step: 'IDLE' } });
+    client.appointment.findFirst.mockResolvedValueOnce(webAppt as never);
+    const out = await engine.handle(msg({ startPayload: 'r-web-appt-1' }));
+    expect(out[0].text).toContain('Hola Ana');
+    expect(out[0].text).toContain('Regenera');
+    expect(out[0].text).toContain('comprobante');
+    expect(convoUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          step: 'AWAITING_RECEIPT',
+          data: expect.objectContaining({ appointmentId: 'web-appt-1' }),
+        }),
+      }),
+    );
+  });
+
+  it('deep link r-<id> de una reserva ya confirmada: mensaje amable', async () => {
+    const { engine, client } = makeHarness({ conversation: { step: 'IDLE' } });
+    client.appointment.findFirst.mockResolvedValueOnce(null as never);
+    const out = await engine.handle(msg({ startPayload: 'r-otra' }));
+    expect(out[0].text).toContain('No encontré una reserva esperando pago');
+  });
+
+  it('foto huérfana con UNA reserva esperando pago: adjunta directo', async () => {
+    const { engine, client, uploadImage, appointmentUpdate } = makeHarness({
+      conversation: { step: 'IDLE' },
+    });
+    client.appointment.findMany.mockResolvedValueOnce([
+      {
+        id: 'web-appt-1',
+        tenantId: 't1',
+        startTime: new Date('2030-05-01T14:00:00Z'),
+        doctor: { name: 'Dr. Bryan' },
+        tenant: { name: 'Regenera', timezone: 'America/La_Paz' },
+      },
+    ] as never);
+    const out = await engine.handle(
+      msg({ photo: { buffer: Buffer.from('rec'), mimeType: 'image/jpeg' } }),
+    );
+    expect(uploadImage).toHaveBeenCalledWith('receipts/t1', expect.any(Buffer), 'image/jpeg');
+    expect(appointmentUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'web-appt-1' },
+        data: { receiptUrl: 'https://pub.r2.dev/receipts/t1/rec.jpg' },
+      }),
+    );
+    expect(out[0].text).toContain('Comprobante recibido');
+  });
+
+  it('foto huérfana con VARIAS reservas: sube una vez y pregunta a cuál', async () => {
+    const { engine, client, uploadImage } = makeHarness({ conversation: { step: 'IDLE' } });
+    const base = {
+      tenantId: 't1',
+      startTime: new Date('2030-05-01T14:00:00Z'),
+      doctor: { name: 'Dr. Bryan' },
+      tenant: { name: 'Regenera', timezone: 'America/La_Paz' },
+    };
+    client.appointment.findMany.mockResolvedValueOnce([
+      { id: 'a1', ...base },
+      { id: 'a2', ...base },
+    ] as never);
+    const out = await engine.handle(
+      msg({ photo: { buffer: Buffer.from('rec'), mimeType: 'image/jpeg' } }),
+    );
+    expect(uploadImage).toHaveBeenCalledWith(
+      'receipts/unassigned',
+      expect.any(Buffer),
+      'image/jpeg',
+    );
+    const flat = out[0].buttons!.flat();
+    expect(flat.some((b) => b.data === 'rcpt:a1')).toBe(true);
+    expect(flat.some((b) => b.data === 'rcpt:a2')).toBe(true);
+  });
+
+  it('rcpt:<id> adjunta el comprobante pendiente verificando titularidad', async () => {
+    const { engine, client, appointmentUpdate } = makeHarness({
+      conversation: {
+        step: 'IDLE',
+        data: { pendingReceiptUrl: 'https://pub.r2.dev/receipts/unassigned/x.jpg' },
+      },
+    });
+    client.appointment.findFirst.mockResolvedValueOnce({
+      id: 'a1',
+      doctor: { name: 'Dr. Bryan' },
+      tenant: { name: 'Regenera' },
+    } as never);
+    const out = await engine.handle(msg({ callback: 'rcpt:a1' }));
+    expect(client.appointment.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ id: 'a1', patient: { phone: '6840926345' } }),
+      }),
+    );
+    expect(appointmentUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: { receiptUrl: 'https://pub.r2.dev/receipts/unassigned/x.jpg' },
+      }),
+    );
+    expect(out[0].text).toContain('adjunté tu comprobante');
+  });
+});

@@ -52,8 +52,13 @@ export class ConversationEngine {
     const input = (msg.callback ?? msg.text ?? '').trim();
 
     try {
-      // Deep link desde la landing: contexto de clínica explícito, siempre gana.
+      // Deep links: `r-<appointmentId>` viene del checkout web ("enviar
+      // comprobante por chat"); cualquier otro payload es el slug de la
+      // clínica desde su landing. Siempre ganan sobre el estado previo.
       if (msg.startPayload) {
+        if (msg.startPayload.startsWith('r-')) {
+          return await this.primeReceipt(convo, msg.startPayload.slice(2));
+        }
         return await this.selectClinicBySlug(convo, msg.startPayload);
       }
 
@@ -64,6 +69,9 @@ export class ConversationEngine {
       }
       if (input === 'keep-appts') {
         return [{ text: 'Perfecto 👍 Tus citas siguen en pie. Escríbeme cuando necesites algo.' }];
+      }
+      if (input.startsWith('rcpt:')) {
+        return await this.attachOrphanReceipt(convo, input.slice(5));
       }
       if (/cambiar de cl[ií]nica/i.test(input) || input === 'switch-clinic') {
         return await this.askClinic(convo);
@@ -698,14 +706,9 @@ export class ConversationEngine {
     photo: { buffer: Buffer; mimeType: string },
   ): Promise<BotOutbound[]> {
     if (convo.step !== 'AWAITING_RECEIPT' || !convo.data.appointmentId) {
-      // Fase 3: foto huérfana → buscar PENDING_PAYMENT recientes por teléfono.
-      return [
-        {
-          text:
-            'Recibí tu imagen 🙌 pero no tengo una reserva esperando comprobante en este chat. ' +
-            'Si quieres agendar una cita, escribe "hola".',
-        },
-      ];
+      // Foto huérfana (típico: pagó en el booking web y manda el comprobante
+      // directo al chat): buscar sus reservas esperando pago por QR.
+      return this.onOrphanPhoto(convo, photo);
     }
 
     const appointment = await this.prisma.client.appointment.findFirst({
@@ -748,6 +751,190 @@ export class ConversationEngine {
           `📄 ¡Comprobante recibido${first ? `, ${first}` : ''}! Tu horario queda reservado.\n\n` +
           'La clínica verificará el pago y te confirmaré la cita por este chat. ' +
           'Si algo no cuadra, se comunicarán contigo.',
+      },
+    ];
+  }
+
+  // ─── Fase 3: comprobantes desde el booking web ──────────────────────────
+
+  /**
+   * Deep link `r-<appointmentId>` del checkout web: prepara la conversación
+   * para recibir el comprobante de esa reserva. El uuid de la cita actúa de
+   * bearer token (no adivinable); no se puede validar por teléfono porque la
+   * reserva web usa el número real y el chat puede ser otro canal.
+   */
+  private async primeReceipt(convo: Convo, appointmentId: string): Promise<BotOutbound[]> {
+    const appointment = await this.prisma.client.appointment.findFirst({
+      where: { id: appointmentId, status: 'PENDING_PAYMENT', paymentMethod: 'STATIC_QR' },
+      select: {
+        id: true,
+        tenantId: true,
+        startTime: true,
+        patient: { select: { name: true } },
+        doctor: { select: { name: true } },
+        tenant: { select: { name: true, timezone: true } },
+      },
+    });
+    if (!appointment) {
+      await this.save(convo, 'IDLE', { name: convo.data.name });
+      return [
+        {
+          text:
+            'No encontré una reserva esperando pago con ese enlace 😕 (quizá ya fue confirmada). ' +
+            'Escribe "hola" si quieres agendar una cita.',
+        },
+      ];
+    }
+
+    convo.tenantId = appointment.tenantId;
+    const when = new Intl.DateTimeFormat('es-BO', {
+      timeZone: appointment.tenant.timezone ?? 'America/La_Paz',
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).format(appointment.startTime);
+    const first = appointment.patient.name.split(/\s+/)[0];
+
+    await this.save(convo, 'AWAITING_RECEIPT', {
+      name: appointment.patient.name,
+      appointmentId: appointment.id,
+    });
+    return [
+      {
+        text:
+          `¡Hola ${first}! 👋 Encontré tu reserva en ${appointment.tenant.name}: ` +
+          `${appointment.doctor.name}, ${when}.\n\n` +
+          'Envíame la *foto de tu comprobante de pago* 📄 y la clínica la verificará.',
+      },
+    ];
+  }
+
+  /**
+   * Foto sin conversación esperándola: buscar reservas del chat que estén
+   * esperando pago por QR (cross-tenant). 1 → adjuntar directo; varias →
+   * subir una vez y preguntar a cuál; 0 → mensaje amable.
+   */
+  private async onOrphanPhoto(
+    convo: Convo,
+    photo: { buffer: Buffer; mimeType: string },
+  ): Promise<BotOutbound[]> {
+    const candidates = await this.prisma.client.appointment.findMany({
+      where: {
+        patient: { phone: convo.chatId },
+        status: 'PENDING_PAYMENT',
+        paymentMethod: 'STATIC_QR',
+        startTime: { gt: new Date() },
+      },
+      orderBy: { startTime: 'asc' },
+      take: MAX_OPTIONS,
+      select: {
+        id: true,
+        tenantId: true,
+        startTime: true,
+        doctor: { select: { name: true } },
+        tenant: { select: { name: true, timezone: true } },
+      },
+    });
+
+    if (candidates.length === 0) {
+      return [
+        {
+          text:
+            'Recibí tu imagen 🙌 pero no tengo una reserva esperando comprobante en este chat. ' +
+            'Si quieres agendar una cita, escribe "hola".',
+        },
+      ];
+    }
+
+    if (candidates.length === 1) {
+      const appt = candidates[0];
+      const receiptUrl = await this.storage.uploadImage(
+        `receipts/${appt.tenantId}`,
+        photo.buffer,
+        photo.mimeType,
+      );
+      await this.prisma.client.appointment.update({
+        where: { id: appt.id },
+        data: { receiptUrl },
+      });
+      this.logger.log(
+        { event: 'bot.receipt.orphan-attached', appointmentId: appt.id, tenantId: appt.tenantId },
+        'ConversationEngine',
+      );
+      return [
+        {
+          text:
+            `📄 ¡Comprobante recibido! Lo adjunté a tu cita con ${appt.doctor.name} en ${appt.tenant.name}.\n\n` +
+            'La clínica verificará el pago y te confirmaré la cita por este chat.',
+        },
+      ];
+    }
+
+    // Varias reservas esperando pago: subir la imagen UNA vez (prefijo
+    // neutral: aún no se sabe el tenant) y preguntar a cuál pertenece.
+    const pendingReceiptUrl = await this.storage.uploadImage(
+      'receipts/unassigned',
+      photo.buffer,
+      photo.mimeType,
+    );
+    await this.save(convo, 'IDLE', { name: convo.data.name, pendingReceiptUrl });
+    const rows: BotButton[][] = candidates.map((a) => {
+      const when = new Intl.DateTimeFormat('es-BO', {
+        timeZone: a.tenant.timezone ?? 'America/La_Paz',
+        weekday: 'short',
+        day: 'numeric',
+        month: 'short',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      }).format(a.startTime);
+      return [{ label: `${when} — ${a.doctor.name} (${a.tenant.name})`, data: `rcpt:${a.id}` }];
+    });
+    return [
+      {
+        text: 'Tienes varias reservas esperando pago 🤔 ¿De cuál es este comprobante?',
+        buttons: rows,
+      },
+    ];
+  }
+
+  /** Adjunta el comprobante huérfano ya subido a la cita elegida. */
+  private async attachOrphanReceipt(convo: Convo, appointmentId: string): Promise<BotOutbound[]> {
+    const { pendingReceiptUrl } = convo.data;
+    if (!pendingReceiptUrl) {
+      return [{ text: 'No tengo un comprobante pendiente 🙂. Envíame la foto primero.' }];
+    }
+
+    const appointment = await this.prisma.client.appointment.findFirst({
+      where: {
+        id: appointmentId,
+        // Titularidad: la reserva debe ser de este chat.
+        patient: { phone: convo.chatId },
+        status: 'PENDING_PAYMENT',
+      },
+      select: { id: true, doctor: { select: { name: true } }, tenant: { select: { name: true } } },
+    });
+    if (!appointment) {
+      return [{ text: 'Esa reserva ya no está esperando pago 😕. Elige otra de la lista.' }];
+    }
+
+    await this.prisma.client.appointment.update({
+      where: { id: appointment.id },
+      data: { receiptUrl: pendingReceiptUrl },
+    });
+    await this.save(convo, 'IDLE', { name: convo.data.name });
+    this.logger.log(
+      { event: 'bot.receipt.orphan-attached', appointmentId: appointment.id },
+      'ConversationEngine',
+    );
+    return [
+      {
+        text:
+          `📄 Listo, adjunté tu comprobante a la cita con ${appointment.doctor.name} en ${appointment.tenant.name}.\n\n` +
+          'La clínica verificará el pago y te confirmaré la cita por este chat.',
       },
     ];
   }

@@ -68,4 +68,6 @@ export interface ConvData {
   slotPage?: number;
   /// Cita TENTATIVE creada, esperando método de pago.
   appointmentId?: string;
+  /// Comprobante huérfano ya subido a R2, esperando saber a qué cita adjuntarlo.
+  pendingReceiptUrl?: string;
 }
