@@ -221,13 +221,39 @@ export class AppointmentsService {
       );
     }
 
-    return this.prisma.client.appointment.update({
+    const updated = await this.prisma.client.appointment.update({
       where: { id },
       data: {
         status: nextStatus,
         ...(nextStatus === 'CONFIRMED' && { isPaid: true }),
       },
+      include: {
+        patient: { select: { phone: true, name: true } },
+        doctor: { select: { name: true } },
+      },
     });
+
+    // El staff confirmó (típicamente tras revisar un comprobante QR): avisar
+    // al paciente por el canal de mensajería. Best-effort, nunca rompe la
+    // transición — el paciente del panel puede no tener chat asociado.
+    if (nextStatus === 'CONFIRMED' && updated.cancellationToken) {
+      void this.messaging
+        .sendAppointmentConfirmation(
+          updated.patient.phone,
+          updated.patient.name,
+          updated.doctor.name,
+          updated.startTime,
+          updated.cancellationToken,
+        )
+        .catch((err) =>
+          this.logger.error(
+            { event: 'appointment.confirm-msg.failed', id, err: (err as Error).message },
+            'AppointmentsService',
+          ),
+        );
+    }
+
+    return updated;
   }
 
   /**
