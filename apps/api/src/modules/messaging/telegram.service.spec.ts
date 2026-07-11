@@ -34,4 +34,27 @@ describe('TelegramService (adaptador IMessagingService)', () => {
     expect(text).toContain('Dr. Pérez');
     expect(text).toContain('https://app.simplecite.com.bo/citas/cancelar?token=tok123');
   });
+
+  it('incluye la ubicación (mapsUrl del tenant) cuando viene en extras', async () => {
+    const sendMessage = jest.fn().mockResolvedValue({});
+    const bot = { telegram: { sendMessage } } as never;
+    const svc = new TelegramService(bot, config, engine, logger);
+    await svc.sendAppointmentConfirmation('999', 'Ana', 'Dr. Pérez', new Date(), 'tok123', {
+      mapsUrl: 'https://maps.app.goo.gl/xyz',
+      timezone: 'America/La_Paz',
+    });
+    const [, text] = sendMessage.mock.calls[0];
+    expect(text).toContain('📍 Cómo llegar: https://maps.app.goo.gl/xyz');
+  });
+
+  it('sin WEB_PUBLIC_URL no muestra el token pelado: ofrece cancelar por chat', async () => {
+    const sendMessage = jest.fn().mockResolvedValue({});
+    const bot = { telegram: { sendMessage } } as never;
+    const noUrlConfig = { get: jest.fn().mockReturnValue(undefined) } as never;
+    const svc = new TelegramService(bot, noUrlConfig, engine, logger);
+    await svc.sendAppointmentConfirmation('999', 'Ana', 'Dr. Pérez', new Date(), 'tok123');
+    const [, text] = sendMessage.mock.calls[0];
+    expect(text).not.toContain('tok123');
+    expect(text).toContain('escríbeme "cancelar"');
+  });
 });

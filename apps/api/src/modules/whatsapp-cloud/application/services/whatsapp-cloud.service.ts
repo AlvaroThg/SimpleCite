@@ -1,7 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Logger } from 'nestjs-pino';
-import type { IMessagingService } from '../../../messaging/messaging.port';
+import type {
+  IMessagingService,
+  AppointmentConfirmationExtras,
+} from '../../../messaging/messaging.port';
 
 /**
  * Adaptador de la WhatsApp Cloud API oficial de Meta (Ports & Adapters):
@@ -100,8 +103,9 @@ export class WhatsappCloudService implements IMessagingService {
   }
 
   /**
-   * Puerto IMessagingService: confirma la cita al paciente con el magic link
-   * de cancelación. `to` es el teléfono E.164 sin '+'.
+   * Puerto IMessagingService: confirma la cita al paciente. `to` es el
+   * teléfono E.164 sin '+'. Ubicación si hay mapsUrl; magic link solo con
+   * WEB_PUBLIC_URL configurada (un token pelado es ruido para el paciente).
    */
   async sendAppointmentConfirmation(
     to: string,
@@ -109,24 +113,30 @@ export class WhatsappCloudService implements IMessagingService {
     doctorName: string,
     date: Date,
     cancellationToken: string,
+    extras?: AppointmentConfirmationExtras,
   ): Promise<void> {
     const webUrl = (this.config.get<string>('WEB_PUBLIC_URL') ?? '').replace(/\/+$/, '');
-    const cancelLink = `${webUrl}/citas/cancelar?token=${cancellationToken}`;
-    const when = this.formatDate(date);
+    const when = this.formatDate(date, extras?.timezone ?? undefined);
+
+    const maps = extras?.mapsUrl ? `\n📍 Cómo llegar: ${extras.mapsUrl}\n` : '';
+    const cancel = webUrl
+      ? `\nSi no puedes asistir, cancélala desde aquí:\n${webUrl}/citas/cancelar?token=${cancellationToken}\n`
+      : '\nSi no puedes asistir, escríbenos "cancelar" por este chat.\n';
 
     const body =
       `✅ *Cita confirmada*\n\n` +
-      `Hola ${patientName} 👋 Tu cita con *${doctorName}* quedó agendada para *${when}*.\n\n` +
-      `Si no puedes asistir, cancélala desde aquí:\n${cancelLink}\n\n` +
-      `— SimpleCite`;
+      `Hola ${patientName} 👋 Tu cita con *${doctorName}* quedó agendada para *${when}*.\n` +
+      maps +
+      cancel +
+      `\n— SimpleCite`;
 
     await this.sendText(to, body);
   }
 
-  /** Formatea la fecha/hora en español boliviano (timezone America/La_Paz). */
-  private formatDate(date: Date): string {
+  /** Formatea la fecha/hora en español boliviano (timezone del tenant). */
+  private formatDate(date: Date, timezone?: string): string {
     return new Intl.DateTimeFormat('es-BO', {
-      timeZone: 'America/La_Paz',
+      timeZone: timezone ?? 'America/La_Paz',
       dateStyle: 'full',
       timeStyle: 'short',
     }).format(date);

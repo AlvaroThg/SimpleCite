@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { Logger } from 'nestjs-pino';
 import { InjectBot, Start, On, Update, Ctx } from 'nestjs-telegraf';
 import { Telegraf, type Context } from 'telegraf';
-import type { IMessagingService } from './messaging.port';
+import type { IMessagingService, AppointmentConfirmationExtras } from './messaging.port';
 import { ConversationEngine } from '../bot/application/services/conversation-engine.service';
 import type { BotOutbound } from '../bot/bot.types';
 
@@ -152,19 +152,28 @@ export class TelegramService implements IMessagingService {
     doctorName: string,
     date: Date,
     cancellationToken: string,
+    extras?: AppointmentConfirmationExtras,
   ): Promise<void> {
     const webUrl = (this.config.get<string>('WEB_PUBLIC_URL') ?? '').replace(/\/+$/, '');
-    const link = `${webUrl}/citas/cancelar?token=${cancellationToken}`;
     const when = new Intl.DateTimeFormat('es-BO', {
-      timeZone: 'America/La_Paz',
+      timeZone: extras?.timezone ?? 'America/La_Paz',
       dateStyle: 'full',
       timeStyle: 'short',
     }).format(date);
 
+    // Sin WEB_PUBLIC_URL el link saldría relativo con el token pelado: mejor
+    // omitirlo; el paciente siempre puede cancelar escribiendo por el chat.
+    const maps = extras?.mapsUrl ? `\n📍 Cómo llegar: ${extras.mapsUrl}\n` : '';
+    const cancel = webUrl
+      ? `\nSi no puedes asistir, cancélala aquí:\n${webUrl}/citas/cancelar?token=${cancellationToken}\n`
+      : '\nSi no puedes asistir, escríbeme "cancelar" por este chat.\n';
+
     const text =
       `✅ Cita confirmada\n\n` +
-      `Hola ${patientName}, tu cita con ${doctorName} quedó agendada para ${when}.\n\n` +
-      `Si no puedes asistir, cancélala aquí:\n${link}\n\n— SimpleCite`;
+      `Hola ${patientName}, tu cita con ${doctorName} quedó agendada para ${when}.\n` +
+      maps +
+      cancel +
+      `\n— SimpleCite`;
 
     await this.sendMessage(to, text);
   }

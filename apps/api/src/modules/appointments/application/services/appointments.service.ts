@@ -117,6 +117,7 @@ export class AppointmentsService {
         include: {
           patient: { select: { phone: true, name: true } },
           doctor: { select: { name: true } },
+          tenant: { select: { mapsUrl: true, timezone: true } },
         },
       });
 
@@ -131,6 +132,7 @@ export class AppointmentsService {
             appointment.doctor.name,
             appointment.startTime,
             appointment.cancellationToken,
+            { mapsUrl: appointment.tenant.mapsUrl, timezone: appointment.tenant.timezone },
           )
           .catch((err) =>
             this.logger.error(
@@ -230,6 +232,7 @@ export class AppointmentsService {
       include: {
         patient: { select: { phone: true, name: true } },
         doctor: { select: { name: true } },
+        tenant: { select: { mapsUrl: true, timezone: true } },
       },
     });
 
@@ -244,6 +247,7 @@ export class AppointmentsService {
           updated.doctor.name,
           updated.startTime,
           updated.cancellationToken,
+          { mapsUrl: updated.tenant.mapsUrl, timezone: updated.tenant.timezone },
         )
         .catch((err) =>
           this.logger.error(
