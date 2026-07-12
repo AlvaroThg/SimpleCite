@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { BotModule } from '../bot/bot.module';
 import { WhatsappCloudService } from './application/services/whatsapp-cloud.service';
 import { WhatsappCloudController } from './infrastructure/adapters/whatsapp-cloud.controller';
 
@@ -10,6 +11,7 @@ import { WhatsappCloudController } from './infrastructure/adapters/whatsapp-clou
  * envíen notificaciones salientes.
  */
 @Module({
+  imports: [BotModule],
   controllers: [WhatsappCloudController],
   providers: [WhatsappCloudService],
   exports: [WhatsappCloudService],

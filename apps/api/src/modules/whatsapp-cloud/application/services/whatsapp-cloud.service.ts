@@ -5,6 +5,12 @@ import type {
   IMessagingService,
   AppointmentConfirmationExtras,
 } from '../../../messaging/messaging.port';
+import type { BotOutbound } from '../../../bot/bot.types';
+
+/** Recorta con elipsis a los límites de los widgets de Meta. */
+function truncate(text: string, max: number): string {
+  return text.length <= max ? text : `${text.slice(0, max - 1)}…`;
+}
 
 /**
  * Adaptador de la WhatsApp Cloud API oficial de Meta (Ports & Adapters):
@@ -40,6 +46,11 @@ export class WhatsappCloudService implements IMessagingService {
     );
   }
 
+  /** Base de la Graph API (versionada); default razonable si no se configura. */
+  private get baseUrl(): string {
+    return this.config.get<string>('META_WA_BASE_URL') || 'https://graph.facebook.com/v25.0';
+  }
+
   /**
    * Envía un mensaje de texto simple por la Cloud API.
    * @param to    Teléfono destino en E.164 SIN '+', ej: 59170000000.
@@ -47,6 +58,116 @@ export class WhatsappCloudService implements IMessagingService {
    * @returns El message id de Meta, o null si no se pudo enviar.
    */
   async sendText(to: string, body: string): Promise<string | null> {
+    return this.post(to, {
+      type: 'text',
+      // preview_url: true → WhatsApp renderiza la vista previa del enlace.
+      text: { preview_url: true, body },
+    });
+  }
+
+  /** Envía una imagen por URL pública, con caption opcional. */
+  async sendImage(to: string, link: string, caption?: string): Promise<string | null> {
+    return this.post(to, { type: 'image', image: { link, ...(caption ? { caption } : {}) } });
+  }
+
+  /**
+   * Renderiza un BotOutbound del motor conversacional como mensajes de la
+   * Cloud API: imagen (con caption), botones interactivos (≤3 reply buttons),
+   * lista interactiva (4-10 opciones) o texto plano.
+   *
+   * Límites de Meta: título de reply button ≤20 chars; fila de lista: título
+   * ≤24 + descripción ≤72. Los labels largos van truncados al título y
+   * completos en la descripción.
+   */
+  async renderOutbound(to: string, out: BotOutbound): Promise<void> {
+    const flat = (out.buttons ?? []).flat();
+
+    if (out.imageUrl) {
+      // La imagen lleva el texto como caption; los botones (si hay) van en un
+      // mensaje interactivo aparte porque Meta no soporta imagen + botones.
+      await this.sendImage(to, out.imageUrl, out.text);
+      if (flat.length > 0)
+        await this.renderOutbound(to, { text: '¿Continuamos?', buttons: out.buttons });
+      return;
+    }
+
+    if (flat.length === 0) {
+      await this.sendText(to, out.text);
+      return;
+    }
+
+    if (flat.length <= 3) {
+      await this.post(to, {
+        type: 'interactive',
+        interactive: {
+          type: 'button',
+          body: { text: out.text },
+          action: {
+            buttons: flat.map((b) => ({
+              type: 'reply',
+              reply: { id: b.data, title: truncate(b.label, 20) },
+            })),
+          },
+        },
+      });
+      return;
+    }
+
+    await this.post(to, {
+      type: 'interactive',
+      interactive: {
+        type: 'list',
+        body: { text: out.text },
+        action: {
+          button: 'Ver opciones',
+          sections: [
+            {
+              title: 'Opciones',
+              rows: flat.slice(0, 10).map((b) => ({
+                id: b.data,
+                title: truncate(b.label, 24),
+                ...(b.label.length > 24 ? { description: truncate(b.label, 72) } : {}),
+              })),
+            },
+          ],
+        },
+      },
+    });
+  }
+
+  /**
+   * Descarga una media entrante (comprobante en foto): la Graph API primero
+   * resuelve el media id a una URL temporal y luego se baja con el token.
+   */
+  async downloadMedia(mediaId: string): Promise<{ buffer: Buffer; mimeType: string } | null> {
+    if (!this.isConfigured) return null;
+    const accessToken = this.config.get<string>('META_WA_ACCESS_TOKEN');
+    try {
+      const metaRes = await fetch(`${this.baseUrl}/${mediaId}`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      const meta = (await metaRes.json()) as { url?: string; mime_type?: string };
+      if (!metaRes.ok || !meta.url) throw new Error(`media meta HTTP ${metaRes.status}`);
+
+      const fileRes = await fetch(meta.url, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (!fileRes.ok) throw new Error(`media download HTTP ${fileRes.status}`);
+      const buffer = Buffer.from(await fileRes.arrayBuffer());
+      const contentType = meta.mime_type ?? fileRes.headers.get('content-type') ?? '';
+      const mimeType = contentType.startsWith('image/') ? contentType : 'image/jpeg';
+      return { buffer, mimeType };
+    } catch (err) {
+      this.logger.error(
+        { event: 'wa-cloud.media.error', mediaId, err: (err as Error).message },
+        'WhatsappCloudService',
+      );
+      return null;
+    }
+  }
+
+  /** POST genérico a /messages. Best-effort: loguea y devuelve null en error. */
+  private async post(to: string, message: Record<string, unknown>): Promise<string | null> {
     if (!this.isConfigured) {
       this.logger.warn(
         { event: 'wa-cloud.skip', to, reason: 'META_WA_* no configurado' },
@@ -55,10 +176,9 @@ export class WhatsappCloudService implements IMessagingService {
       return null;
     }
 
-    const baseUrl = this.config.get<string>('META_WA_BASE_URL');
     const phoneNumberId = this.config.get<string>('META_WA_PHONE_NUMBER_ID');
     const accessToken = this.config.get<string>('META_WA_ACCESS_TOKEN');
-    const url = `${baseUrl}/${phoneNumberId}/messages`;
+    const url = `${this.baseUrl}/${phoneNumberId}/messages`;
 
     try {
       const res = await fetch(url, {
@@ -71,9 +191,7 @@ export class WhatsappCloudService implements IMessagingService {
           messaging_product: 'whatsapp',
           recipient_type: 'individual',
           to,
-          type: 'text',
-          // preview_url: true → WhatsApp renderiza la vista previa del enlace.
-          text: { preview_url: true, body },
+          ...message,
         }),
       });
 

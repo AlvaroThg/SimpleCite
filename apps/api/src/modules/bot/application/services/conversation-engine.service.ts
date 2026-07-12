@@ -62,6 +62,12 @@ export class ConversationEngine {
         return await this.selectClinicBySlug(convo, msg.startPayload);
       }
 
+      // Deep link como texto plano: wa.me no tiene start payload — el texto
+      // prellenado del checkout ("r-<uuid>") llega como mensaje normal.
+      if (/^r-[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(input)) {
+        return await this.primeReceipt(convo, input.slice(2));
+      }
+
       // Comandos globales, en cualquier paso.
       if (/^\/?(cancelar|cancel)$/i.test(input)) return await this.abort(convo);
       if (input.startsWith('cancel-appt:')) {
@@ -175,6 +181,14 @@ export class ConversationEngine {
     if (query.length < 3) {
       return [{ text: 'Escríbeme al menos 3 letras del nombre de la clínica 🙂' }];
     }
+
+    // Slug exacto primero: el deep link de la landing en WhatsApp llega como
+    // texto plano con el slug (wa.me no tiene start payload).
+    const bySlug = await this.prisma.client.tenant.findFirst({
+      where: { slug: query.toLowerCase().trim(), status: { not: 'SUSPENDED' } },
+      select: { id: true },
+    });
+    if (bySlug) return this.selectClinic(convo, bySlug.id);
 
     const found = await this.prisma.client.tenant.findMany({
       where: { name: { contains: query, mode: 'insensitive' }, status: { not: 'SUSPENDED' } },

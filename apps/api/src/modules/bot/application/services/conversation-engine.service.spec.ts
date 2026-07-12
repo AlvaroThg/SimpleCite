@@ -560,3 +560,30 @@ describe('ConversationEngine — comprobantes desde el booking web (Fase 3)', ()
     expect(out[0].text).toContain('adjunté tu comprobante');
   });
 });
+
+describe('ConversationEngine — deep links como texto (WhatsApp)', () => {
+  it('el texto "r-<uuid>" activa el modo comprobante igual que el start payload', async () => {
+    const { engine, client } = makeHarness({ conversation: { step: 'IDLE' } });
+    client.appointment.findFirst.mockResolvedValueOnce({
+      id: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
+      tenantId: 't1',
+      startTime: new Date('2030-05-01T14:00:00Z'),
+      patient: { name: 'Ana Fernández' },
+      doctor: { name: 'Dr. Bryan' },
+      tenant: { name: 'Regenera', timezone: 'America/La_Paz' },
+    } as never);
+    const out = await engine.handle(msg({ text: 'r-aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee' }));
+    expect(out[0].text).toContain('comprobante');
+    expect(out[0].text).toContain('Regenera');
+  });
+
+  it('un slug exacto en la búsqueda de clínica la selecciona directo', async () => {
+    const { engine } = makeHarness({
+      conversation: { step: 'SEARCHING_CLINIC' },
+      patientInTenant: { name: 'Alvaro Baldiviezo' },
+    });
+    const out = await engine.handle(msg({ text: 'regenera' }));
+    expect(out[0].text).toContain('Hola Alvaro');
+    expect(out[0].buttons!.flat().some((b) => b.data === 'book')).toBe(true);
+  });
+});
