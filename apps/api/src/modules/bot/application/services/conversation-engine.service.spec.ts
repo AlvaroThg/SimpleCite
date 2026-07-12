@@ -87,6 +87,11 @@ function makeHarness(opts: {
           service: { id: 'svc1', name: 'Sesión Fisio', price: '150', duration: 60, isActive: true },
         },
       ]),
+      findFirst: jest.fn().mockResolvedValue({
+        customPrice: null,
+        customDuration: null,
+        service: { id: 'svc1', name: 'Sesión Fisio', price: '150', duration: 60 },
+      }),
     },
     appointment: {
       create: appointmentCreate,
@@ -585,5 +590,57 @@ describe('ConversationEngine — deep links como texto (WhatsApp)', () => {
     const out = await engine.handle(msg({ text: 'regenera' }));
     expect(out[0].text).toContain('Hola Alvaro');
     expect(out[0].buttons!.flat().some((b) => b.data === 'book')).toBe(true);
+  });
+});
+
+describe('ConversationEngine — semana → día (ventana de 30 días)', () => {
+  const wizardConvo = {
+    step: 'CHOOSING_SERVICE',
+    tenantId: 't1',
+    data: { name: 'Ana Fernández', doctorId: 'doc1', doctorName: 'Dr. Bryan' },
+  };
+  // 12 días con horarios repartidos en 3 semanas (lun 2030-05-06 en adelante).
+  const manyDays = Array.from({ length: 12 }, (_, i) => {
+    const d = new Date(Date.UTC(2030, 4, 6 + i, 14, 0, 0));
+    return {
+      startTime: d.toISOString(),
+      endTime: new Date(d.getTime() + 3600_000).toISOString(),
+      available: true,
+    };
+  });
+
+  it('con más de 8 días disponibles ofrece semanas, no días', async () => {
+    const { engine } = makeHarness({ conversation: wizardConvo, slots: manyDays });
+    const out = await engine.handle(msg({ callback: 'sv:svc1' }));
+    expect(out[0].text).toContain('Qué semana');
+    const flat = out[0].buttons!.flat();
+    expect(flat.every((b) => b.data.startsWith('wk:'))).toBe(true);
+    expect(flat.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('elegir semana muestra solo los días de esa semana + volver', async () => {
+    const { engine } = makeHarness({
+      conversation: {
+        ...wizardConvo,
+        step: 'CHOOSING_WEEK',
+        data: { ...wizardConvo.data, serviceId: 'svc1', price: '150', durationMin: 60 },
+      },
+      slots: manyDays,
+    });
+    const out = await engine.handle(msg({ callback: 'wk:2030-05-06' }));
+    const flat = out[0].buttons!.flat();
+    const dayButtons = flat.filter((b) => b.data.startsWith('day:'));
+    expect(dayButtons.length).toBeGreaterThan(0);
+    expect(dayButtons.every((b) => b.data >= 'day:2030-05-06' && b.data <= 'day:2030-05-12')).toBe(
+      true,
+    );
+    expect(flat.some((b) => b.data === 'weeks')).toBe(true);
+  });
+
+  it('con 8 días o menos va directo a los días (sin paso de semana)', async () => {
+    const { engine } = makeHarness({ conversation: wizardConvo });
+    const out = await engine.handle(msg({ callback: 'sv:svc1' }));
+    expect(out[0].text).toContain('Qué día');
+    expect(out[0].buttons!.flat().every((b) => b.data.startsWith('day:'))).toBe(true);
   });
 });

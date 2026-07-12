@@ -46,6 +46,7 @@ export type BotStep =
   | 'REGISTERING_NAME'
   | 'CHOOSING_DOCTOR'
   | 'CHOOSING_SERVICE'
+  | 'CHOOSING_WEEK'
   | 'CHOOSING_DAY'
   | 'CHOOSING_SLOT'
   | 'CHOOSING_PAYMENT'
@@ -62,6 +63,8 @@ export interface ConvData {
   /// Precio congelado (Bs) y duración del servicio elegido.
   price?: string;
   durationMin?: number;
+  /// Semana elegida (yyyy-MM-dd del lunes, en timezone del tenant).
+  weekIso?: string;
   /// Día elegido (yyyy-MM-dd en timezone del tenant).
   dayIso?: string;
   /// Paginación de horarios dentro del día.

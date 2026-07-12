@@ -12,8 +12,21 @@ import type { BotInbound, BotOutbound, BotButton, BotStep, ConvData } from '../.
 const CONVERSATION_TTL_MIN = 30;
 /// Máximo de opciones por lista (límite de las interactive lists de Meta).
 const MAX_OPTIONS = 8;
-/// Ventana de búsqueda de disponibilidad.
-const AVAILABILITY_DAYS = 14;
+/// Ventana de búsqueda de disponibilidad (~1 mes; se navega semana → día).
+const AVAILABILITY_DAYS = 30;
+
+/** Lunes (yyyy-MM-dd) de la semana de una fecha local yyyy-MM-dd. */
+function mondayOf(dayIso: string): string {
+  const d = new Date(`${dayIso}T12:00:00Z`);
+  return addDaysIso(dayIso, -((d.getUTCDay() + 6) % 7));
+}
+
+/** Suma días a una fecha local yyyy-MM-dd (aritmética de calendario, sin tz). */
+function addDaysIso(dayIso: string, days: number): string {
+  const d = new Date(`${dayIso}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
 
 interface Convo {
   id: string;
@@ -101,6 +114,8 @@ export class ConversationEngine {
           return await this.onDoctorChosen(convo, input);
         case 'CHOOSING_SERVICE':
           return await this.onServiceChosen(convo, input);
+        case 'CHOOSING_WEEK':
+          return await this.onWeekChosen(convo, input);
         case 'CHOOSING_DAY':
           return await this.onDayChosen(convo, input);
         case 'CHOOSING_SLOT':
@@ -402,8 +417,14 @@ export class ConversationEngine {
     return this.askDay(convo);
   }
 
-  // ─── Paso 4: día y hora ────────────────────────────────────────────────
+  // ─── Paso 4: semana → día → hora ────────────────────────────────────────
 
+  /**
+   * Con pocas fechas (≤ MAX_OPTIONS días con horarios) muestra los días
+   * directo; con la ventana completa de 30 días, primero se elige la semana
+   * ("Esta semana", "Próxima semana", "Semana del 28 jul") — listas siempre
+   * cortas para los widgets de WhatsApp.
+   */
   private async askDay(convo: Convo): Promise<BotOutbound[]> {
     const tz = await this.tenantTz(convo.tenantId!);
     const available = await this.availableSlots(convo);
@@ -411,12 +432,120 @@ export class ConversationEngine {
     if (available.length === 0) {
       return [
         {
-          text: `${convo.data.doctorName} no tiene horarios libres en las próximas 2 semanas 😕. Intenta más adelante o contacta a la clínica.`,
+          text: `${convo.data.doctorName} no tiene horarios libres en las próximas semanas 😕. Intenta más adelante o contacta a la clínica.`,
         },
       ];
     }
 
-    // Días (en timezone de la clínica) que tienen al menos un slot libre.
+    const days = this.availableDays(available, tz);
+    const header = `${convo.data.serviceName} con ${convo.data.doctorName} — Bs ${convo.data.price}.`;
+
+    if (days.size <= MAX_OPTIONS) {
+      await this.save(convo, 'CHOOSING_DAY', {
+        ...convo.data,
+        weekIso: undefined,
+        dayIso: undefined,
+        slotPage: 0,
+      });
+      return [
+        {
+          text: `${header}\n\n¿Qué día te viene bien?`,
+          buttons: Array.from(days, ([key, label]) => [{ label, data: `day:${key}` }]),
+        },
+      ];
+    }
+
+    // Agrupar por semana (lunes como inicio) sobre la fecha LOCAL de la clínica.
+    const weeks = new Map<string, { from: string; to: string }>();
+    for (const key of days.keys()) {
+      const monday = mondayOf(key);
+      const w = weeks.get(monday);
+      if (!w) weeks.set(monday, { from: key, to: key });
+      else if (key > w.to) w.to = key;
+    }
+
+    const todayKey = new Intl.DateTimeFormat('en-CA', {
+      timeZone: tz,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(new Date());
+    const thisMonday = mondayOf(todayKey);
+    const nextMonday = addDaysIso(thisMonday, 7);
+    const shortDate = (iso: string) =>
+      new Intl.DateTimeFormat('es-BO', { timeZone: 'UTC', day: 'numeric', month: 'short' }).format(
+        new Date(`${iso}T12:00:00Z`),
+      );
+
+    const rows: BotButton[][] = Array.from(weeks.keys())
+      .sort()
+      .slice(0, MAX_OPTIONS)
+      .map((monday) => {
+        const { from, to } = weeks.get(monday)!;
+        const name =
+          monday === thisMonday
+            ? 'Esta semana'
+            : monday === nextMonday
+              ? 'Próxima semana'
+              : `Semana del ${shortDate(monday)}`;
+        const range = from === to ? shortDate(from) : `${shortDate(from)} a ${shortDate(to)}`;
+        return [{ label: `${name} — ${range}`, data: `wk:${monday}` }];
+      });
+
+    await this.save(convo, 'CHOOSING_WEEK', {
+      ...convo.data,
+      weekIso: undefined,
+      dayIso: undefined,
+      slotPage: 0,
+    });
+    return [{ text: `${header}\n\n¿Qué semana te viene bien?`, buttons: rows }];
+  }
+
+  private async onWeekChosen(convo: Convo, input: string): Promise<BotOutbound[]> {
+    if (!input.startsWith('wk:')) return [{ text: 'Elige una semana tocando un botón 🙂' }];
+    convo.data.weekIso = input.slice(3);
+    return this.askDayOfWeek(convo);
+  }
+
+  /** Días con horarios libres dentro de la semana elegida. */
+  private async askDayOfWeek(convo: Convo): Promise<BotOutbound[]> {
+    const tz = await this.tenantTz(convo.tenantId!);
+    const monday = convo.data.weekIso!;
+    const sunday = addDaysIso(monday, 6);
+    const days = this.availableDays(await this.availableSlots(convo), tz, monday, sunday);
+
+    if (days.size === 0) {
+      convo.data.weekIso = undefined;
+      return [
+        { text: 'Esa semana se quedó sin horarios 😅. Elige otra:' },
+        ...(await this.askDay(convo)),
+      ];
+    }
+
+    const rows: BotButton[][] = Array.from(days, ([key, label]) => [
+      { label, data: `day:${key}` } as BotButton,
+    ]);
+    rows.push([{ label: '◂ Otras semanas', data: 'weeks' }]);
+    await this.save(convo, 'CHOOSING_DAY', convo.data);
+    return [{ text: '¿Qué día te viene bien?', buttons: rows }];
+  }
+
+  private async onDayChosen(convo: Convo, input: string): Promise<BotOutbound[]> {
+    if (input === 'weeks') return this.askDay(convo);
+    if (input.startsWith('wk:')) return this.onWeekChosen(convo, input);
+    if (!input.startsWith('day:')) return [{ text: 'Elige un día tocando un botón 🙂' }];
+    convo.data.dayIso = input.slice(4);
+    convo.data.slotPage = 0;
+    return this.askSlot(convo);
+  }
+
+  /** Días locales (clave yyyy-MM-dd → etiqueta "lun, 13 jul") con slots libres. */
+  private availableDays(
+    available: { startTime: string }[],
+    tz: string,
+    fromKey?: string,
+    toKey?: string,
+  ): Map<string, string> {
     const dayKey = new Intl.DateTimeFormat('en-CA', {
       timeZone: tz,
       year: 'numeric',
@@ -433,24 +562,11 @@ export class ConversationEngine {
     for (const s of available) {
       const d = new Date(s.startTime);
       const key = dayKey.format(d);
+      if (fromKey && key < fromKey) continue;
+      if (toKey && key > toKey) continue;
       if (!days.has(key)) days.set(key, dayLabel.format(d));
-      if (days.size >= MAX_OPTIONS) break;
     }
-
-    await this.save(convo, 'CHOOSING_DAY', { ...convo.data, dayIso: undefined, slotPage: 0 });
-    return [
-      {
-        text: `${convo.data.serviceName} con ${convo.data.doctorName} — Bs ${convo.data.price}.\n\n¿Qué día te viene bien?`,
-        buttons: Array.from(days, ([key, label]) => [{ label, data: `day:${key}` }]),
-      },
-    ];
-  }
-
-  private async onDayChosen(convo: Convo, input: string): Promise<BotOutbound[]> {
-    if (!input.startsWith('day:')) return [{ text: 'Elige un día tocando un botón 🙂' }];
-    convo.data.dayIso = input.slice(4);
-    convo.data.slotPage = 0;
-    return this.askSlot(convo);
+    return days;
   }
 
   private async askSlot(convo: Convo): Promise<BotOutbound[]> {
@@ -474,7 +590,7 @@ export class ConversationEngine {
     if (available.length === 0) {
       return [
         { text: 'Ese día se quedó sin horarios libres 😅. Elige otro día.' },
-        ...(await this.askDay(convo)),
+        ...(convo.data.weekIso ? await this.askDayOfWeek(convo) : await this.askDay(convo)),
       ];
     }
 
