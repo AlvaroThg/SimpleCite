@@ -45,6 +45,9 @@ pnpm-debug.log*
 .github/skills/
 # Outputs generados por el skill impeccable — mantener solo design.json
 .impeccable/critique/
+CLAUDE.md
+PRODUCT.md
+DESIGN.md
 
 # /design-sync artifacts
 .ds-sync/
