@@ -66,7 +66,11 @@ export class TelegramService implements IMessagingService {
       const res = await fetch(link.href);
       if (!res.ok) throw new Error(`descarga de foto falló: HTTP ${res.status}`);
       const buffer = Buffer.from(await res.arrayBuffer());
-      const mimeType = res.headers.get('content-type') ?? 'image/jpeg';
+      // Telegram sirve la descarga como application/octet-stream: sin este
+      // fallback los comprobantes quedaban en R2 como .octet-stream. Las
+      // fotos de Telegram siempre son JPEG.
+      const contentType = res.headers.get('content-type') ?? '';
+      const mimeType = contentType.startsWith('image/') ? contentType : 'image/jpeg';
 
       await this.dispatch(ctx, { photo: { buffer, mimeType } });
     } catch (err) {
