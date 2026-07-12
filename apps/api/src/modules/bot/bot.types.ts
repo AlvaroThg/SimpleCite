@@ -68,6 +68,7 @@ export interface ConvData {
   slotPage?: number;
   /// Cita TENTATIVE creada, esperando método de pago.
   appointmentId?: string;
-  /// Comprobante huérfano ya subido a R2, esperando saber a qué cita adjuntarlo.
-  pendingReceiptUrl?: string;
+  /// Comprobante huérfano ya subido a R2 (una copia por tenant candidato,
+  /// en `<slug>/receipts`), esperando saber a qué cita adjuntarlo.
+  pendingReceipts?: Record<string, string>;
 }

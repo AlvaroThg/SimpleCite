@@ -95,7 +95,7 @@ export class WhatsappInternalController {
     // Bot bloqueado si la suscripción de la clínica no está vigente.
     const tenant = await this.prisma.tenant.findUnique({
       where: { id: tenantId },
-      select: { subscriptionStatus: true, subscriptionEndDate: true },
+      select: { slug: true, subscriptionStatus: true, subscriptionEndDate: true },
     });
     if (!tenant || this.subscriptionInactive(tenant)) return;
 
@@ -118,9 +118,9 @@ export class WhatsappInternalController {
     });
     if (!appointment) return;
 
-    // Subir el comprobante a Cloudflare R2.
+    // Subir el comprobante a la carpeta de la clínica en R2.
     const receiptUrl = await this.storage.uploadImageFromBase64(
-      `receipts/${tenantId}`,
+      `${tenant.slug}/receipts`,
       imageBase64,
       mimeType,
     );

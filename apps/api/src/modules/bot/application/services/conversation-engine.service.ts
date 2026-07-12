@@ -717,7 +717,7 @@ export class ConversationEngine {
         tenantId: convo.tenantId!,
         status: 'PENDING_PAYMENT',
       },
-      select: { id: true },
+      select: { id: true, tenant: { select: { slug: true } } },
     });
     if (!appointment) {
       await this.save(convo, 'IDLE', { name: convo.data.name });
@@ -726,10 +726,10 @@ export class ConversationEngine {
       ];
     }
 
-    // Comprobante a R2 (receipts/<tenantId>/<uuid>): visible en el panel para
-    // que el staff lo revise y confirme la cita.
+    // Comprobante a R2 dentro de la carpeta de la clínica (<slug>/receipts):
+    // visible en el panel para que el staff lo revise y confirme la cita.
     const receiptUrl = await this.storage.uploadImage(
-      `receipts/${convo.tenantId}`,
+      `${appointment.tenant.slug}/receipts`,
       photo.buffer,
       photo.mimeType,
     );
@@ -835,7 +835,7 @@ export class ConversationEngine {
         tenantId: true,
         startTime: true,
         doctor: { select: { name: true } },
-        tenant: { select: { name: true, timezone: true } },
+        tenant: { select: { name: true, slug: true, timezone: true } },
       },
     });
 
@@ -852,7 +852,7 @@ export class ConversationEngine {
     if (candidates.length === 1) {
       const appt = candidates[0];
       const receiptUrl = await this.storage.uploadImage(
-        `receipts/${appt.tenantId}`,
+        `${appt.tenant.slug}/receipts`,
         photo.buffer,
         photo.mimeType,
       );
@@ -873,14 +873,20 @@ export class ConversationEngine {
       ];
     }
 
-    // Varias reservas esperando pago: subir la imagen UNA vez (prefijo
-    // neutral: aún no se sabe el tenant) y preguntar a cuál pertenece.
-    const pendingReceiptUrl = await this.storage.uploadImage(
-      'receipts/unassigned',
-      photo.buffer,
-      photo.mimeType,
-    );
-    await this.save(convo, 'IDLE', { name: convo.data.name, pendingReceiptUrl });
+    // Varias reservas esperando pago: aún no se sabe a cuál pertenece, pero
+    // cada comprobante debe vivir en la carpeta de SU clínica — se sube una
+    // copia por tenant distinto (caso raro, casi siempre es un solo tenant)
+    // y al elegir la cita se usa la URL de esa clínica.
+    const pendingReceipts: Record<string, string> = {};
+    for (const t of new Map(candidates.map((c) => [c.tenantId, c.tenant.slug]))) {
+      const [tenantId, slug] = t;
+      pendingReceipts[tenantId] = await this.storage.uploadImage(
+        `${slug}/receipts`,
+        photo.buffer,
+        photo.mimeType,
+      );
+    }
+    await this.save(convo, 'IDLE', { name: convo.data.name, pendingReceipts });
     const rows: BotButton[][] = candidates.map((a) => {
       const when = new Intl.DateTimeFormat('es-BO', {
         timeZone: a.tenant.timezone ?? 'America/La_Paz',
@@ -903,8 +909,8 @@ export class ConversationEngine {
 
   /** Adjunta el comprobante huérfano ya subido a la cita elegida. */
   private async attachOrphanReceipt(convo: Convo, appointmentId: string): Promise<BotOutbound[]> {
-    const { pendingReceiptUrl } = convo.data;
-    if (!pendingReceiptUrl) {
+    const { pendingReceipts } = convo.data;
+    if (!pendingReceipts || Object.keys(pendingReceipts).length === 0) {
       return [{ text: 'No tengo un comprobante pendiente 🙂. Envíame la foto primero.' }];
     }
 
@@ -915,15 +921,22 @@ export class ConversationEngine {
         patient: { phone: convo.chatId },
         status: 'PENDING_PAYMENT',
       },
-      select: { id: true, doctor: { select: { name: true } }, tenant: { select: { name: true } } },
+      select: {
+        id: true,
+        tenantId: true,
+        doctor: { select: { name: true } },
+        tenant: { select: { name: true } },
+      },
     });
-    if (!appointment) {
+    // La cita debe además tener su copia del comprobante (subida a SU carpeta).
+    const receiptUrl = appointment ? pendingReceipts[appointment.tenantId] : undefined;
+    if (!appointment || !receiptUrl) {
       return [{ text: 'Esa reserva ya no está esperando pago 😕. Elige otra de la lista.' }];
     }
 
     await this.prisma.client.appointment.update({
       where: { id: appointment.id },
-      data: { receiptUrl: pendingReceiptUrl },
+      data: { receiptUrl },
     });
     await this.save(convo, 'IDLE', { name: convo.data.name });
     this.logger.log(

@@ -366,12 +366,13 @@ describe('ConversationEngine — pago por QR y comprobante', () => {
         status: 'PENDING_PAYMENT',
         expiresAt: null,
         startTime: new Date('2030-05-01T14:00:00Z'),
+        tenant: { slug: 'regenera' },
       },
     });
     const out = await engine.handle(
       msg({ photo: { buffer: Buffer.from('fake-jpg'), mimeType: 'image/jpeg' } }),
     );
-    expect(uploadImage).toHaveBeenCalledWith('receipts/t1', expect.any(Buffer), 'image/jpeg');
+    expect(uploadImage).toHaveBeenCalledWith('regenera/receipts', expect.any(Buffer), 'image/jpeg');
     expect(appointmentUpdate).toHaveBeenCalledWith(
       expect.objectContaining({
         data: { receiptUrl: 'https://pub.r2.dev/receipts/t1/rec.jpg' },
@@ -493,13 +494,13 @@ describe('ConversationEngine — comprobantes desde el booking web (Fase 3)', ()
         tenantId: 't1',
         startTime: new Date('2030-05-01T14:00:00Z'),
         doctor: { name: 'Dr. Bryan' },
-        tenant: { name: 'Regenera', timezone: 'America/La_Paz' },
+        tenant: { name: 'Regenera', slug: 'regenera', timezone: 'America/La_Paz' },
       },
     ] as never);
     const out = await engine.handle(
       msg({ photo: { buffer: Buffer.from('rec'), mimeType: 'image/jpeg' } }),
     );
-    expect(uploadImage).toHaveBeenCalledWith('receipts/t1', expect.any(Buffer), 'image/jpeg');
+    expect(uploadImage).toHaveBeenCalledWith('regenera/receipts', expect.any(Buffer), 'image/jpeg');
     expect(appointmentUpdate).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: 'web-appt-1' },
@@ -515,7 +516,7 @@ describe('ConversationEngine — comprobantes desde el booking web (Fase 3)', ()
       tenantId: 't1',
       startTime: new Date('2030-05-01T14:00:00Z'),
       doctor: { name: 'Dr. Bryan' },
-      tenant: { name: 'Regenera', timezone: 'America/La_Paz' },
+      tenant: { name: 'Regenera', slug: 'regenera', timezone: 'America/La_Paz' },
     };
     client.appointment.findMany.mockResolvedValueOnce([
       { id: 'a1', ...base },
@@ -524,11 +525,9 @@ describe('ConversationEngine — comprobantes desde el booking web (Fase 3)', ()
     const out = await engine.handle(
       msg({ photo: { buffer: Buffer.from('rec'), mimeType: 'image/jpeg' } }),
     );
-    expect(uploadImage).toHaveBeenCalledWith(
-      'receipts/unassigned',
-      expect.any(Buffer),
-      'image/jpeg',
-    );
+    // Mismo tenant en ambas candidatas: una sola subida, a la carpeta del slug.
+    expect(uploadImage).toHaveBeenCalledTimes(1);
+    expect(uploadImage).toHaveBeenCalledWith('regenera/receipts', expect.any(Buffer), 'image/jpeg');
     const flat = out[0].buttons!.flat();
     expect(flat.some((b) => b.data === 'rcpt:a1')).toBe(true);
     expect(flat.some((b) => b.data === 'rcpt:a2')).toBe(true);
@@ -538,11 +537,12 @@ describe('ConversationEngine — comprobantes desde el booking web (Fase 3)', ()
     const { engine, client, appointmentUpdate } = makeHarness({
       conversation: {
         step: 'IDLE',
-        data: { pendingReceiptUrl: 'https://pub.r2.dev/receipts/unassigned/x.jpg' },
+        data: { pendingReceipts: { t1: 'https://pub.r2.dev/regenera/receipts/x.jpg' } },
       },
     });
     client.appointment.findFirst.mockResolvedValueOnce({
       id: 'a1',
+      tenantId: 't1',
       doctor: { name: 'Dr. Bryan' },
       tenant: { name: 'Regenera' },
     } as never);
@@ -554,7 +554,7 @@ describe('ConversationEngine — comprobantes desde el booking web (Fase 3)', ()
     );
     expect(appointmentUpdate).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: { receiptUrl: 'https://pub.r2.dev/receipts/unassigned/x.jpg' },
+        data: { receiptUrl: 'https://pub.r2.dev/regenera/receipts/x.jpg' },
       }),
     );
     expect(out[0].text).toContain('adjunté tu comprobante');

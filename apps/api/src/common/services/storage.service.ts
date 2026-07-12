@@ -14,7 +14,7 @@ import { randomUUID } from 'crypto';
  * Carpetas (prefijos) dentro del bucket — una carpeta por clínica (slug):
  *   <slug>/assets            — logo, QR estático, portada, fachada
  *   <slug>/doctors/<id>      — QR y foto de cada especialista
- *   receipts/<tenantId>      — comprobantes de pago (flujo bot, develop)
+ *   <slug>/receipts          — comprobantes de pago enviados por el bot
  */
 @Injectable()
 export class StorageService {
@@ -51,7 +51,7 @@ export class StorageService {
    * Sube una imagen a R2 con un nombre UUID dentro de `folder` y devuelve la
    * URL pública (`R2_PUBLIC_URL/folder/<uuid>.<ext>`).
    *
-   * @param folder   prefijo lógico, p.ej. `assets/<tenantId>` o `receipts/<tenantId>`
+   * @param folder   prefijo lógico, p.ej. `<slug>/assets` o `<slug>/receipts`
    * @param buffer   contenido del archivo
    * @param mimeType ej: image/png — define la extensión y el Content-Type
    */
