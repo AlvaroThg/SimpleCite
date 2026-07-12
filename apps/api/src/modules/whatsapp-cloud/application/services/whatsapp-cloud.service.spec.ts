@@ -46,7 +46,7 @@ describe('WhatsappCloudService.renderOutbound', () => {
     await svc.renderOutbound('591700', {
       text: '¿Cómo pagas?',
       buttons: [
-        [{ label: '💵 Efectivo en la clínica', data: 'pay:cash' }],
+        [{ label: '💵 Efectivo', data: 'pay:cash' }],
         [{ label: '📱 QR bancario', data: 'pay:qr' }],
       ],
     });
@@ -89,9 +89,31 @@ describe('WhatsappCloudService.renderOutbound', () => {
     const img = sentBody(fetchMock, 0);
     expect(img.type).toBe('image');
     expect(img.image.link).toBe('https://pub.r2.dev/regenera/fachada.jpg');
-    expect(img.image.caption).toContain('Reservamos');
+    // El texto viaja con los botones (no como caption): la entrega de la
+    // imagen es más lenta y cruzaba el orden de lectura.
     const follow = sentBody(fetchMock, 1);
     expect(follow.type).toBe('interactive');
+    expect(follow.interactive.body.text).toContain('Reservamos');
     expect(follow.interactive.action.buttons[0].reply.id).toBe('book');
+  }, 10_000);
+
+  it('las filas "Título — detalle" separan título y descripción', async () => {
+    const { svc, fetchMock } = makeService();
+    await svc.renderOutbound('591700', {
+      text: '¿Qué servicio?',
+      buttons: [
+        [{ label: 'Tratamiento de Columna — Bs 150', data: 'sv:1' }],
+        [{ label: 'Sesión Fisio — Bs 100', data: 'sv:2' }],
+        [{ label: 'Consulta', data: 'sv:3' }],
+        [{ label: 'Masaje descontracturante profundo premium', data: 'sv:4' }],
+      ],
+    });
+    const rows = sentBody(fetchMock).interactive.action.sections[0].rows;
+    expect(rows[0]).toMatchObject({ title: 'Tratamiento de Columna', description: 'Bs 150' });
+    expect(rows[1]).toMatchObject({ title: 'Sesión Fisio', description: 'Bs 100' });
+    expect(rows[2].description).toBeUndefined();
+    // Sin separador y largo: título truncado + label completo de descripción.
+    expect(rows[3].title.length).toBeLessThanOrEqual(24);
+    expect(rows[3].description).toContain('premium');
   });
 });

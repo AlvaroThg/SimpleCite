@@ -573,7 +573,7 @@ export class ConversationEngine {
           `Casi listo ✨\n\n🩺 ${convo.data.serviceName} con ${convo.data.doctorName}\n` +
           `🗓 ${when}\n💰 Total: Bs ${convo.data.price}\n\n¿Cómo prefieres pagar?`,
         buttons: [
-          [{ label: '💵 Efectivo en la clínica', data: 'pay:cash' }],
+          [{ label: '💵 Efectivo', data: 'pay:cash' }],
           [{ label: '📱 QR bancario', data: 'pay:qr' }],
         ],
       },

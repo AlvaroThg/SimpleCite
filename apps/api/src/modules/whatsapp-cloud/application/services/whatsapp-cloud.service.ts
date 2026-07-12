@@ -83,11 +83,16 @@ export class WhatsappCloudService implements IMessagingService {
     const flat = (out.buttons ?? []).flat();
 
     if (out.imageUrl) {
-      // La imagen lleva el texto como caption; los botones (si hay) van en un
-      // mensaje interactivo aparte porque Meta no soporta imagen + botones.
-      await this.sendImage(to, out.imageUrl, out.text);
-      if (flat.length > 0)
-        await this.renderOutbound(to, { text: '¿Continuamos?', buttons: out.buttons });
+      // Meta no soporta imagen + botones en un solo mensaje, y además entrega
+      // las imágenes más lento que el texto (procesa la media), lo que cruzaba
+      // el orden. Por eso: la imagen va sola y el TEXTO viaja junto a los
+      // botones — legible aunque la entrega se cruce — con una pausa que
+      // favorece el orden correcto.
+      await this.sendImage(to, out.imageUrl);
+      if (out.text || flat.length > 0) {
+        await new Promise((r) => setTimeout(r, 1500));
+        await this.renderOutbound(to, { text: out.text, buttons: out.buttons });
+      }
       return;
     }
 
@@ -123,16 +128,30 @@ export class WhatsappCloudService implements IMessagingService {
           sections: [
             {
               title: 'Opciones',
-              rows: flat.slice(0, 10).map((b) => ({
-                id: b.data,
-                title: truncate(b.label, 24),
-                ...(b.label.length > 24 ? { description: truncate(b.label, 72) } : {}),
-              })),
+              rows: flat.slice(0, 10).map((b) => this.listRow(b.data, b.label)),
             },
           ],
         },
       },
     });
+  }
+
+  /**
+   * Fila de lista interactiva. Los labels del motor vienen como
+   * "Título — detalle" (ej. "Tratamiento de Columna — Bs 150"): el título va
+   * al campo title (≤24) y el detalle a description (≤72), en vez de truncar
+   * a ciegas el label completo.
+   */
+  private listRow(id: string, label: string) {
+    const sep = label.indexOf(' — ');
+    const title = sep > 0 ? label.slice(0, sep) : label;
+    const detail = sep > 0 ? label.slice(sep + 3) : '';
+    const overflow = title.length > 24 && !detail ? label : detail;
+    return {
+      id,
+      title: truncate(title, 24),
+      ...(overflow ? { description: truncate(overflow, 72) } : {}),
+    };
   }
 
   /**
