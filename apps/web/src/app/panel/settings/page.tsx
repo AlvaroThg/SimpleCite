@@ -20,6 +20,7 @@ import {
   type GalleryItem,
 } from '@/lib/panel-api';
 import { PanelShell } from '@/components/panel/PanelShell';
+import { Switch } from '@/components/ui/switch';
 import { ErrorBox } from '@/components/panel/ui';
 import { SkeletonCards } from '@/components/panel/Skeleton';
 import { PhoneField } from '@/components/PhoneField';
@@ -115,6 +116,7 @@ function Branding({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantConf
   const [qrLabel, setQrLabel] = useState(cfg.staticQrLabel ?? '');
   const [qrLabel2, setQrLabel2] = useState(cfg.staticQrLabel2 ?? '');
   const [qrMode, setQrMode] = useState<'SHARED' | 'PER_DOCTOR'>(cfg.qrAssignmentMode ?? 'SHARED');
+  const [paymentsEnabled, setPaymentsEnabled] = useState(cfg.paymentsEnabled ?? true);
   const [saving, setSaving] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [uploadingQr, setUploadingQr] = useState(false);
@@ -136,6 +138,7 @@ function Branding({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantConf
         staticQrLabel: qrLabel.trim() || null,
         staticQrLabel2: qrLabel2.trim() || null,
         qrAssignmentMode: qrMode,
+        paymentsEnabled,
         heroTitle: heroTitle.trim() || null,
         heroSubtitle: heroSubtitle.trim() || null,
         servicesTitle: servicesTitle.trim() || null,
@@ -324,8 +327,31 @@ function Branding({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantConf
         </div>
       </div>
 
-      {/* Static QR upload (hasta 2 bancos) */}
+      {/* Módulo de pagos: cobrar en línea (QR + comprobante) o en la clínica */}
       <div className="border-t border-border pt-4">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-sm font-semibold text-text-secondary mb-1">Módulo de pagos</p>
+            <p className="max-w-xl text-xs text-text-muted">
+              {paymentsEnabled
+                ? 'Al reservar, el paciente elige cómo pagar (efectivo o QR con comprobante).'
+                : 'El paciente reserva sin elegir pago: se le avisa que el cobro (efectivo o QR) es en la clínica, antes de cada sesión. El pago se registra desde el detalle de la cita.'}
+            </p>
+          </div>
+          <Switch checked={paymentsEnabled} onCheckedChange={setPaymentsEnabled} />
+        </div>
+        {!paymentsEnabled && (
+          <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            Con el módulo apagado, el booking no muestra QR ni pide método de pago. Recuerda guardar
+            los cambios.
+          </p>
+        )}
+      </div>
+
+      {/* Static QR upload (hasta 2 bancos) */}
+      <div
+        className={`border-t border-border pt-4 ${paymentsEnabled ? '' : 'pointer-events-none opacity-40'}`}
+      >
         <p className="text-sm font-semibold text-text-secondary mb-1">QR bancarios de pago</p>
         <p className="text-xs text-text-muted mb-3">
           Elige cómo se asigna el QR de cobro: uno compartido para toda la clínica, o el QR propio

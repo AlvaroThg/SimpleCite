@@ -432,12 +432,35 @@ export default function BookingWizard() {
         turnstileToken: turnstileToken || undefined,
       });
 
+      // Doctor en modo seguro: el paso de pago se reemplaza por el de seguro.
+      if (state.selectedDoctor?.doctorProfile?.insuranceMode) {
+        set({ appointmentId: booking.appointmentId, step: 'select-insurance', loading: false });
+        return;
+      }
+
+      // Módulo de pagos apagado: no hay paso de pago — la cita se confirma
+      // directo y el pago (efectivo o QR) es en la clínica antes de la sesión.
+      if (state.tenant && state.tenant.paymentsEnabled === false) {
+        await confirmBooking(
+          slug,
+          booking.appointmentId,
+          'CASH',
+          state.phone,
+          undefined,
+          state.foundPatient?.id,
+        );
+        set({
+          appointmentId: booking.appointmentId,
+          chosenMethod: 'CASH',
+          step: 'confirmed',
+          loading: false,
+        });
+        return;
+      }
+
       set({
         appointmentId: booking.appointmentId,
-        // Doctor en modo seguro: el paso de pago se reemplaza por el de seguro.
-        step: state.selectedDoctor?.doctorProfile?.insuranceMode
-          ? 'select-insurance'
-          : 'payment-method',
+        step: 'payment-method',
         loading: false,
       });
     } catch (e) {
@@ -558,6 +581,7 @@ export default function BookingWizard() {
           primary={primary}
           insurance={!!state.selectedDoctor?.doctorProfile?.insuranceMode}
           returning={state.patientMode === 'returning'}
+          noPayment={state.tenant?.paymentsEnabled === false}
         />
       )}
 
@@ -854,6 +878,8 @@ export default function BookingWizard() {
                       👋 Hola, <span className="font-semibold">{state.foundPatient.firstName}</span>
                       . Encontramos tu historial.
                     </div>
+                    {state.tenant?.paymentsEnabled === false &&
+                      !state.selectedDoctor?.doctorProfile?.insuranceMode && <PayAtClinicNotice />}
                     <TurnstileWidget onToken={setTurnstileToken} />
                     <Btn
                       label="Confirmar y continuar"
@@ -922,12 +948,16 @@ export default function BookingWizard() {
                   Lo usaremos para coordinar tu cita. No se comparte con terceros.
                 </p>
 
+                {state.tenant?.paymentsEnabled === false &&
+                  !state.selectedDoctor?.doctorProfile?.insuranceMode && <PayAtClinicNotice />}
+
                 <TurnstileWidget onToken={setTurnstileToken} />
 
                 <Btn
                   label={
-                    state.selectedDoctor?.doctorProfile?.insuranceMode
-                      ? 'Continuar'
+                    state.selectedDoctor?.doctorProfile?.insuranceMode ||
+                    state.tenant?.paymentsEnabled === false
+                      ? 'Confirmar mi cita'
                       : 'Continuar al pago'
                   }
                   color={primary}
@@ -1101,6 +1131,12 @@ export default function BookingWizard() {
                     </span>
                     . No necesitas pagar nada; solo trae tu credencial del seguro.
                   </p>
+                ) : state.tenant?.paymentsEnabled === false ? (
+                  <p className="text-sm text-text-muted">
+                    💵 El pago será en <span className="font-semibold">efectivo o QR</span> en la
+                    clínica, antes de tu sesión. Te pedimos llegar{' '}
+                    <span className="font-semibold">5 a 10 minutos antes</span>.
+                  </p>
                 ) : (
                   <p className="text-sm text-text-muted">
                     💵 Tu cita quedó registrada. Paga en efectivo en la clínica el día de tu cita.
@@ -1180,6 +1216,17 @@ export default function BookingWizard() {
 
 // ─── Sub-components ────────────────────────────────────────────────────
 
+/** Aviso de la clínica sin módulo de pagos: se cobra en recepción. */
+function PayAtClinicNotice() {
+  return (
+    <div className="rounded-xl border border-border bg-canvas p-4 text-sm text-text-secondary">
+      💵 El pago será en <span className="font-semibold">efectivo o QR</span> en la clínica, antes
+      de realizar cada sesión. Te pedimos llegar{' '}
+      <span className="font-semibold">5 a 10 minutos antes</span>.
+    </div>
+  );
+}
+
 /** CTA para enviar el comprobante al WhatsApp general de la clínica. */
 function WhatsAppSendButton({ href }: { href: string }) {
   return (
@@ -1202,6 +1249,7 @@ function Stepper({
   primary,
   insurance,
   returning,
+  noPayment,
 }: {
   step: Step;
   primary: string;
@@ -1209,17 +1257,20 @@ function Stepper({
   insurance: boolean;
   /** Paciente regresante: la posición "Datos" se llama "Tu CI". */
   returning: boolean;
+  /** Módulo de pagos apagado: no existe la posición "Pago". */
+  noPayment: boolean;
 }) {
   // El stepper se construye dinámicamente según el modo del doctor elegido y
   // el tipo de paciente; si el paciente vuelve atrás, se recalcula solo.
   // "Datos" y "Tu CI" comparten posición: el label cambia según la elección.
+  const skipPayment = noPayment && !insurance;
   const STEPS: Step[] = [
     'select-doctor',
     'select-service',
     'select-slot',
     'patient-type',
     returning ? 'patient-lookup' : 'patient-info',
-    insurance ? 'select-insurance' : 'payment-method',
+    ...(skipPayment ? [] : [insurance ? ('select-insurance' as Step) : ('payment-method' as Step)]),
     'confirmed',
   ];
   const labels = [
@@ -1228,7 +1279,7 @@ function Stepper({
     'Horario',
     '¿Eres nuevo?',
     returning ? 'Tu CI' : 'Datos',
-    insurance ? 'Seguro' : 'Pago',
+    ...(skipPayment ? [] : [insurance ? 'Seguro' : 'Pago']),
     '¡Listo!',
   ];
   const idx = STEPS.indexOf(step);

@@ -9,6 +9,7 @@ import {
   getAppointment,
   getMedicalRecord,
   transitionAppointment,
+  markAppointmentPaid,
   downloadAppointmentReport,
   PanelApiError,
   type AppointmentDetail,
@@ -95,6 +96,21 @@ function AppointmentDetailView() {
     }
   }
 
+  /** Registra el cobro hecho en recepción (efectivo o QR mostrado en persona). */
+  async function doMarkPaid(method: 'CASH' | 'STATIC_QR') {
+    if (!session) return;
+    setActing(true);
+    setError('');
+    try {
+      await markAppointmentPaid(session.token, session.slug, id, method);
+      await load();
+    } catch (err) {
+      setError(err instanceof PanelApiError ? err.message : 'No se pudo registrar el pago');
+    } finally {
+      setActing(false);
+    }
+  }
+
   if (loading) return <SkeletonDetail />;
   if (error && !appt) return <ErrorBox message={error} />;
   if (!appt) return null;
@@ -103,6 +119,12 @@ function AppointmentDetailView() {
   const transitions = (TRANSITIONS[appt.status] ?? []).filter(
     (t) => !(appt.paymentMethod === 'INSURANCE' && t.status === 'CONFIRMED'),
   );
+  // El pago se registra en recepción (efectivo o QR físico): clave para las
+  // clínicas con el módulo de pagos apagado, donde nada se cobra en línea.
+  const canMarkPaid =
+    !appt.isPaid &&
+    appt.paymentMethod !== 'INSURANCE' &&
+    ['CONFIRMED', 'COMPLETED'].includes(appt.status);
 
   return (
     <div className="space-y-5">
@@ -235,6 +257,33 @@ function AppointmentDetailView() {
               </ul>
             </div>
           )}
+        </div>
+      )}
+
+      {canMarkPaid && (
+        <div className="bg-surface rounded-2xl border border-border p-4">
+          <p className="text-xs font-medium text-text-muted uppercase tracking-wider mb-3">
+            Registrar pago
+          </p>
+          <p className="mb-3 text-sm text-text-secondary">
+            El paciente pagó en la clínica. ¿Cómo pagó?
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => doMarkPaid('CASH')}
+              disabled={acting}
+              className="px-4 py-2 rounded-xl text-white text-sm font-semibold transition disabled:opacity-50 bg-[var(--success)] hover:bg-[#0ea371]"
+            >
+              💵 Pagó en efectivo
+            </button>
+            <button
+              onClick={() => doMarkPaid('STATIC_QR')}
+              disabled={acting}
+              className="px-4 py-2 rounded-xl text-white text-sm font-semibold transition disabled:opacity-50 bg-[var(--success)] hover:bg-[#0ea371]"
+            >
+              📱 Pagó por QR
+            </button>
+          </div>
         </div>
       )}
 
