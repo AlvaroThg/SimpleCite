@@ -81,6 +81,12 @@ enum PaymentMethod {
   INSURANCE /// Cobertura por seguro médico — no hay cobro al paciente
 }
 
+enum RefundResolution {
+  PENDING /// Cita pagada cancelada: la clínica aún no resolvió el dinero
+  REFUNDED /// La clínica devolvió el dinero al paciente (fuera del sistema)
+  CREDITED /// El monto quedó como saldo a favor del paciente en la clínica
+}
+
 enum QrAssignmentMode {
   SHARED /// Un único QR del tenant para toda la clínica (default)
   PER_DOCTOR /// Cada doctor tiene su propio QR; el booking muestra el del doctor de la cita
@@ -120,6 +126,10 @@ model Tenant {
 
   /// Cómo se asigna el QR de cobro: compartido (tenant) o por doctor.
   qrAssignmentMode QrAssignmentMode @default(SHARED)
+  /// Módulo de pagos en el booking público: si es false, el paciente no elige
+  /// método ni ve el QR — se le avisa que paga en la clínica antes de la
+  /// sesión. Solo el ADMIN puede cambiarlo.
+  paymentsEnabled  Boolean          @default(true)
 
   // ─── Personalización de la landing pública (editable por el admin) ───
   secondaryColor   String? /// Color secundario de la paleta (hex). Acentos/gradientes.
@@ -356,6 +366,12 @@ model Appointment {
   paymentMethod PaymentMethod @default(CASH)
   /// URL del comprobante de pago enviado por el paciente vía WhatsApp.
   receiptUrl    String?
+
+  /// Qué pasó con el dinero cuando una cita PAGADA se canceló (el QR es una
+  /// transferencia directa que el sistema no puede revertir): PENDING hasta
+  /// que el staff la marque devuelta o convertida a saldo a favor. Null = no
+  /// aplica (cita no pagada o no cancelada).
+  refundResolution RefundResolution?
 
   /// Seguro que cubre esta cita (solo paymentMethod=INSURANCE).
   tenantInsuranceId String?
