@@ -667,12 +667,14 @@ describe('ConversationEngine — reprogramar antes que cancelar (citas pagadas)'
     expect(flat.some((b) => b.data === 'keep-appts')).toBe(true);
   });
 
-  it('cancel-paid cancela igual y avisa de la devolución', async () => {
+  it('cancel-paid cancela igual, deja el reembolso PENDING y avisa de la devolución', async () => {
     const { engine, client, appointmentUpdate } = makeHarness({ conversation: { step: 'IDLE' } });
     client.appointment.findFirst.mockResolvedValueOnce(paidAppt as never);
     const out = await engine.handle(msg({ callback: 'cancel-paid:appt-9' }));
     expect(appointmentUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({ data: expect.objectContaining({ status: 'CANCELLED' }) }),
+      expect.objectContaining({
+        data: expect.objectContaining({ status: 'CANCELLED', refundResolution: 'PENDING' }),
+      }),
     );
     expect(out[0].text).toContain('devolución');
   });

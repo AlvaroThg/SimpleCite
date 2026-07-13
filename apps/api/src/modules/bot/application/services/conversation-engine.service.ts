@@ -1241,7 +1241,8 @@ export class ConversationEngine {
 
     await this.prisma.client.appointment.update({
       where: { id: appointment.id },
-      data: { status: 'CANCELLED', expiresAt: null },
+      // Cita pagada: el dinero queda pendiente de resolución (ver reportes).
+      data: { status: 'CANCELLED', expiresAt: null, ...(paid && { refundResolution: 'PENDING' }) },
     });
     this.logger.log(
       { event: 'bot.appointment.cancelled-by-patient', appointmentId: appointment.id, paid },
