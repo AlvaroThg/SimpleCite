@@ -43,6 +43,9 @@ export interface TenantInfo {
   staticQrUrl2: string | null;
   staticQrLabel2: string | null;
   qrAssignmentMode: 'SHARED' | 'PER_DOCTOR';
+  /// Módulo de pagos del booking: si es false no se pide método ni se
+  /// muestra QR — el pago es en la clínica antes de la sesión.
+  paymentsEnabled: boolean;
   timezone: string;
   whatsappEnabled: boolean;
   /// Nombres de los seguros médicos activos (sección "Seguros aceptados").

@@ -303,15 +303,24 @@ export class PublicBookingService {
       return confirmed;
     }
 
+    // Módulo de pagos apagado (decisión de la clínica): el cobro es en
+    // recepción antes de la sesión — mande lo que mande el cliente, se
+    // registra como efectivo y la cita queda confirmada.
+    const tenantPayments = await this.prisma.client.tenant.findUnique({
+      where: { id: tenantId },
+      select: { paymentsEnabled: true },
+    });
+    const method = tenantPayments?.paymentsEnabled === false ? 'CASH' : paymentMethod;
+
     // Estado tras confirmar (alineado con el bot):
     //  - Efectivo → CONFIRMED directo: en la práctica la cita está confirmada y
     //    se cobra en recepción; dejarla PENDING_PAYMENT llenaba la agenda del
     //    panel de "pendientes" que no lo eran.
     //  - QR → PENDING_PAYMENT hasta que el staff revise el comprobante.
-    const status = paymentMethod === 'CASH' ? 'CONFIRMED' : 'PENDING_PAYMENT';
+    const status = method === 'CASH' ? 'CONFIRMED' : 'PENDING_PAYMENT';
     const updated = await this.prisma.client.appointment.update({
       where: { id: appointmentId },
-      data: { status, paymentMethod, expiresAt: null },
+      data: { status, paymentMethod: method, expiresAt: null },
     });
 
     // Envío del QR por WhatsApp: SOLO en modo OTP (bot activo). En main el QR se

@@ -17,10 +17,13 @@ import { toast } from 'sonner';
 import { useAuth } from '@/lib/panel-auth';
 import {
   getReportsAnalytics,
+  getCancelledPaid,
+  setRefundResolution,
   downloadReportsPdf,
   downloadAppointmentsCsv,
   PanelApiError,
   type ReportAnalytics,
+  type CancelledPaidRow,
 } from '@/lib/panel-api';
 import { PanelShell } from '@/components/panel/PanelShell';
 import { ErrorBox } from '@/components/panel/ui';
@@ -53,6 +56,8 @@ function Reports() {
   const [from, setFrom] = useState(ymd(monthAgo));
   const [to, setTo] = useState(ymd(today));
   const [data, setData] = useState<ReportAnalytics | null>(null);
+  const [cancelledPaid, setCancelledPaid] = useState<CancelledPaidRow[]>([]);
+  const [resolving, setResolving] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [downloading, setDownloading] = useState(false);
@@ -72,7 +77,12 @@ function Reports() {
     setError('');
     try {
       const { fromIso, toIso } = range();
-      setData(await getReportsAnalytics(session.token, session.slug, fromIso, toIso));
+      const [analytics, cancelled] = await Promise.all([
+        getReportsAnalytics(session.token, session.slug, fromIso, toIso),
+        getCancelledPaid(session.token, session.slug, fromIso, toIso),
+      ]);
+      setData(analytics);
+      setCancelledPaid(cancelled);
     } catch (err) {
       setError(err instanceof PanelApiError ? err.message : 'No se pudo cargar el reporte');
     } finally {
@@ -94,6 +104,27 @@ function Reports() {
       toast.error(err instanceof PanelApiError ? err.message : 'No se pudo descargar el PDF');
     } finally {
       setDownloading(false);
+    }
+  }
+
+  /** Registra qué hizo la clínica con el dinero (devolución o saldo a favor). */
+  async function resolve(id: string, resolution: 'REFUNDED' | 'CREDITED') {
+    if (!session) return;
+    setResolving(id);
+    try {
+      await setRefundResolution(session.token, session.slug, id, resolution);
+      setCancelledPaid((rows) =>
+        rows.map((r) => (r.id === id ? { ...r, refundResolution: resolution } : r)),
+      );
+      toast.success(
+        resolution === 'REFUNDED' ? 'Marcada como devuelta.' : 'Registrada como saldo a favor.',
+      );
+    } catch (err) {
+      toast.error(
+        err instanceof PanelApiError ? err.message : 'No se pudo registrar la resolución',
+      );
+    } finally {
+      setResolving(null);
     }
   }
 
@@ -189,6 +220,19 @@ function Reports() {
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
               <StatCard label="Efectivo" value={money(data.incomeByMethod.cash)} />
               <StatCard label="QR Bancario" value={money(data.incomeByMethod.qr)} />
+              {data.cancelledPaid.count > 0 && (
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                  <p className="text-xs text-amber-800">Cobrado de citas canceladas</p>
+                  <p className="mt-1 text-2xl font-bold text-amber-900">
+                    {money(data.cancelledPaid.amount)}
+                  </p>
+                  <p className="text-xs text-amber-800">
+                    {data.cancelledPaid.count} {data.cancelledPaid.count === 1 ? 'cita' : 'citas'}
+                    {data.cancelledPaid.pendingResolution > 0 &&
+                      ` · ${data.cancelledPaid.pendingResolution} por resolver`}
+                  </p>
+                </div>
+              )}
               {data.byInsurance.map((ins) => (
                 <div key={ins.name} className="rounded-2xl border border-border bg-surface p-4">
                   <p className="flex items-center gap-1.5 text-xs text-text-muted">
@@ -202,6 +246,83 @@ function Reports() {
               ))}
             </div>
           </section>
+
+          {/* Pagos de citas canceladas: el dinero entró pero la sesión no ocurrirá.
+              La clínica registra qué hizo con él (trazabilidad, no reversa). */}
+          {cancelledPaid.length > 0 && (
+            <section className="rounded-2xl border border-border bg-surface p-5">
+              <h2 className="mb-1 text-sm font-semibold text-text-secondary">
+                Pagos de citas canceladas
+              </h2>
+              <p className="mb-4 text-xs text-text-muted">
+                El QR es una transferencia directa: la devolución (si corresponde) se hace fuera del
+                sistema. Registra aquí qué pasó con cada pago.
+              </p>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border text-left text-xs text-text-muted">
+                      <th className="pb-2 pr-3 font-medium">Fecha de la cita</th>
+                      <th className="pb-2 pr-3 font-medium">Paciente</th>
+                      <th className="pb-2 pr-3 font-medium">Doctor</th>
+                      <th className="pb-2 pr-3 font-medium">Monto</th>
+                      <th className="pb-2 font-medium">Resolución</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {cancelledPaid.map((r) => (
+                      <tr key={r.id} className="border-b border-border/60 last:border-0">
+                        <td className="py-2.5 pr-3 text-text-secondary">
+                          {new Date(r.startTime).toLocaleDateString('es-BO', {
+                            day: 'numeric',
+                            month: 'short',
+                            year: 'numeric',
+                          })}
+                        </td>
+                        <td className="py-2.5 pr-3 font-medium text-text-primary">
+                          {r.patientName}
+                        </td>
+                        <td className="py-2.5 pr-3 text-text-secondary">{r.doctorName}</td>
+                        <td className="py-2.5 pr-3 font-medium text-text-primary">
+                          {money(r.amount)}
+                        </td>
+                        <td className="py-2.5">
+                          {r.refundResolution === 'REFUNDED' ? (
+                            <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">
+                              Devuelto
+                            </span>
+                          ) : r.refundResolution === 'CREDITED' ? (
+                            <span className="rounded-full bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-700">
+                              Saldo a favor
+                            </span>
+                          ) : (
+                            <span className="flex flex-wrap gap-1.5">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={resolving === r.id}
+                                onClick={() => resolve(r.id, 'REFUNDED')}
+                              >
+                                Devuelto
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={resolving === r.id}
+                                onClick={() => resolve(r.id, 'CREDITED')}
+                              >
+                                Saldo a favor
+                              </Button>
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
 
           {/* Ingresos en el tiempo */}
           <section className="rounded-2xl border border-border bg-surface p-5">

@@ -3,10 +3,14 @@ import {
   CreateAppointmentSchema,
   UpdateAppointmentStatusSchema,
   RescheduleAppointmentSchema,
+  MarkAppointmentPaidSchema,
+  SetRefundResolutionSchema,
   AppointmentStatus,
   type CreateAppointmentDto,
   type UpdateAppointmentStatusDto,
   type RescheduleAppointmentDto,
+  type MarkAppointmentPaidDto,
+  type SetRefundResolutionDto,
 } from '@simplecite/shared';
 import { Roles } from '../../../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../../../common/decorators/current-user.decorator';
@@ -92,6 +96,34 @@ export class AppointmentsController {
       userId: user.sub,
       role: user.role,
     });
+    return { success: true, data: appointment };
+  }
+
+  /** El staff registra el cobro hecho en la clínica (efectivo o QR físico). */
+  @Roles('ADMIN', 'STAFF', 'DOCTOR')
+  @Patch(':id/mark-paid')
+  async markPaid(
+    @CurrentUser('tenantId') tenantId: string,
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(MarkAppointmentPaidSchema)) dto: MarkAppointmentPaidDto,
+  ) {
+    const appointment = await this.appointmentsService.markPaid(tenantId, id, dto.method);
+    return { success: true, data: appointment };
+  }
+
+  /** Resolución del dinero de una cita pagada cancelada (solo ADMIN). */
+  @Roles('ADMIN')
+  @Patch(':id/refund-resolution')
+  async setRefundResolution(
+    @CurrentUser('tenantId') tenantId: string,
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(SetRefundResolutionSchema)) dto: SetRefundResolutionDto,
+  ) {
+    const appointment = await this.appointmentsService.setRefundResolution(
+      tenantId,
+      id,
+      dto.resolution,
+    );
     return { success: true, data: appointment };
   }
 }

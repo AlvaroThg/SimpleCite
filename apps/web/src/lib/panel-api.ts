@@ -538,6 +538,9 @@ export interface ReportAnalytics {
   from: string;
   to: string;
   totals: { income: number; completed: number; cancelled: number; noShow: number; total: number };
+  /// Dinero cobrado de citas que luego se cancelaron (income lo incluye:
+  /// el dinero entró de verdad; esta línea lo hace visible).
+  cancelledPaid: { count: number; amount: number; pendingResolution: number };
   /// Ingreso real por método de cobro (los seguros nunca suman aquí).
   incomeByMethod: { cash: number; qr: number };
   /// Columnas dinámicas por seguro presente en el período (snapshots).
@@ -554,6 +557,49 @@ export const getReportsAnalytics = (t: string, s: string, from?: string, to?: st
     (r) => r.data,
   );
 };
+
+export type RefundResolution = 'PENDING' | 'REFUNDED' | 'CREDITED';
+
+export interface CancelledPaidRow {
+  id: string;
+  startTime: string;
+  patientName: string;
+  doctorName: string;
+  amount: number;
+  refundResolution: RefundResolution;
+}
+/** Citas pagadas que se cancelaron: dinero pendiente de resolución (ADMIN). */
+export const getCancelledPaid = (t: string, s: string, from?: string, to?: string) => {
+  const qs = new URLSearchParams();
+  if (from) qs.set('from', from);
+  if (to) qs.set('to', to);
+  const suffix = qs.toString() ? `?${qs.toString()}` : '';
+  return get<{ data: CancelledPaidRow[] }>(`/api/reports/cancelled-paid${suffix}`, t, s).then(
+    (r) => r.data,
+  );
+};
+
+/** Registra qué hizo la clínica con el dinero de una cita pagada cancelada. */
+export const setRefundResolution = (
+  t: string,
+  s: string,
+  appointmentId: string,
+  resolution: 'REFUNDED' | 'CREDITED',
+) =>
+  patch<{ data: AppointmentDetail }>(`/api/appointments/${appointmentId}/refund-resolution`, t, s, {
+    resolution,
+  }).then((r) => r.data);
+
+/** El staff registra el cobro hecho en la clínica (efectivo o QR físico). */
+export const markAppointmentPaid = (
+  t: string,
+  s: string,
+  appointmentId: string,
+  method: 'CASH' | 'STATIC_QR',
+) =>
+  patch<{ data: AppointmentDetail }>(`/api/appointments/${appointmentId}/mark-paid`, t, s, {
+    method,
+  }).then((r) => r.data);
 
 /** Descarga el PDF del reporte del período (autenticado) y dispara la descarga. */
 export async function downloadReportsPdf(
@@ -653,6 +699,8 @@ export interface TenantConfig {
   timezone: string;
   plan: string;
   whatsappEnabled: boolean;
+  /// Módulo de pagos del booking público (switch solo-ADMIN).
+  paymentsEnabled: boolean;
 }
 export const getTenantConfig = (t: string, s: string) =>
   get<{ data: TenantConfig }>('/api/tenants/current', t, s).then((r) => r.data);
@@ -682,6 +730,7 @@ export const updateTenantBranding = (
     whatsappContact?: string | null;
     locationPhotoUrl?: string | null;
     mapsUrl?: string | null;
+    paymentsEnabled?: boolean;
   },
 ) => patch<{ data: TenantConfig }>('/api/tenants/current', t, s, body).then((r) => r.data);
 

@@ -111,6 +111,8 @@ export const UpdateTenantBrandingSchema = z
     whatsappContact: z.string().max(20).nullable().optional(),
     locationPhotoUrl: z.string().url('URL de imagen inválida').max(500).nullable().optional(),
     mapsUrl: z.string().url('Link de Google Maps inválido').max(500).nullable().optional(),
+    /// Módulo de pagos del booking público (solo ADMIN — el controller ya lo exige).
+    paymentsEnabled: z.boolean().optional(),
   })
   .refine((v) => Object.keys(v).length > 0, { message: 'Nada que actualizar' });
 export type UpdateTenantBrandingDto = z.infer<typeof UpdateTenantBrandingSchema>;
@@ -539,6 +541,9 @@ export const PublicTenantInfoSchema = z.object({
   staticQrUrl2: z.string().nullable(),
   staticQrLabel2: z.string().nullable(),
   qrAssignmentMode: z.enum(['SHARED', 'PER_DOCTOR']),
+  /// Módulo de pagos del booking: si es false, no se pide método ni se
+  /// muestra QR — el pago es en la clínica antes de la sesión.
+  paymentsEnabled: z.boolean(),
   timezone: z.string(),
   whatsappEnabled: z.boolean(),
   /// Nombres de los seguros médicos activos de la clínica (landing pública).
@@ -547,3 +552,20 @@ export const PublicTenantInfoSchema = z.object({
   gallery: z.array(z.object({ url: z.string(), type: z.enum(['IMAGE', 'VIDEO']) })),
 });
 export type PublicTenantInfo = z.infer<typeof PublicTenantInfoSchema>;
+
+// ─── Pagos en el panel (registro manual y resolución de reembolsos) ────────
+
+/** El staff registra que la cita ya fue pagada en la clínica (efectivo o QR físico). */
+export const MarkAppointmentPaidSchema = z.object({
+  method: z.enum(['CASH', 'STATIC_QR']),
+});
+export type MarkAppointmentPaidDto = z.infer<typeof MarkAppointmentPaidSchema>;
+
+/**
+ * Resolución del dinero de una cita pagada que se canceló: la clínica lo
+ * devolvió (fuera del sistema) o lo dejó como saldo a favor del paciente.
+ */
+export const SetRefundResolutionSchema = z.object({
+  resolution: z.enum(['REFUNDED', 'CREDITED']),
+});
+export type SetRefundResolutionDto = z.infer<typeof SetRefundResolutionSchema>;

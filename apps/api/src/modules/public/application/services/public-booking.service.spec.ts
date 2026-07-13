@@ -29,6 +29,7 @@ type Overrides = Partial<{
   doctorProfile: unknown;
   insurance: unknown;
   createThrows: unknown;
+  paymentsEnabled: boolean;
 }>;
 
 function makeHarness(o: Overrides = {}) {
@@ -70,7 +71,13 @@ function makeHarness(o: Overrides = {}) {
       doctorProfile: { findFirst: jest.fn().mockResolvedValue(o.doctorProfile ?? null) },
       tenantInsurance: { findFirst: jest.fn().mockResolvedValue(o.insurance ?? null) },
       bookingNotification: { upsert: jest.fn().mockResolvedValue({}) },
-      tenant: { findUnique: jest.fn().mockResolvedValue({ slug: 't', staticQrUrl: null }) },
+      tenant: {
+        findUnique: jest.fn().mockResolvedValue({
+          slug: 't',
+          staticQrUrl: null,
+          paymentsEnabled: o.paymentsEnabled ?? true,
+        }),
+      },
     },
   } as never;
 
@@ -210,6 +217,25 @@ describe('PublicBookingService.confirm', () => {
       paymentMethod: 'CASH',
     })) as { status: string };
     expect(res.status).toBe('CONFIRMED');
+  });
+
+  it('módulo de pagos apagado: aunque pidan QR, se registra efectivo y confirma', async () => {
+    const { svc, appointmentUpdate } = makeHarness({
+      appointment: tentative(),
+      paymentsEnabled: false,
+    });
+    const res = (await svc.confirm({
+      tenantId: 't1',
+      phone: '59170000000',
+      appointmentId: 'appt-1',
+      paymentMethod: 'STATIC_QR',
+    })) as { status: string };
+    expect(res.status).toBe('CONFIRMED');
+    expect(appointmentUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ paymentMethod: 'CASH', status: 'CONFIRMED' }),
+      }),
+    );
   });
 
   it('seguro: rechaza si el doctor no está en modo seguro', async () => {

@@ -33,6 +33,8 @@ export interface TenantConfig {
   timezone: string;
   plan: string;
   whatsappEnabled: boolean;
+  /// Módulo de pagos del booking público (switch solo-ADMIN en Configuración).
+  paymentsEnabled: boolean;
 }
 
 /**
@@ -98,6 +100,7 @@ export class TenantService implements TenantServicePort {
         timezone: true,
         plan: true,
         whatsappEnabled: true,
+        paymentsEnabled: true,
       },
     });
     if (!t) throw new NotFoundException('Tenant no encontrado');
@@ -154,6 +157,7 @@ export class TenantService implements TenantServicePort {
         ...(dto.facebookUrl !== undefined && { facebookUrl: dto.facebookUrl }),
         ...(dto.instagramUrl !== undefined && { instagramUrl: dto.instagramUrl }),
         ...(dto.whatsappContact !== undefined && { whatsappContact: dto.whatsappContact }),
+        ...(dto.paymentsEnabled !== undefined && { paymentsEnabled: dto.paymentsEnabled }),
         ...(dto.mapsUrl !== undefined && {
           mapsUrl: dto.mapsUrl ? await this.expandMapsUrl(dto.mapsUrl) : dto.mapsUrl,
         }),
