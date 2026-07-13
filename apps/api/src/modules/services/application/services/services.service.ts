@@ -138,4 +138,27 @@ export class ServicesService {
     await this.prisma.client.doctorService.delete({ where: { id: doctorServiceId } });
     return { success: true };
   }
+
+  /**
+   * Color personal del doctor para su servicio (vista calendario del doctor).
+   * `updateMany` + conteo: valida pertenencia (tenant + doctor) sin fuga.
+   */
+  async setDoctorServiceColor(
+    tenantId: string,
+    doctorId: string,
+    serviceId: string,
+    color: string | null,
+  ) {
+    const res = await this.prisma.client.doctorService.updateMany({
+      where: { tenantId, doctorId, serviceId },
+      data: { color },
+    });
+    if (res.count === 0) {
+      throw new NotFoundException('No tienes asignado ese servicio');
+    }
+    return this.prisma.client.doctorService.findFirst({
+      where: { tenantId, doctorId, serviceId },
+      include: { service: true },
+    });
+  }
 }

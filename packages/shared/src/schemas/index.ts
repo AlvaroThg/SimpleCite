@@ -569,3 +569,12 @@ export const SetRefundResolutionSchema = z.object({
   resolution: z.enum(['REFUNDED', 'CREDITED']),
 });
 export type SetRefundResolutionDto = z.infer<typeof SetRefundResolutionSchema>;
+
+/** Color personal del doctor para uno de SUS servicios (su calendario). */
+export const UpdateDoctorServiceColorSchema = z.object({
+  color: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/, 'Color hexadecimal inválido (ej: #0EA5A4)')
+    .nullable(),
+});
+export type UpdateDoctorServiceColorDto = z.infer<typeof UpdateDoctorServiceColorSchema>;

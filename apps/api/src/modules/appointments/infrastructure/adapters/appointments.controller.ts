@@ -28,9 +28,13 @@ export class AppointmentsController {
   @Post()
   async create(
     @CurrentUser('tenantId') tenantId: string,
+    @CurrentUser() user: { sub: string; role: string },
     @Body(new ZodValidationPipe(CreateAppointmentSchema)) dto: CreateAppointmentDto,
   ) {
-    const appointment = await this.appointmentsService.create(tenantId, dto);
+    const appointment = await this.appointmentsService.create(tenantId, dto, {
+      userId: user.sub,
+      role: user.role,
+    });
     return { success: true, data: appointment };
   }
 

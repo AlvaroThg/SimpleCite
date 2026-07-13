@@ -21,6 +21,7 @@ import { Button } from '@/components/ui/button';
 import { List, CalendarDays, Plus } from 'lucide-react';
 import { AdminCalendar, type AdminEvent } from '@/components/calendar/AdminCalendar';
 import { doctorColor } from '@/lib/doctor-colors';
+import { getDoctorServices, setMyServiceColor, type DoctorServiceLink } from '@/lib/panel-api';
 import { PendingTab, ConfirmedTab } from '@/components/panel/appointments/cells';
 import { ReceiptModal, NewAppointmentModal } from '@/components/panel/appointments/modals';
 
@@ -135,8 +136,31 @@ function AppointmentsList() {
 
   // ADMIN/STAFF: color por ESPECIALISTA (distinguir de un vistazo quién
   // atiende cada cita) + línea extra con doctor y precio. El DOCTOR ve sus
-  // citas con los colores de SUS servicios, como los configuró.
+  // citas con los colores de SUS servicios, editables desde la leyenda.
   const isDoctorView = session?.user.role === 'DOCTOR';
+
+  // Servicios del doctor con su color personal (override de service.color).
+  const [myServices, setMyServices] = useState<DoctorServiceLink[]>([]);
+  useEffect(() => {
+    if (!session || !isDoctorView || view !== 'calendar') return;
+    getDoctorServices(session.token, session.slug, session.user.id)
+      .then(setMyServices)
+      .catch(() => setMyServices([]));
+  }, [session, isDoctorView, view]);
+
+  async function changeMyServiceColor(serviceId: string, color: string) {
+    if (!session) return;
+    const prev = myServices;
+    setMyServices((list) => list.map((l) => (l.serviceId === serviceId ? { ...l, color } : l)));
+    try {
+      await setMyServiceColor(session.token, session.slug, serviceId, color);
+    } catch (err) {
+      setMyServices(prev);
+      toast.error(err instanceof PanelApiError ? err.message : 'No se pudo guardar el color');
+    }
+  }
+
+  const myColorByService = new Map(myServices.map((l) => [l.serviceId, l.color ?? null]));
 
   // Las canceladas no se muestran: el horario queda libre como si no existieran.
   const calendarEvents: AdminEvent[] = calendarItems
@@ -149,7 +173,9 @@ function AppointmentsList() {
       status: a.status,
       doctorName: a.doctor.name,
       serviceName: a.service.name,
-      color: isDoctorView ? (a.service.color ?? null) : doctorColor(a.doctor.id),
+      color: isDoctorView
+        ? (myColorByService.get(a.service.id) ?? a.service.color ?? null)
+        : doctorColor(a.doctor.id),
       detailLine: isDoctorView
         ? null
         : `${a.doctor.name} · ${
@@ -282,6 +308,27 @@ function AppointmentsList() {
           <p className="text-xs text-text-muted">
             Tocá un hueco libre para crear una cita, o arrastrá una cita para reprogramarla.
           </p>
+          {/* Leyenda del doctor: SUS servicios con color editable. */}
+          {isDoctorView && myServices.length > 0 && (
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+              {myServices.map((l) => (
+                <label
+                  key={l.serviceId}
+                  className="inline-flex cursor-pointer items-center gap-1.5 text-xs text-text-secondary"
+                  title="Cambiar el color de este servicio en tu calendario"
+                >
+                  <input
+                    type="color"
+                    value={l.color ?? l.service.color ?? '#0860dd'}
+                    onChange={(e) => void changeMyServiceColor(l.serviceId, e.target.value)}
+                    className="size-4 cursor-pointer appearance-none rounded-full border-0 bg-transparent p-0 [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:rounded-full [&::-webkit-color-swatch]:border-0"
+                  />
+                  {l.service.name}
+                </label>
+              ))}
+            </div>
+          )}
+
           {/* Leyenda: cada especialista con su color (vista admin/staff). */}
           {doctorLegend.length > 0 && (
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
@@ -343,6 +390,7 @@ function AppointmentsList() {
           token={session.token}
           slug={session.slug}
           initialStart={newApptStart ?? undefined}
+          lockedDoctor={isDoctorView ? { id: session.user.id, name: session.user.name } : undefined}
           onClose={closeNewAppt}
           onCreated={() => {
             closeNewAppt();

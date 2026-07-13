@@ -45,7 +45,18 @@ export class AppointmentsService {
     private readonly logger: Logger,
   ) {}
 
-  async create(tenantId: string, dto: CreateAppointmentDto) {
+  async create(
+    tenantId: string,
+    dto: CreateAppointmentDto,
+    requester?: { userId: string; role: string },
+  ) {
+    // Un doctor solo agenda en SU propia agenda: elegir a otro doctor es cosa
+    // de admin/recepción (el select del panel también lo bloquea, esto cubre
+    // llamadas directas al API).
+    if (requester?.role === 'DOCTOR' && dto.doctorId !== requester.userId) {
+      throw new BadRequestException('Un doctor solo puede crear citas en su propia agenda');
+    }
+
     // Validar relaciones (pertenecen al tenant + doctor ofrece el servicio)
     const [patient, doctor, doctorService] = await Promise.all([
       this.prisma.client.patient.findFirst({
