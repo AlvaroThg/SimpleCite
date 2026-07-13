@@ -817,10 +817,18 @@ export interface DoctorServiceLink {
   serviceId: string;
   customDuration: number | null;
   customPrice: string | null;
+  /// Color personal del doctor para SU calendario (override de service.color).
+  color?: string | null;
   service: ServiceItem;
 }
 export const getDoctorServices = (t: string, s: string, doctorId: string) =>
   get<{ data: DoctorServiceLink[] }>(`/api/services/doctors/${doctorId}`, t, s).then((r) => r.data);
+
+/** El doctor guarda el color de UNO de sus servicios (su calendario). */
+export const setMyServiceColor = (t: string, s: string, serviceId: string, color: string | null) =>
+  patch<{ data: DoctorServiceLink }>(`/api/services/doctors/me/${serviceId}/color`, t, s, {
+    color,
+  }).then((r) => r.data);
 export const assignServiceToDoctor = (
   t: string,
   s: string,

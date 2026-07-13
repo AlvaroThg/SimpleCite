@@ -139,12 +139,15 @@ export function NewAppointmentModal({
   token,
   slug,
   initialStart,
+  lockedDoctor,
   onClose,
   onCreated,
 }: {
   token: string;
   slug: string;
   initialStart?: Date;
+  /** Rol DOCTOR: solo agenda en su propia agenda (el backend también lo exige). */
+  lockedDoctor?: { id: string; name: string };
   onClose: () => void;
   onCreated: () => void;
 }) {
@@ -156,7 +159,7 @@ export function NewAppointmentModal({
   const [patientId, setPatientId] = useState('');
   const [patientMode, setPatientMode] = useState<'existing' | 'new'>('existing');
   const [newPatient, setNewPatient] = useState({ name: '', phone: '', ci: '' });
-  const [doctorId, setDoctorId] = useState('');
+  const [doctorId, setDoctorId] = useState(lockedDoctor?.id ?? '');
   const [serviceId, setServiceId] = useState('');
   const [date, setDate] = useState(initialStart ? toDateInput(initialStart) : '');
   const [slots, setSlots] = useState<PanelSlot[]>([]);
@@ -383,19 +386,26 @@ export function NewAppointmentModal({
 
             <label className="block">
               <span className="text-sm font-medium text-text-secondary">Doctor</span>
-              <select
-                value={doctorId}
-                onChange={(e) => setDoctorId(e.target.value)}
-                required
-                className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-              >
-                <option value="">Seleccionar doctor…</option>
-                {doctors.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name}
-                  </option>
-                ))}
-              </select>
+              {lockedDoctor ? (
+                // El doctor agenda solo en su propia agenda: sin selector.
+                <p className="mt-1 w-full rounded-lg border border-border bg-canvas px-3 py-2 text-sm text-text-primary">
+                  {lockedDoctor.name}
+                </p>
+              ) : (
+                <select
+                  value={doctorId}
+                  onChange={(e) => setDoctorId(e.target.value)}
+                  required
+                  className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                >
+                  <option value="">Seleccionar doctor…</option>
+                  {doctors.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.name}
+                    </option>
+                  ))}
+                </select>
+              )}
             </label>
 
             <label className="block">

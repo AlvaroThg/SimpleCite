@@ -8,6 +8,8 @@ import {
   type UpdateServiceDto,
   type AssignServiceToDoctorDto,
   type UpdateDoctorServiceDto,
+  UpdateDoctorServiceColorSchema,
+  type UpdateDoctorServiceColorDto,
 } from '@simplecite/shared';
 import { Roles } from '../../../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../../../common/decorators/current-user.decorator';
@@ -65,6 +67,27 @@ export class ServicesController {
   }
 
   // â”€â”€â”€â”€â”€ Asignaciones doctor â†” servicio â”€â”€â”€â”€â”€
+
+  /**
+   * El doctor elige el color de UNO de sus servicios en SU calendario.
+   * No toca Service.color (el color global que administra el admin).
+   */
+  @Roles('DOCTOR')
+  @Patch('doctors/me/:serviceId/color')
+  async setOwnServiceColor(
+    @CurrentUser('tenantId') tenantId: string,
+    @CurrentUser() user: { sub: string },
+    @Param('serviceId') serviceId: string,
+    @Body(new ZodValidationPipe(UpdateDoctorServiceColorSchema)) dto: UpdateDoctorServiceColorDto,
+  ) {
+    const link = await this.servicesService.setDoctorServiceColor(
+      tenantId,
+      user.sub,
+      serviceId,
+      dto.color,
+    );
+    return { success: true, data: link };
+  }
 
   @Roles('ADMIN')
   @Post('doctors/:doctorId/assign')

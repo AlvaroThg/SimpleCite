@@ -628,6 +628,9 @@ model DoctorService {
   customDuration Int?
   /// Si está presente, sobreescribe Service.price (Bs)
   customPrice    Decimal? @db.Decimal(10, 2)
+  /// Color hex personal del doctor para ESTE servicio en SU calendario.
+  /// No toca el color global del servicio (Service.color, que edita el admin).
+  color          String?
 
   isActive Boolean @default(true)
 
