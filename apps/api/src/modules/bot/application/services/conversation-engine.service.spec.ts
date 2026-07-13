@@ -743,3 +743,36 @@ describe('ConversationEngine — reprogramar antes que cancelar (citas pagadas)'
     expect(out[0].text).not.toContain('devolución');
   });
 });
+
+describe('ConversationEngine — módulo de pagos apagado', () => {
+  it('el slot elegido confirma directo con aviso de pago en clínica (sin preguntar método)', async () => {
+    const { engine, appointmentCreate, appointmentUpdate } = makeHarness({
+      conversation: {
+        step: 'CHOOSING_SLOT',
+        tenantId: 't1',
+        data: {
+          name: 'Ana Fernández',
+          doctorId: 'doc1',
+          doctorName: 'Dr. Bryan',
+          serviceId: 'svc1',
+          serviceName: 'Sesión Fisio',
+          price: '150',
+          durationMin: 60,
+          dayIso: '2030-05-01',
+        },
+      },
+      tenant: { paymentsEnabled: false },
+    });
+    const out = await engine.handle(msg({ callback: 'slot:2030-05-01T14:00:00.000Z' }));
+    expect(appointmentCreate).toHaveBeenCalled();
+    expect(appointmentUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ status: 'CONFIRMED', paymentMethod: 'CASH' }),
+      }),
+    );
+    // No hay botones de método de pago: cierre directo con el aviso.
+    expect(out[0].buttons).toBeUndefined();
+    expect(out[0].text).toContain('efectivo o QR');
+    expect(out[0].text).toContain('5 a 10 minutos antes');
+  });
+});

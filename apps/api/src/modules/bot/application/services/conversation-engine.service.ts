@@ -687,6 +687,16 @@ export class ConversationEngine {
       hour12: false,
     }).format(startTime);
 
+    // Módulo de pagos apagado (decisión de la clínica): no se pregunta el
+    // método — la cita se confirma directo y el cobro es en recepción.
+    const pay = await this.prisma.client.tenant.findUnique({
+      where: { id: convo.tenantId! },
+      select: { paymentsEnabled: true },
+    });
+    if (pay?.paymentsEnabled === false) {
+      return this.onPaymentChosen(convo, 'pay:cash', { payAtClinic: true });
+    }
+
     await this.save(convo, 'CHOOSING_PAYMENT', convo.data);
     this.logger.log(
       {
@@ -711,7 +721,11 @@ export class ConversationEngine {
 
   // ─── Paso 5: pago y cierre ─────────────────────────────────────────────
 
-  private async onPaymentChosen(convo: Convo, input: string): Promise<BotOutbound[]> {
+  private async onPaymentChosen(
+    convo: Convo,
+    input: string,
+    opts?: { payAtClinic?: boolean },
+  ): Promise<BotOutbound[]> {
     if (input !== 'pay:cash' && input !== 'pay:qr') {
       return [{ text: '¿Cómo prefieres pagar? Toca una de las opciones 🙂' }];
     }
@@ -774,12 +788,18 @@ export class ConversationEngine {
     const { doctorName, price } = convo.data;
     const first = (convo.data.name ?? '').split(/\s+/)[0] || '';
     const maps = tenant?.mapsUrl ? `\n📍 Cómo llegar: ${tenant.mapsUrl}` : '';
+    // Módulo de pagos apagado: el paciente nunca eligió método — el aviso es
+    // que el cobro (efectivo o QR) ocurre en recepción, antes de la sesión.
+    const payLine = opts?.payAtClinic
+      ? `💵 El pago (Bs ${price}, en efectivo o QR) es en la clínica, antes de tu sesión. Te pedimos llegar 5 a 10 minutos antes.`
+      : `💵 Pagas Bs ${price} al llegar a ${tenant?.name ?? 'la clínica'}.`;
     await this.save(convo, 'IDLE', { name: convo.data.name });
     return [
       {
         text:
           `¡Gracias${first ? ` ${first}` : ''}! 🎉 ${doctorName} te atenderá el ${when}.\n\n` +
-          `💵 Pagas Bs ${price} al llegar a ${tenant?.name ?? 'la clínica'}.${maps}`,
+          payLine +
+          maps,
       },
     ];
   }
