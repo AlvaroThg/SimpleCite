@@ -20,6 +20,7 @@ import { SkeletonList } from '@/components/panel/Skeleton';
 import { Button } from '@/components/ui/button';
 import { List, CalendarDays, Plus } from 'lucide-react';
 import { AdminCalendar, type AdminEvent } from '@/components/calendar/AdminCalendar';
+import { doctorColor } from '@/lib/doctor-colors';
 import { PendingTab, ConfirmedTab } from '@/components/panel/appointments/cells';
 import { ReceiptModal, NewAppointmentModal } from '@/components/panel/appointments/modals';
 
@@ -132,6 +133,11 @@ function AppointmentsList() {
     if (view === 'calendar') void loadCalendar();
   }, [view, loadCalendar]);
 
+  // ADMIN/STAFF: color por ESPECIALISTA (distinguir de un vistazo quién
+  // atiende cada cita) + línea extra con doctor y precio. El DOCTOR ve sus
+  // citas con los colores de SUS servicios, como los configuró.
+  const isDoctorView = session?.user.role === 'DOCTOR';
+
   // Las canceladas no se muestran: el horario queda libre como si no existieran.
   const calendarEvents: AdminEvent[] = calendarItems
     .filter((a) => a.status !== 'CANCELLED')
@@ -143,8 +149,26 @@ function AppointmentsList() {
       status: a.status,
       doctorName: a.doctor.name,
       serviceName: a.service.name,
-      color: a.service.color ?? null,
+      color: isDoctorView ? (a.service.color ?? null) : doctorColor(a.doctor.id),
+      detailLine: isDoctorView
+        ? null
+        : `${a.doctor.name} · ${
+            a.paymentMethod === 'INSURANCE'
+              ? (a.insuranceNameSnapshot ?? 'Seguro')
+              : `Bs ${Number(a.price ?? a.service.price).toFixed(0)}`
+          }`,
     }));
+
+  // Leyenda de especialistas (solo vista admin/staff): doctor → su color.
+  const doctorLegend = isDoctorView
+    ? []
+    : Array.from(
+        new Map(
+          calendarItems
+            .filter((a) => a.status !== 'CANCELLED')
+            .map((a) => [a.doctor.id, a.doctor.name]),
+        ),
+      ).map(([id, name]) => ({ id, name, color: doctorColor(id) }));
 
   function openNewAppt(start?: Date) {
     setNewApptStart(start ?? null);
@@ -258,6 +282,24 @@ function AppointmentsList() {
           <p className="text-xs text-text-muted">
             Tocá un hueco libre para crear una cita, o arrastrá una cita para reprogramarla.
           </p>
+          {/* Leyenda: cada especialista con su color (vista admin/staff). */}
+          {doctorLegend.length > 0 && (
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+              {doctorLegend.map((d) => (
+                <span
+                  key={d.id}
+                  className="inline-flex items-center gap-1.5 text-xs text-text-secondary"
+                >
+                  <span
+                    aria-hidden
+                    className="size-2.5 rounded-full"
+                    style={{ backgroundColor: d.color }}
+                  />
+                  {d.name}
+                </span>
+              ))}
+            </div>
+          )}
           <AdminCalendar
             events={calendarEvents}
             onSelectEvent={(e) => router.push(`/panel/appointments/${e.id}`)}

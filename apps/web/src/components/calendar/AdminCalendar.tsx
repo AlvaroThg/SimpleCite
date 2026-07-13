@@ -23,6 +23,8 @@ export interface AdminEvent {
   serviceName?: string;
   /** Color hex del servicio (pinta las citas no terminadas). */
   color?: string | null;
+  /** Línea extra del bloque detallado (ADMIN/STAFF): "Dr. X · Bs 150". */
+  detailLine?: string | null;
 }
 
 const BRAND = '#0860dd';
@@ -44,7 +46,11 @@ function eventStyle(e: AdminEvent): { className?: string; style?: CSSProperties 
   return { style: { backgroundColor: bg, borderColor: bg, color: readableOn(bg) } };
 }
 
-/** Contenido del bloque en el panel: hora + paciente + servicio. */
+/**
+ * Contenido del bloque: hora + paciente + servicio, y para ADMIN/STAFF una
+ * línea extra con el especialista y el precio (detailLine). En bloques cortos
+ * las líneas se recortan; el tooltip siempre trae la información completa.
+ */
 function AdminEventCell({ event }: { event: AdminEvent }) {
   return (
     <div className="leading-tight">
@@ -53,6 +59,9 @@ function AdminEventCell({ event }: { event: AdminEvent }) {
       </div>
       {event.serviceName && (
         <div className="truncate text-[10px] opacity-90">{event.serviceName}</div>
+      )}
+      {event.detailLine && (
+        <div className="truncate text-[10px] font-medium opacity-90">{event.detailLine}</div>
       )}
     </div>
   );
@@ -152,7 +161,9 @@ export function AdminCalendar({
         tooltipAccessor={(e) => {
           const ev = e as AdminEvent;
           const time = `${format(ev.start, 'HH:mm')}–${format(ev.end, 'HH:mm')}`;
-          return [time, ev.title, ev.doctorName, ev.serviceName].filter(Boolean).join(' · ');
+          return [time, ev.title, ev.serviceName, ev.detailLine ?? ev.doctorName]
+            .filter(Boolean)
+            .join(' · ');
         }}
         eventPropGetter={(e) => eventStyle(e as AdminEvent)}
         dayLayoutAlgorithm="no-overlap"
