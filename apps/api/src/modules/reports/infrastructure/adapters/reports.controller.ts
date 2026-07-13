@@ -33,6 +33,18 @@ export class ReportsController {
     return { success: true, data };
   }
 
+  /** Citas pagadas que se cancelaron: el dinero pendiente de resolución. */
+  @Get('cancelled-paid')
+  @Roles('ADMIN')
+  async cancelledPaid(
+    @CurrentUser('tenantId') tenantId: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    const data = await this.reports.cancelledPaid(tenantId, from, to);
+    return { success: true, data };
+  }
+
   @Get('analytics/pdf')
   @Roles('ADMIN')
   async analyticsPdf(

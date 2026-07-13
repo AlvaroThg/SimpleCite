@@ -210,7 +210,7 @@ export class AppointmentsService {
   async transitionStatus(tenantId: string, id: string, nextStatus: AppointmentStatus) {
     const current = await this.prisma.client.appointment.findFirst({
       where: { id, tenantId },
-      select: { id: true, status: true },
+      select: { id: true, status: true, isPaid: true, receiptUrl: true, paymentMethod: true },
     });
     if (!current) throw new NotFoundException('Cita no encontrada');
 
@@ -221,12 +221,72 @@ export class AppointmentsService {
       );
     }
 
+    // Cancelar una cita PAGADA deja el dinero pendiente de resolución (el QR
+    // no se puede revertir): el reporte la muestra hasta que el staff registre
+    // devolución o saldo a favor.
+    const cancelledPaid =
+      nextStatus === 'CANCELLED' &&
+      (current.isPaid || Boolean(current.receiptUrl)) &&
+      current.paymentMethod !== 'INSURANCE';
+
     return this.prisma.client.appointment.update({
       where: { id },
       data: {
         status: nextStatus,
         ...(nextStatus === 'CONFIRMED' && { isPaid: true }),
+        ...(cancelledPaid && { refundResolution: 'PENDING' }),
       },
+    });
+  }
+
+  /**
+   * El staff registra que la cita ya fue pagada en la clínica (efectivo o QR
+   * mostrado físicamente). Pensado para clínicas con el módulo de pagos
+   * apagado, donde el cobro ocurre en recepción antes de la sesión.
+   */
+  async markPaid(tenantId: string, id: string, method: 'CASH' | 'STATIC_QR') {
+    const current = await this.prisma.client.appointment.findFirst({
+      where: { id, tenantId },
+      select: { id: true, status: true, isPaid: true, paymentMethod: true },
+    });
+    if (!current) throw new NotFoundException('Cita no encontrada');
+    if (current.paymentMethod === 'INSURANCE') {
+      throw new BadRequestException('Las citas por seguro no registran cobro al paciente');
+    }
+    if (current.isPaid) {
+      throw new BadRequestException('Esta cita ya está marcada como pagada');
+    }
+    if (!['CONFIRMED', 'COMPLETED', 'PENDING_PAYMENT'].includes(current.status)) {
+      throw new BadRequestException('Solo se puede registrar el pago de citas activas');
+    }
+
+    return this.prisma.client.appointment.update({
+      where: { id },
+      data: {
+        isPaid: true,
+        paymentMethod: method,
+        // Registrar el pago de una PENDING_PAYMENT también la confirma.
+        ...(current.status === 'PENDING_PAYMENT' && { status: 'CONFIRMED' }),
+      },
+    });
+  }
+
+  /**
+   * Registra qué hizo la clínica con el dinero de una cita pagada que se
+   * canceló: lo devolvió (fuera del sistema) o quedó como saldo a favor.
+   * Se puede corregir (REFUNDED ↔ CREDITED) mientras exista la resolución.
+   */
+  async setRefundResolution(tenantId: string, id: string, resolution: 'REFUNDED' | 'CREDITED') {
+    const current = await this.prisma.client.appointment.findFirst({
+      where: { id, tenantId, status: 'CANCELLED', refundResolution: { not: null } },
+      select: { id: true },
+    });
+    if (!current) {
+      throw new NotFoundException('Esta cita no tiene un pago cancelado por resolver');
+    }
+    return this.prisma.client.appointment.update({
+      where: { id },
+      data: { refundResolution: resolution },
     });
   }
 
@@ -247,6 +307,9 @@ export class AppointmentsService {
         id: true,
         status: true,
         startTime: true,
+        isPaid: true,
+        receiptUrl: true,
+        paymentMethod: true,
         tenant: { select: { name: true } },
         doctor: { select: { name: true } },
         service: { select: { name: true } },
@@ -270,10 +333,18 @@ export class AppointmentsService {
       );
     }
 
+    // Cita pagada: el dinero queda pendiente de resolución (ver reportes).
+    const cancelledPaid =
+      (appointment.isPaid || Boolean(appointment.receiptUrl)) &&
+      appointment.paymentMethod !== 'INSURANCE';
     await this.prisma.client.appointment.update({
       where: { id: appointment.id },
       // expiresAt:null por si era TENTATIVE; el slot queda libre por el constraint.
-      data: { status: 'CANCELLED', expiresAt: null },
+      data: {
+        status: 'CANCELLED',
+        expiresAt: null,
+        ...(cancelledPaid && { refundResolution: 'PENDING' }),
+      },
     });
 
     return { ...summary, status: 'CANCELLED' as const, alreadyCancelled: false };

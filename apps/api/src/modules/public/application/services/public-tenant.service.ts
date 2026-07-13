@@ -42,6 +42,7 @@ export class PublicTenantService {
         staticQrUrl2: true,
         staticQrLabel2: true,
         qrAssignmentMode: true,
+        paymentsEnabled: true,
         timezone: true,
         whatsappEnabled: true,
         status: true,
@@ -92,6 +93,7 @@ export class PublicTenantService {
       staticQrUrl2: tenant.staticQrUrl2,
       staticQrLabel2: tenant.staticQrLabel2,
       qrAssignmentMode: tenant.qrAssignmentMode,
+      paymentsEnabled: tenant.paymentsEnabled,
       timezone: tenant.timezone,
       whatsappEnabled: tenant.whatsappEnabled,
     };

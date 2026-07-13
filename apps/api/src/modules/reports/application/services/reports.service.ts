@@ -21,10 +21,23 @@ export interface ReportInsuranceRow {
   /// El paciente pagó Bs 0 — esto NO es ingreso.
   referentialValue: number;
 }
+export interface CancelledPaidRow {
+  id: string;
+  startTime: string;
+  patientName: string;
+  doctorName: string;
+  amount: number;
+  /// PENDING hasta que el staff registre qué pasó con el dinero.
+  refundResolution: 'PENDING' | 'REFUNDED' | 'CREDITED';
+}
 export interface ReportAnalytics {
   from: string;
   to: string;
   totals: { income: number; completed: number; cancelled: number; noShow: number; total: number };
+  /// Dinero COBRADO de citas que luego se cancelaron. `totals.income` lo
+  /// incluye (el dinero entró de verdad): esta línea lo hace visible para que
+  /// el reporte no infle silenciosamente los ingresos "por citas atendidas".
+  cancelledPaid: { count: number; amount: number; pendingResolution: number };
   /// Desglose del ingreso real por método de cobro (INSURANCE nunca suma aquí).
   incomeByMethod: { cash: number; qr: number };
   /// Columnas dinámicas por seguro presente en el período (desde snapshots).
@@ -144,6 +157,8 @@ export class ReportsService {
         startTime: true,
         status: true,
         isPaid: true,
+        receiptUrl: true,
+        refundResolution: true,
         doctorId: true,
         price: true,
         paymentMethod: true,
@@ -158,6 +173,7 @@ export class ReportsService {
     const byInsurance = new Map<string, ReportInsuranceRow>();
     const incomeByMethod = { cash: 0, qr: 0 };
     const totals = { income: 0, completed: 0, cancelled: 0, noShow: 0, total: appts.length };
+    const cancelledPaid = { count: 0, amount: 0, pendingResolution: 0 };
 
     for (const a of appts) {
       // Monto congelado en la cita; legacy (null) → precio actual del servicio.
@@ -194,6 +210,16 @@ export class ReportsService {
         const day = formatInTimeZone(a.startTime, tz, 'yyyy-MM-dd');
         byDay.set(day, (byDay.get(day) ?? 0) + price);
       }
+      // Dinero cobrado de citas canceladas: entró de verdad (por eso suma en
+      // income) pero se reporta aparte hasta que el staff resuelva qué hizo
+      // con él (devolución o saldo a favor).
+      if (a.status === 'CANCELLED' && !isInsurance && (a.isPaid || a.receiptUrl)) {
+        cancelledPaid.count++;
+        cancelledPaid.amount += price;
+        if (a.refundResolution === 'PENDING' || a.refundResolution === null) {
+          cancelledPaid.pendingResolution++;
+        }
+      }
       // Columnas dinámicas por seguro (nombre desde el snapshot inmutable).
       if (isInsurance && a.status !== 'CANCELLED') {
         const name = a.insuranceNameSnapshot ?? 'Seguro';
@@ -209,6 +235,7 @@ export class ReportsService {
       from: from.toISOString(),
       to: to.toISOString(),
       totals,
+      cancelledPaid,
       incomeByMethod,
       byInsurance: [...byInsurance.values()].sort((a, b) => b.count - a.count),
       byDoctor: [...byDoctor.values()].sort((a, b) => b.income - a.income),
@@ -216,6 +243,50 @@ export class ReportsService {
         .map(([date, income]) => ({ date, income }))
         .sort((a, b) => a.date.localeCompare(b.date)),
     };
+  }
+
+  /**
+   * Citas PAGADAS que se cancelaron (dinero que entró por un servicio que no
+   * ocurrirá): lista para que el ADMIN registre la resolución de cada una.
+   */
+  async cancelledPaid(
+    tenantId: string,
+    fromIso?: string,
+    toIso?: string,
+  ): Promise<CancelledPaidRow[]> {
+    const now = new Date();
+    const from = fromIso ? new Date(fromIso) : subDays(now, 90);
+    const to = toIso ? new Date(toIso) : now;
+
+    const appts = await this.prisma.client.appointment.findMany({
+      where: {
+        tenantId,
+        status: 'CANCELLED',
+        paymentMethod: { not: 'INSURANCE' },
+        OR: [{ isPaid: true }, { receiptUrl: { not: null } }],
+        startTime: { gte: from, lte: to },
+      },
+      select: {
+        id: true,
+        startTime: true,
+        price: true,
+        refundResolution: true,
+        patient: { select: { name: true } },
+        doctor: { select: { name: true } },
+        service: { select: { price: true } },
+      },
+      orderBy: { startTime: 'desc' },
+      take: 200,
+    });
+
+    return appts.map((a) => ({
+      id: a.id,
+      startTime: a.startTime.toISOString(),
+      patientName: a.patient.name,
+      doctorName: a.doctor.name,
+      amount: Number(a.price ?? a.service.price),
+      refundResolution: a.refundResolution ?? 'PENDING',
+    }));
   }
 
   /**
