@@ -644,3 +644,102 @@ describe('ConversationEngine — semana → día (ventana de 30 días)', () => {
     expect(out[0].buttons!.flat().every((b) => b.data.startsWith('day:'))).toBe(true);
   });
 });
+
+describe('ConversationEngine — reprogramar antes que cancelar (citas pagadas)', () => {
+  const paidAppt = {
+    id: 'appt-9',
+    startTime: new Date('2030-05-01T14:00:00Z'),
+    isPaid: false,
+    receiptUrl: 'https://pub.r2.dev/regenera/receipts/x.jpg',
+    doctor: { name: 'Dr. Bryan' },
+    tenant: { name: 'Regenera', timezone: 'America/La_Paz' },
+  };
+
+  it('cancelar una cita PAGADA ofrece reprogramar primero (no cancela)', async () => {
+    const { engine, client, appointmentUpdate } = makeHarness({ conversation: { step: 'IDLE' } });
+    client.appointment.findFirst.mockResolvedValueOnce(paidAppt as never);
+    const out = await engine.handle(msg({ callback: 'cancel-appt:appt-9' }));
+    expect(appointmentUpdate).not.toHaveBeenCalled();
+    expect(out[0].text).toContain('pagada');
+    const flat = out[0].buttons!.flat();
+    expect(flat.some((b) => b.data === 'resched:appt-9')).toBe(true);
+    expect(flat.some((b) => b.data === 'cancel-paid:appt-9')).toBe(true);
+    expect(flat.some((b) => b.data === 'keep-appts')).toBe(true);
+  });
+
+  it('cancel-paid cancela igual y avisa de la devolución', async () => {
+    const { engine, client, appointmentUpdate } = makeHarness({ conversation: { step: 'IDLE' } });
+    client.appointment.findFirst.mockResolvedValueOnce(paidAppt as never);
+    const out = await engine.handle(msg({ callback: 'cancel-paid:appt-9' }));
+    expect(appointmentUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ status: 'CANCELLED' }) }),
+    );
+    expect(out[0].text).toContain('devolución');
+  });
+
+  it('resched arma el wizard con los datos de la cita y pide día/semana', async () => {
+    const { engine, client } = makeHarness({ conversation: { step: 'IDLE' } });
+    client.appointment.findFirst.mockResolvedValueOnce({
+      id: 'appt-9',
+      tenantId: 't1',
+      startTime: new Date('2030-05-01T14:00:00Z'),
+      endTime: new Date('2030-05-01T15:00:00Z'),
+      price: '150',
+      doctorId: 'doc1',
+      serviceId: 'svc1',
+      doctor: { name: 'Dr. Bryan' },
+      service: { name: 'Sesión Fisio' },
+      patient: { name: 'Ana Fernández' },
+    } as never);
+    const out = await engine.handle(msg({ callback: 'resched:appt-9' }));
+    expect(out[0].text).toContain('mover tu cita');
+    expect(out[1].text).toContain('Sesión Fisio con Dr. Bryan');
+    expect(out[1].buttons!.flat().some((b) => b.data.startsWith('day:'))).toBe(true);
+  });
+
+  it('el slot elegido en modo reprogramación MUEVE la cita, no crea otra', async () => {
+    const { engine, client, appointmentCreate, appointmentUpdate } = makeHarness({
+      conversation: {
+        step: 'CHOOSING_SLOT',
+        tenantId: 't1',
+        data: {
+          name: 'Ana Fernández',
+          rescheduleId: 'appt-9',
+          doctorId: 'doc1',
+          doctorName: 'Dr. Bryan',
+          serviceId: 'svc1',
+          serviceName: 'Sesión Fisio',
+          price: '150',
+          durationMin: 60,
+          dayIso: '2030-05-02',
+        },
+      },
+    });
+    client.appointment.findFirst.mockResolvedValueOnce({ id: 'appt-9' } as never);
+    const out = await engine.handle(msg({ callback: 'slot:2030-05-02T14:00:00.000Z' }));
+    expect(appointmentCreate).not.toHaveBeenCalled();
+    expect(appointmentUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'appt-9' },
+        data: expect.objectContaining({ startTime: new Date('2030-05-02T14:00:00.000Z') }),
+      }),
+    );
+    expect(out[0].text).toContain('reprogramada');
+    expect(out[0].text).toContain('pago sigue registrado');
+  });
+
+  it('cancelar una cita NO pagada sigue cancelando directo', async () => {
+    const { engine, client, appointmentUpdate } = makeHarness({ conversation: { step: 'IDLE' } });
+    client.appointment.findFirst.mockResolvedValueOnce({
+      ...paidAppt,
+      isPaid: false,
+      receiptUrl: null,
+    } as never);
+    const out = await engine.handle(msg({ callback: 'cancel-appt:appt-9' }));
+    expect(appointmentUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ status: 'CANCELLED' }) }),
+    );
+    expect(out[0].text).toContain('quedó cancelada');
+    expect(out[0].text).not.toContain('devolución');
+  });
+});

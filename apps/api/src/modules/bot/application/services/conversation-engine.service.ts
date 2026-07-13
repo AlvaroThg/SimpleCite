@@ -86,6 +86,14 @@ export class ConversationEngine {
       if (input.startsWith('cancel-appt:')) {
         return await this.cancelUpcoming(convo, input.slice('cancel-appt:'.length));
       }
+      if (input.startsWith('cancel-paid:')) {
+        return await this.cancelUpcoming(convo, input.slice('cancel-paid:'.length), {
+          force: true,
+        });
+      }
+      if (input.startsWith('resched:')) {
+        return await this.startReschedule(convo, input.slice('resched:'.length));
+      }
       if (input === 'keep-appts') {
         return [{ text: 'Perfecto 👍 Tus citas siguen en pie. Escríbeme cuando necesites algo.' }];
       }
@@ -438,7 +446,9 @@ export class ConversationEngine {
     }
 
     const days = this.availableDays(available, tz);
-    const header = `${convo.data.serviceName} con ${convo.data.doctorName} — Bs ${convo.data.price}.`;
+    // Sin precio (citas legacy reprogramadas) el header no inventa un "Bs undefined".
+    const price = convo.data.price ? ` — Bs ${convo.data.price}` : '';
+    const header = `${convo.data.serviceName} con ${convo.data.doctorName}${price}.`;
 
     if (days.size <= MAX_OPTIONS) {
       await this.save(convo, 'CHOOSING_DAY', {
@@ -625,6 +635,9 @@ export class ConversationEngine {
     if (isNaN(startTime.getTime()) || startTime < new Date()) {
       return [{ text: 'Ese horario ya pasó 😅. Elige otro.' }, ...(await this.askSlot(convo))];
     }
+
+    // Reprogramación: mover la cita existente, no crear una nueva.
+    if (convo.data.rescheduleId) return this.applyReschedule(convo, startTime);
 
     // Resolver/crear el paciente de ESTA clínica (identidad = canal).
     const patient = await this.patients.findOrCreate({
@@ -1145,8 +1158,19 @@ export class ConversationEngine {
     return [{ text: '¿Cuál cita quieres cancelar?', buttons: rows }];
   }
 
-  /** Cancela una cita próxima del paciente (verificando que sea suya). */
-  private async cancelUpcoming(convo: Convo, appointmentId: string): Promise<BotOutbound[]> {
+  /**
+   * Cancela una cita próxima del paciente (verificando que sea suya).
+   *
+   * Si la cita ya está PAGADA (el QR es una transferencia directa que el
+   * sistema no puede revertir), primero se ofrece REPROGRAMAR: la cita se
+   * mueve y el pago viaja con ella. `force` = el paciente insistió en
+   * cancelar sabiendo eso.
+   */
+  private async cancelUpcoming(
+    convo: Convo,
+    appointmentId: string,
+    opts?: { force?: boolean },
+  ): Promise<BotOutbound[]> {
     const appointment = await this.prisma.client.appointment.findFirst({
       where: {
         id: appointmentId,
@@ -1158,6 +1182,8 @@ export class ConversationEngine {
       select: {
         id: true,
         startTime: true,
+        isPaid: true,
+        receiptUrl: true,
         doctor: { select: { name: true } },
         tenant: { select: { name: true, timezone: true } },
       },
@@ -1165,15 +1191,6 @@ export class ConversationEngine {
     if (!appointment) {
       return [{ text: 'Esa cita ya no se puede cancelar (quizá ya fue cancelada) 🙂.' }];
     }
-
-    await this.prisma.client.appointment.update({
-      where: { id: appointment.id },
-      data: { status: 'CANCELLED', expiresAt: null },
-    });
-    this.logger.log(
-      { event: 'bot.appointment.cancelled-by-patient', appointmentId: appointment.id },
-      'ConversationEngine',
-    );
 
     const when = new Intl.DateTimeFormat('es-BO', {
       timeZone: appointment.tenant.timezone ?? 'America/La_Paz',
@@ -1184,11 +1201,160 @@ export class ConversationEngine {
       minute: '2-digit',
       hour12: false,
     }).format(appointment.startTime);
+
+    const paid = appointment.isPaid || Boolean(appointment.receiptUrl);
+    if (paid && !opts?.force) {
+      return [
+        {
+          text:
+            `Esa cita del ${when} ya está *pagada* 💰.\n\n` +
+            'Si la cancelas, la clínica coordinará contigo la devolución. ' +
+            '¿Prefieres moverla a otro horario? Tu pago se mantiene.',
+          buttons: [
+            [{ label: '📅 Reprogramar', data: `resched:${appointment.id}` }],
+            [{ label: 'Cancelar de todas formas', data: `cancel-paid:${appointment.id}` }],
+            [{ label: 'Dejarla como está', data: 'keep-appts' }],
+          ],
+        },
+      ];
+    }
+
+    await this.prisma.client.appointment.update({
+      where: { id: appointment.id },
+      data: { status: 'CANCELLED', expiresAt: null },
+    });
+    this.logger.log(
+      { event: 'bot.appointment.cancelled-by-patient', appointmentId: appointment.id, paid },
+      'ConversationEngine',
+    );
+
+    const refundNote = paid
+      ? '\n\nComo ya estaba pagada, la clínica se comunicará contigo para coordinar la devolución o dejarte el monto como saldo a favor.'
+      : '';
     return [
       {
         text:
-          `Tu cita del ${when} con ${appointment.doctor.name} en ${appointment.tenant.name} quedó cancelada 👍\n\n` +
+          `Tu cita del ${when} con ${appointment.doctor.name} en ${appointment.tenant.name} quedó cancelada 👍${refundNote}\n\n` +
           'Escríbeme "hola" cuando quieras reservar de nuevo.',
+      },
+    ];
+  }
+
+  /**
+   * Reprogramación: la MISMA cita (con su pago y comprobante) se mueve a otro
+   * horario. Se arma el wizard de día/hora con los datos de la cita original
+   * y `rescheduleId` hace que el slot elegido la actualice en vez de crear.
+   */
+  private async startReschedule(convo: Convo, appointmentId: string): Promise<BotOutbound[]> {
+    const appointment = await this.prisma.client.appointment.findFirst({
+      where: {
+        id: appointmentId,
+        patient: { phone: convo.chatId },
+        status: { in: ['CONFIRMED', 'PENDING_PAYMENT'] },
+        startTime: { gt: new Date() },
+      },
+      select: {
+        id: true,
+        tenantId: true,
+        startTime: true,
+        endTime: true,
+        price: true,
+        doctorId: true,
+        serviceId: true,
+        doctor: { select: { name: true } },
+        service: { select: { name: true } },
+        patient: { select: { name: true } },
+      },
+    });
+    if (!appointment) {
+      return [
+        { text: 'Esa cita ya no se puede reprogramar 😕. Escribe "hola" si necesitas otra.' },
+      ];
+    }
+
+    convo.tenantId = appointment.tenantId;
+    convo.data = {
+      name: convo.data.name ?? appointment.patient.name,
+      rescheduleId: appointment.id,
+      doctorId: appointment.doctorId,
+      doctorName: appointment.doctor.name,
+      serviceId: appointment.serviceId,
+      serviceName: appointment.service.name,
+      price: appointment.price != null ? String(appointment.price) : undefined,
+      durationMin: Math.max(
+        15,
+        Math.round((appointment.endTime.getTime() - appointment.startTime.getTime()) / 60_000),
+      ),
+    };
+    return [
+      { text: 'Vamos a mover tu cita 📅 — tu pago se mantiene tal cual.' },
+      ...(await this.askDay(convo)),
+    ];
+  }
+
+  /** Mueve la cita reprogramada al slot elegido (sin crear una nueva). */
+  private async applyReschedule(convo: Convo, startTime: Date): Promise<BotOutbound[]> {
+    const endTime = new Date(startTime.getTime() + (convo.data.durationMin ?? 30) * 60_000);
+    const existing = await this.prisma.client.appointment.findFirst({
+      where: {
+        id: convo.data.rescheduleId,
+        tenantId: convo.tenantId!,
+        status: { in: ['CONFIRMED', 'PENDING_PAYMENT'] },
+      },
+      select: { id: true },
+    });
+    if (!existing) {
+      await this.save(convo, 'IDLE', { name: convo.data.name });
+      return [{ text: 'Esa cita ya no está activa 😕. Escribe "hola" para empezar de nuevo.' }];
+    }
+
+    try {
+      await this.prisma.client.appointment.update({
+        where: { id: existing.id },
+        data: { startTime, endTime },
+      });
+    } catch (err) {
+      if (this.isExclusionViolation(err)) {
+        return [
+          { text: 'Ese horario se acaba de ocupar 😅. Te muestro los que quedan:' },
+          ...(await this.askSlot(convo)),
+        ];
+      }
+      throw err;
+    }
+
+    this.logger.log(
+      {
+        event: 'bot.appointment.rescheduled',
+        appointmentId: existing.id,
+        tenantId: convo.tenantId,
+      },
+      'ConversationEngine',
+    );
+
+    const tenant = await this.prisma.client.tenant.findUnique({
+      where: { id: convo.tenantId! },
+      select: { name: true, timezone: true, mapsUrl: true },
+    });
+    const when = new Intl.DateTimeFormat('es-BO', {
+      timeZone: tenant?.timezone ?? 'America/La_Paz',
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).format(startTime);
+
+    // Capturar antes de save(): el reset del wizard limpia convo.data.
+    const { doctorName } = convo.data;
+    const maps = tenant?.mapsUrl ? `\n📍 Cómo llegar: ${tenant.mapsUrl}` : '';
+    await this.save(convo, 'IDLE', { name: convo.data.name });
+    return [
+      {
+        text:
+          `¡Listo! 🎉 Tu cita quedó reprogramada: ${doctorName}, ${when}.\n\n` +
+          `Tu pago sigue registrado ✅${maps}`,
       },
     ];
   }

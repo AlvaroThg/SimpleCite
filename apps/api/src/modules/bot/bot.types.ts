@@ -71,6 +71,9 @@ export interface ConvData {
   slotPage?: number;
   /// Cita TENTATIVE creada, esperando método de pago.
   appointmentId?: string;
+  /// Cita existente que se está reprogramando (el pago viaja con ella): el
+  /// wizard de día/hora corre igual, pero al final se MUEVE en vez de crear.
+  rescheduleId?: string;
   /// Comprobante huérfano ya subido a R2 (una copia por tenant candidato,
   /// en `<slug>/receipts`), esperando saber a qué cita adjuntarlo.
   pendingReceipts?: Record<string, string>;
