@@ -179,11 +179,20 @@ export class WhatsappCloudController {
 
   /**
    * Verifica X-Hub-Signature-256 = "sha256=" + HMAC_SHA256(rawBody, appSecret).
-   * Si no hay app secret configurado, se omite (modo dev) con warning.
+   * Sin app secret: se omite en dev (con warning), pero en PRODUCCIÓN se
+   * RECHAZA — el webhook es público y sin firma cualquiera podría inyectar
+   * payloads falsos y crear reservas.
    */
   private verifySignature(rawBody: Buffer | undefined, signature?: string): boolean {
     const appSecret = this.config.get<string>('META_WA_APP_SECRET');
     if (!appSecret) {
+      if (process.env.NODE_ENV === 'production') {
+        this.logger.error(
+          { event: 'wa-cloud.webhook.no-secret-prod' },
+          'META_WA_APP_SECRET no configurado en producción — webhook RECHAZADO',
+        );
+        return false;
+      }
       this.logger.warn(
         { event: 'wa-cloud.webhook.no-verify' },
         'META_WA_APP_SECRET no configurado — firma NO verificada (dev)',
