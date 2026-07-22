@@ -35,6 +35,9 @@ export interface TenantConfig {
   whatsappEnabled: boolean;
   /// Módulo de pagos del booking público (switch solo-ADMIN en Configuración).
   paymentsEnabled: boolean;
+  /// Sesión extendida del panel (30 días) y si aplica solo al admin.
+  extendedSession: boolean;
+  extendedSessionAdminOnly: boolean;
 }
 
 /**
@@ -101,6 +104,8 @@ export class TenantService implements TenantServicePort {
         plan: true,
         whatsappEnabled: true,
         paymentsEnabled: true,
+        extendedSession: true,
+        extendedSessionAdminOnly: true,
       },
     });
     if (!t) throw new NotFoundException('Tenant no encontrado');
@@ -158,6 +163,10 @@ export class TenantService implements TenantServicePort {
         ...(dto.instagramUrl !== undefined && { instagramUrl: dto.instagramUrl }),
         ...(dto.whatsappContact !== undefined && { whatsappContact: dto.whatsappContact }),
         ...(dto.paymentsEnabled !== undefined && { paymentsEnabled: dto.paymentsEnabled }),
+        ...(dto.extendedSession !== undefined && { extendedSession: dto.extendedSession }),
+        ...(dto.extendedSessionAdminOnly !== undefined && {
+          extendedSessionAdminOnly: dto.extendedSessionAdminOnly,
+        }),
         ...(dto.mapsUrl !== undefined && {
           mapsUrl: dto.mapsUrl ? await this.expandMapsUrl(dto.mapsUrl) : dto.mapsUrl,
         }),

@@ -130,6 +130,12 @@ model Tenant {
   /// método ni ve el QR — se le avisa que paga en la clínica antes de la
   /// sesión. Solo el ADMIN puede cambiarlo.
   paymentsEnabled  Boolean          @default(true)
+  /// Sesión extendida del panel (30 días en vez de 12h). El SaaS lo desaconseja
+  /// pero algunas clínicas lo piden. Solo el ADMIN puede cambiarlo.
+  extendedSession  Boolean          @default(false)
+  /// Con extendedSession=true: si es true, la sesión larga aplica SOLO al
+  /// admin; si es false, aplica a todo el staff (admin, doctor, recepción).
+  extendedSessionAdminOnly Boolean   @default(false)
 
   // ─── Personalización de la landing pública (editable por el admin) ───
   secondaryColor   String? /// Color secundario de la paleta (hex). Acentos/gradientes.

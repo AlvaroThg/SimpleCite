@@ -6,7 +6,7 @@ import { CurrentTenant } from '../../../../common/decorators/current-tenant.deco
 import { ZodValidationPipe } from '../../../../common/pipes/zod-validation.pipe';
 import { LoginSchema, type LoginDto } from '@simplecite/shared';
 import { AuthService } from '../../application/services/auth.service';
-import { SESSION_COOKIE, SESSION_COOKIE_MAX_AGE_MS, sessionCookieOptions } from './session-cookie';
+import { SESSION_COOKIE, sessionCookieOptions } from './session-cookie';
 
 /**
  * Todas las rutas de auth son públicas — no requieren JWT previo.
@@ -40,7 +40,7 @@ export class AuthController {
     // Sesión del panel en cookie httpOnly: el JS del navegador no puede leer
     // el token (mitiga robo por XSS). El accessToken se sigue devolviendo en el
     // body para curl/Postman, pero el panel ya no lo persiste.
-    res.cookie(SESSION_COOKIE, result.accessToken, sessionCookieOptions(SESSION_COOKIE_MAX_AGE_MS));
+    res.cookie(SESSION_COOKIE, result.accessToken, sessionCookieOptions(result.cookieMaxAgeMs));
     return { success: true, data: result };
   }
 
