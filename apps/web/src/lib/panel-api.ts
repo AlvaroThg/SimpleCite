@@ -701,6 +701,9 @@ export interface TenantConfig {
   whatsappEnabled: boolean;
   /// Módulo de pagos del booking público (switch solo-ADMIN).
   paymentsEnabled: boolean;
+  /// Sesión extendida del panel (30 días) y si aplica solo al admin.
+  extendedSession: boolean;
+  extendedSessionAdminOnly: boolean;
 }
 export const getTenantConfig = (t: string, s: string) =>
   get<{ data: TenantConfig }>('/api/tenants/current', t, s).then((r) => r.data);
@@ -731,6 +734,8 @@ export const updateTenantBranding = (
     locationPhotoUrl?: string | null;
     mapsUrl?: string | null;
     paymentsEnabled?: boolean;
+    extendedSession?: boolean;
+    extendedSessionAdminOnly?: boolean;
   },
 ) => patch<{ data: TenantConfig }>('/api/tenants/current', t, s, body).then((r) => r.data);
 

@@ -113,6 +113,9 @@ export const UpdateTenantBrandingSchema = z
     mapsUrl: z.string().url('Link de Google Maps inválido').max(500).nullable().optional(),
     /// Módulo de pagos del booking público (solo ADMIN — el controller ya lo exige).
     paymentsEnabled: z.boolean().optional(),
+    /// Sesión extendida del panel (solo ADMIN).
+    extendedSession: z.boolean().optional(),
+    extendedSessionAdminOnly: z.boolean().optional(),
   })
   .refine((v) => Object.keys(v).length > 0, { message: 'Nada que actualizar' });
 export type UpdateTenantBrandingDto = z.infer<typeof UpdateTenantBrandingSchema>;

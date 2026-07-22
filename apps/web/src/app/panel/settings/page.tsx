@@ -117,6 +117,10 @@ function Branding({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantConf
   const [qrLabel2, setQrLabel2] = useState(cfg.staticQrLabel2 ?? '');
   const [qrMode, setQrMode] = useState<'SHARED' | 'PER_DOCTOR'>(cfg.qrAssignmentMode ?? 'SHARED');
   const [paymentsEnabled, setPaymentsEnabled] = useState(cfg.paymentsEnabled ?? true);
+  const [extendedSession, setExtendedSession] = useState(cfg.extendedSession ?? false);
+  const [extendedSessionAdminOnly, setExtendedSessionAdminOnly] = useState(
+    cfg.extendedSessionAdminOnly ?? false,
+  );
   const [saving, setSaving] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [uploadingQr, setUploadingQr] = useState(false);
@@ -139,6 +143,8 @@ function Branding({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantConf
         staticQrLabel2: qrLabel2.trim() || null,
         qrAssignmentMode: qrMode,
         paymentsEnabled,
+        extendedSession,
+        extendedSessionAdminOnly,
         heroTitle: heroTitle.trim() || null,
         heroSubtitle: heroSubtitle.trim() || null,
         servicesTitle: servicesTitle.trim() || null,
@@ -344,6 +350,49 @@ function Branding({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantConf
           <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
             Con el módulo apagado, el booking no muestra QR ni pide método de pago. Recuerda guardar
             los cambios.
+          </p>
+        )}
+      </div>
+
+      {/* Sesión del panel: mantener la sesión iniciada (30 días) */}
+      <div className="border-t border-border pt-4">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-sm font-semibold text-text-secondary mb-1">
+              Mantener sesión iniciada
+            </p>
+            <p className="max-w-xl text-xs text-text-muted">
+              {extendedSession
+                ? 'El personal no tendrá que iniciar sesión cada vez: la sesión dura 30 días.'
+                : 'Por seguridad, la sesión del panel expira a las 12 horas y hay que volver a iniciar sesión.'}
+            </p>
+          </div>
+          <Switch checked={extendedSession} onCheckedChange={setExtendedSession} />
+        </div>
+
+        {/* Sub-opción: acota la sesión larga solo al administrador */}
+        {extendedSession && (
+          <label className="mt-3 flex items-start justify-between gap-4 rounded-lg border border-border bg-canvas px-3 py-2.5">
+            <span>
+              <span className="block text-sm font-medium text-text-secondary">
+                Solo para el administrador
+              </span>
+              <span className="block max-w-xl text-xs text-text-muted">
+                Si lo activas, la sesión larga aplica solo a tu cuenta de administrador; los
+                especialistas seguirán expirando a las 12 horas.
+              </span>
+            </span>
+            <Switch
+              checked={extendedSessionAdminOnly}
+              onCheckedChange={setExtendedSessionAdminOnly}
+            />
+          </label>
+        )}
+
+        {extendedSession && (
+          <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            ⚠️ Menos seguro: si alguien accede a un equipo con la sesión abierta, entra sin
+            contraseña. El cambio aplica desde el próximo inicio de sesión.
           </p>
         )}
       </div>
