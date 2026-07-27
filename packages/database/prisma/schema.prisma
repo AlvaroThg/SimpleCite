@@ -136,6 +136,10 @@ model Tenant {
   /// Con extendedSession=true: si es true, la sesión larga aplica SOLO al
   /// admin; si es false, aplica a todo el staff (admin, doctor, recepción).
   extendedSessionAdminOnly Boolean   @default(false)
+  /// Bot de WhatsApp habilitado para esta clínica (add-on de plataforma). El
+  /// bot centralizado SOLO resuelve/atiende clínicas con esto en true. Lo
+  /// controla la plataforma (CLI/DB), NO el admin del tenant.
+  botEnabled       Boolean          @default(false)
 
   // ─── Personalización de la landing pública (editable por el admin) ───
   secondaryColor   String? /// Color secundario de la paleta (hex). Acentos/gradientes.

@@ -547,6 +547,8 @@ export const PublicTenantInfoSchema = z.object({
   /// Módulo de pagos del booking: si es false, no se pide método ni se
   /// muestra QR — el pago es en la clínica antes de la sesión.
   paymentsEnabled: z.boolean(),
+  /// Bot de WhatsApp habilitado para esta clínica (deep links de reserva/chat).
+  botEnabled: z.boolean(),
   timezone: z.string(),
   whatsappEnabled: z.boolean(),
   /// Nombres de los seguros médicos activos de la clínica (landing pública).

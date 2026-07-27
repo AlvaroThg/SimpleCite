@@ -164,7 +164,8 @@ export class ConversationEngine {
   /** Ofrece las clínicas donde el paciente ya tiene historial, o pide buscar. */
   private async askClinic(convo: Convo): Promise<BotOutbound[]> {
     const visited = await this.prisma.client.patient.findMany({
-      where: { phone: convo.chatId, tenant: { status: { not: 'SUSPENDED' } } },
+      // botEnabled: el bot es un add-on; solo resuelve clínicas que lo tienen.
+      where: { phone: convo.chatId, tenant: { status: { not: 'SUSPENDED' }, botEnabled: true } },
       select: { tenant: { select: { id: true, name: true } } },
       distinct: ['tenantId'],
       take: MAX_OPTIONS - 1,
@@ -208,13 +209,17 @@ export class ConversationEngine {
     // Slug exacto primero: el deep link de la landing en WhatsApp llega como
     // texto plano con el slug (wa.me no tiene start payload).
     const bySlug = await this.prisma.client.tenant.findFirst({
-      where: { slug: query.toLowerCase().trim(), status: { not: 'SUSPENDED' } },
+      where: { slug: query.toLowerCase().trim(), status: { not: 'SUSPENDED' }, botEnabled: true },
       select: { id: true },
     });
     if (bySlug) return this.selectClinic(convo, bySlug.id);
 
     const found = await this.prisma.client.tenant.findMany({
-      where: { name: { contains: query, mode: 'insensitive' }, status: { not: 'SUSPENDED' } },
+      where: {
+        name: { contains: query, mode: 'insensitive' },
+        status: { not: 'SUSPENDED' },
+        botEnabled: true,
+      },
       select: { id: true, name: true },
       take: MAX_OPTIONS,
     });
@@ -239,7 +244,7 @@ export class ConversationEngine {
 
   private async selectClinicBySlug(convo: Convo, slug: string): Promise<BotOutbound[]> {
     const tenant = await this.prisma.client.tenant.findFirst({
-      where: { slug: slug.toLowerCase(), status: { not: 'SUSPENDED' } },
+      where: { slug: slug.toLowerCase(), status: { not: 'SUSPENDED' }, botEnabled: true },
       select: { id: true },
     });
     if (!tenant) return this.askClinic(convo);
@@ -249,7 +254,7 @@ export class ConversationEngine {
   /** Clínica resuelta: saluda como recurrente o pide el nombre si es nuevo. */
   private async selectClinic(convo: Convo, tenantId: string): Promise<BotOutbound[]> {
     const tenant = await this.prisma.client.tenant.findFirst({
-      where: { id: tenantId, status: { not: 'SUSPENDED' } },
+      where: { id: tenantId, status: { not: 'SUSPENDED' }, botEnabled: true },
       select: { id: true, name: true, locationPhotoUrl: true, heroImageUrl: true },
     });
     if (!tenant) return this.askClinic(convo);

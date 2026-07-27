@@ -110,8 +110,9 @@ export default async function TenantLandingPage({ params }: Props) {
   // solo el respaldo (Google puede geocodificarla al negocio equivocado).
   const mapsEmbed = mapsEmbedSrc(tenant.mapsUrl, tenant.address);
 
-  // Deep link al bot de reservas con la clínica ya resuelta (null sin bot).
-  const botLink = botDeepLink(slug);
+  // Deep link al bot de reservas (null si la plataforma no tiene bot, o si
+  // esta clínica no tiene el add-on activado).
+  const botLink = tenant.botEnabled ? botDeepLink(slug) : null;
 
   return (
     <div className="bg-surface text-text-primary">

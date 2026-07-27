@@ -21,6 +21,7 @@ const TENANT = {
   qrAssignmentMode: 'SHARED',
   staticQrUrl: 'https://pub.r2.dev/regenera/assets/qr.png',
   staticQrLabel: 'Banco Unión',
+  botEnabled: true,
 };
 
 function makeHarness(opts: {
@@ -776,5 +777,47 @@ describe('ConversationEngine — módulo de pagos apagado', () => {
     expect(out[0].buttons).toBeUndefined();
     expect(out[0].text).toContain('efectivo o QR');
     expect(out[0].text).toContain('5 a 10 minutos antes');
+  });
+});
+
+describe('ConversationEngine — gate por botEnabled (add-on de plataforma)', () => {
+  it('sin historial en clínicas con bot: pide buscar (no cuenta las que no tienen bot)', async () => {
+    // askClinic filtra por botEnabled; el harness ya no devuelve visited.
+    const { engine, client } = makeHarness({ visitedTenants: [] });
+    const out = await engine.handle(msg({ text: 'hola' }));
+    // El where del historial debe exigir botEnabled: true.
+    expect(client.patient.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          tenant: expect.objectContaining({ botEnabled: true }),
+        }),
+      }),
+    );
+    expect(out[0].text).toContain('qué clínica');
+  });
+
+  it('deep link a una clínica SIN bot: no la resuelve, vuelve a preguntar', async () => {
+    const { engine, client } = makeHarness({ patientInTenant: { name: 'Ana' } });
+    // Ninguna clínica con bot: selectClinicBySlug y selectClinic no encuentran.
+    client.tenant.findFirst.mockResolvedValue(null as never);
+    const out = await engine.handle(msg({ startPayload: 'regenera' }));
+    expect(client.tenant.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ botEnabled: true }),
+      }),
+    );
+    // Cae a askClinic (pide clínica) en vez de saludar/registrar.
+    expect(out[0].text.toLowerCase()).toContain('clínica');
+  });
+
+  it('búsqueda por nombre exige botEnabled en el where', async () => {
+    const { engine, client } = makeHarness({ conversation: { step: 'SEARCHING_CLINIC' } });
+    client.tenant.findFirst.mockResolvedValueOnce(null as never); // slug exacto no matchea
+    await engine.handle(msg({ text: 'clinica' }));
+    expect(client.tenant.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ botEnabled: true }),
+      }),
+    );
   });
 });

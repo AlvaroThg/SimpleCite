@@ -46,6 +46,8 @@ export interface TenantInfo {
   /// Módulo de pagos del booking: si es false no se pide método ni se
   /// muestra QR — el pago es en la clínica antes de la sesión.
   paymentsEnabled: boolean;
+  /// Bot de WhatsApp habilitado para esta clínica (deep links de chat).
+  botEnabled: boolean;
   timezone: string;
   whatsappEnabled: boolean;
   /// Nombres de los seguros médicos activos (sección "Seguros aceptados").

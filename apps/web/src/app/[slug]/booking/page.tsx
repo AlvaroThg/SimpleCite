@@ -396,7 +396,12 @@ export default function BookingWizard() {
   // reserva (`r-<id>`): el comprobante se adjunta solo y el staff lo aprueba
   // desde el panel. Si NEXT_PUBLIC_BOT_URL no está configurada, se cae al
   // WhatsApp general de la clínica (verificación manual).
-  const botReceiptLink = state.appointmentId ? botDeepLink(`r-${state.appointmentId}`) : null;
+  // Solo si la clínica tiene el bot activado (add-on): si no, se cae al
+  // WhatsApp general de la clínica para el comprobante.
+  const botReceiptLink =
+    state.appointmentId && state.tenant?.botEnabled
+      ? botDeepLink(`r-${state.appointmentId}`)
+      : null;
 
   // Link a WhatsApp de la clínica (número general del panel) para que el
   // paciente envíe el comprobante del pago QR. La verificación es manual por
