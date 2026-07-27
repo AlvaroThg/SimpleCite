@@ -96,6 +96,16 @@ services:
       WA_CALLBACK_URL: ${WA_CALLBACK_URL}
       WA_INTERNAL_SECRET: ${WA_INTERNAL_SECRET}
       WA_INSTANCE_IMAGE: ${WA_INSTANCE_IMAGE:-simplecite-wa-instance:latest}
+      # Bot de reservas por WhatsApp Cloud API (Meta). El canal se activa con
+      # MESSAGING_PROVIDER=whatsapp + las META_WA_*; sin ellas queda dormido.
+      MESSAGING_PROVIDER: ${MESSAGING_PROVIDER:-whatsapp}
+      META_WA_PHONE_NUMBER_ID: ${META_WA_PHONE_NUMBER_ID:-}
+      META_WA_ACCESS_TOKEN: ${META_WA_ACCESS_TOKEN:-}
+      META_WA_APP_SECRET: ${META_WA_APP_SECRET:-}
+      META_WA_VERIFY_TOKEN: ${META_WA_VERIFY_TOKEN:-}
+      META_WA_BASE_URL: ${META_WA_BASE_URL:-https://graph.facebook.com/v25.0}
+      # Base pública del frontend para los magic links de cancelación del bot.
+      WEB_PUBLIC_URL: ${WEB_PUBLIC_URL:-}
       TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:-}
       RLS_ENFORCED: ${RLS_ENFORCED:-false}
     networks:
