@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { Reveal, Stagger, StaggerItem, ScrollCue } from '@/components/landing/motion';
 import { IPhoneMockup } from '@/components/landing/IPhoneMockup';
+import { getUsdBobRate } from '@/lib/usd-bob';
 
 // Número de WhatsApp de ventas (E.164 sin '+').
 const WA_NUMBER = '59161869814';
@@ -264,14 +265,17 @@ function Button({
 }
 
 // ─── Pricing ──────────────────────────────────────────────────────────
-function Pricing() {
+async function Pricing() {
+  // Dólar paralelo (Binance P2P) en vivo, con caché de 1h y fallback fijo.
+  const { rate } = await getUsdBobRate();
   // Dos planes, MISMAS funciones (todo lo que el producto ya hace hoy). La
   // diferencia es capacidad y acompañamiento, no features recortadas: menos
   // fricción de decisión para el comprador y nada que gatear en el código.
   const plans = [
     {
       name: 'Profesional',
-      price: '35',
+      price: '40' as string | null,
+      priceLabel: 'A medida',
       tagline: 'Todo incluido para consultorios y clínicas de hasta 10 especialistas.',
       featured: true,
       badge: 'Recomendado',
@@ -290,7 +294,8 @@ function Pricing() {
     },
     {
       name: 'Clínica',
-      price: '70',
+      price: null,
+      priceLabel: 'A medida',
       tagline: 'Para centros médicos grandes que necesitan capacidad y acompañamiento.',
       featured: false,
       badge: null,
@@ -327,9 +332,20 @@ function Pricing() {
               )}
               <h3 className="text-xl font-bold text-text-primary">{p.name}</h3>
               <div className="mt-1 flex items-end gap-1">
-                <span className="text-4xl font-extrabold text-text-primary">${p.price}</span>
-                <span className="text-text-muted mb-1 text-sm">USD / mes</span>
+                {p.price ? (
+                  <>
+                    <span className="text-4xl font-extrabold text-text-primary">${p.price}</span>
+                    <span className="text-text-muted mb-1 text-sm">USD / mes</span>
+                  </>
+                ) : (
+                  <span className="text-4xl font-extrabold text-text-primary">{p.priceLabel}</span>
+                )}
               </div>
+              {p.price && (
+                <p className="mt-1 text-xs text-text-muted">
+                  ≈ Bs {Math.round(Number(p.price) * rate).toLocaleString('es-BO')} / mes
+                </p>
+              )}
               <p className="mt-2 text-sm text-text-muted leading-snug">{p.tagline}</p>
             </CardHeader>
 
@@ -367,7 +383,7 @@ function Pricing() {
       </div>
 
       <p className="mt-6 text-center text-sm text-text-muted italic">
-        cambio dólar a bolivianos: 9.72 bs
+        cambio dólar a bolivianos: {rate.toFixed(2)} bs
       </p>
     </section>
   );
