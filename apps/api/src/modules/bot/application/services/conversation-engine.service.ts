@@ -428,17 +428,20 @@ export class ConversationEngine {
     }
 
     // Siempre se muestra la lista (aunque haya un solo servicio): el paciente
-    // debe ver y elegir qué se está reservando y a qué precio.
+    // debe ver y elegir qué se está reservando y a qué precio. El precio va en
+    // el cuerpo, no en el botón: los botones de WhatsApp truncan el título a 20
+    // caracteres y "Nombre — Bs 100" se cortaba en "Bs…".
     await this.save(convo, 'CHOOSING_SERVICE', convo.data);
+    const options = active.map((l) => ({
+      id: l.service.id,
+      name: l.service.name,
+      price: l.customPrice ?? l.service.price,
+    }));
+    const list = options.map((o) => `• ${o.name} — Bs ${o.price}`).join('\n');
     return [
       {
-        text: `¿Qué servicio necesitas con ${convo.data.doctorName}?`,
-        buttons: active.map((l) => [
-          {
-            label: `${l.service.name} — Bs ${l.customPrice ?? l.service.price}`,
-            data: `sv:${l.service.id}`,
-          },
-        ]),
+        text: `¿Qué servicio necesitas con ${convo.data.doctorName}?\n\n${list}`,
+        buttons: options.map((o) => [{ label: o.name, data: `sv:${o.id}` }]),
       },
     ];
   }
