@@ -214,6 +214,17 @@ export class ConversationEngine {
     });
     if (bySlug) return this.selectClinic(convo, bySlug.id);
 
+    // El deep link de WhatsApp llega como frase amistosa ("...reservar en
+    // demo-bot"): probamos cada palabra como slug exacto para resolver igual.
+    const tokens = query.toLowerCase().match(/[a-z0-9-]{3,}/g) ?? [];
+    if (tokens.length > 1) {
+      const byToken = await this.prisma.client.tenant.findFirst({
+        where: { slug: { in: tokens }, status: { not: 'SUSPENDED' }, botEnabled: true },
+        select: { id: true },
+      });
+      if (byToken) return this.selectClinic(convo, byToken.id);
+    }
+
     const found = await this.prisma.client.tenant.findMany({
       where: {
         name: { contains: query, mode: 'insensitive' },

@@ -180,10 +180,20 @@ export default async function TenantLandingPage({ params }: Props) {
                 href={botLink}
                 target="_blank"
                 rel="noreferrer"
-                className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-text-secondary underline underline-offset-4 transition hover:text-text-primary"
+                className="group mt-5 inline-flex items-center gap-3 rounded-2xl border border-border bg-surface py-3 pl-3 pr-4 shadow-sm transition hover:border-text-secondary/40 hover:shadow-md active:scale-[.98]"
               >
-                <MessageCircle className="size-4" /> ¿Prefieres reservar por chat? Habla con nuestro
-                asistente
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[#25D366]/12 text-[#128C7E]">
+                  <MessageCircle className="size-5" />
+                </span>
+                <span className="flex flex-col text-left">
+                  <span className="text-sm font-semibold text-text-primary">
+                    Reservar por WhatsApp
+                  </span>
+                  <span className="text-xs text-text-secondary">
+                    Chatea con nuestro asistente y agenda en un minuto
+                  </span>
+                </span>
+                <ArrowRight className="size-4 shrink-0 text-text-secondary transition group-hover:translate-x-0.5" />
               </a>
             )}
 

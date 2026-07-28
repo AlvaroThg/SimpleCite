@@ -13,6 +13,13 @@ const BOT_URL = (process.env.NEXT_PUBLIC_BOT_URL ?? '').replace(/\/+$/, '');
 export function botDeepLink(payload: string): string | null {
   if (!BOT_URL) return null;
   // WhatsApp no tiene "start payload": va como texto prellenado del mensaje.
-  if (BOT_URL.includes('wa.me')) return `${BOT_URL}?text=${encodeURIComponent(payload)}`;
+  // Para el slug de clínica prellenamos una frase natural (el motor extrae el
+  // slug de la frase); el comprobante viaja como token crudo tal cual.
+  if (BOT_URL.includes('wa.me')) {
+    const text = payload.startsWith('r-')
+      ? payload
+      : `Hola 👋 Quiero reservar una cita en ${payload}`;
+    return `${BOT_URL}?text=${encodeURIComponent(text)}`;
+  }
   return `${BOT_URL}?start=${encodeURIComponent(payload)}`;
 }
