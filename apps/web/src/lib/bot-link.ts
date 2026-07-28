@@ -18,7 +18,7 @@ export function botDeepLink(payload: string): string | null {
   if (BOT_URL.includes('wa.me')) {
     const text = payload.startsWith('r-')
       ? payload
-      : `Hola 👋 Quiero reservar una cita en ${payload}`;
+      : `Hola, quiero reservar una cita en ${payload}`;
     return `${BOT_URL}?text=${encodeURIComponent(text)}`;
   }
   return `${BOT_URL}?start=${encodeURIComponent(payload)}`;

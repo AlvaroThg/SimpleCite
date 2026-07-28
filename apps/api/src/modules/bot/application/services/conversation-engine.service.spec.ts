@@ -174,6 +174,24 @@ describe('ConversationEngine — resolución de clínica', () => {
     const out = await engine.handle(msg({ startPayload: 'regenera' }));
     expect(out[0].text).toContain('nombre completo');
   });
+
+  it('WhatsApp: la frase prellenada del landing resuelve la clínica directo', async () => {
+    // wa.me no tiene start payload: llega como texto "...reservar una cita en <slug>".
+    const { engine } = makeHarness({ patientInTenant: null });
+    const out = await engine.handle(msg({ text: 'Hola, quiero reservar una cita en regenera' }));
+    expect(out[0].text).toContain('nombre completo');
+    expect(out[0].text).not.toContain('qué clínica');
+  });
+
+  it('la frase del landing gana aunque la conversación esté en REGISTERING_NAME', async () => {
+    // No debe tomarse la frase como nombre: re-resuelve la clínica.
+    const { engine } = makeHarness({
+      patientInTenant: null,
+      conversation: { step: 'REGISTERING_NAME', tenantId: 't1' },
+    });
+    const out = await engine.handle(msg({ text: 'Hola, quiero reservar una cita en regenera' }));
+    expect(out[0].text).toContain('nombre completo');
+  });
 });
 
 describe('ConversationEngine — registro y wizard', () => {

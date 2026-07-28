@@ -81,6 +81,23 @@ export class ConversationEngine {
         return await this.primeReceipt(convo, input.slice(2));
       }
 
+      // Deep link de la landing en WhatsApp: el texto prellenado es
+      // "...reservar una cita en <slug>". Resuelve la clínica directo y gana
+      // sobre el estado previo (igual que el start payload de Telegram), para
+      // no volver a preguntar la clínica ni tomar la frase como nombre.
+      const fromLanding = input.match(/reservar una cita en\s+([a-z0-9-]{3,})\s*$/i);
+      if (fromLanding) {
+        const landed = await this.prisma.client.tenant.findFirst({
+          where: {
+            slug: fromLanding[1].toLowerCase(),
+            status: { not: 'SUSPENDED' },
+            botEnabled: true,
+          },
+          select: { id: true },
+        });
+        if (landed) return await this.selectClinic(convo, landed.id);
+      }
+
       // Comandos globales, en cualquier paso.
       if (/^\/?(cancelar|cancel)$/i.test(input)) return await this.abort(convo);
       if (input.startsWith('cancel-appt:')) {
@@ -349,6 +366,10 @@ export class ConversationEngine {
     });
 
     if (doctors.length === 0) {
+      // Callejón sin salida (clínica sin servicios). Guardamos en el menú para
+      // NO quedar atascados en REGISTERING_NAME, donde el siguiente mensaje se
+      // tomaría como el nombre del paciente. El nombre ya capturado se conserva.
+      await this.save(convo, 'MAIN_MENU', convo.data);
       return [
         {
           text: 'Esta clínica aún no tiene especialistas con servicios configurados 😕. Intenta más tarde.',
