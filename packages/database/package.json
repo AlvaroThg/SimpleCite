@@ -18,7 +18,8 @@
     "postinstall": "prisma generate",
     "tenant:new": "dotenv -e ../../.env -- tsx scripts/new-tenant.ts",
     "tenant:renew": "dotenv -e ../../.env -- tsx scripts/renew-tenant.ts",
-    "tenant:bot": "dotenv -e ../../.env -- tsx scripts/set-bot.ts"
+    "tenant:bot": "dotenv -e ../../.env -- tsx scripts/set-bot.ts",
+    "tenant:rm-patient": "dotenv -e ../../.env -- tsx scripts/rm-patient.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.8.2"
