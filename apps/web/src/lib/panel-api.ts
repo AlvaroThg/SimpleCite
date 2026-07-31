@@ -9,6 +9,7 @@
  */
 
 import { apiBase } from './api-base';
+import { clearPanelSession } from './panel-session-key';
 
 const BASE = apiBase();
 
@@ -105,11 +106,17 @@ function authHeaders(token: string, slug: string): Record<string, string> {
  * Sesión expirada (401): en vez de mostrar "Unauthorized" en crudo, mandamos al
  * login con un aviso claro y la ruta de vuelta. Solo en el navegador y fuera de
  * la propia pantalla de login (ahí el 401 son credenciales incorrectas).
+ *
+ * IMPRESCINDIBLE limpiar la sesión local antes de redirigir: el JWT vive en la
+ * cookie, pero localStorage guarda el "hay sesión". Si queda, el login rebota
+ * al panel ("ya hay sesión"), el panel vuelve a recibir 401 y se forma un
+ * bucle en el que el usuario nunca alcanza a escribir sus credenciales.
  */
 function handleExpiredSession(): void {
   if (typeof window === 'undefined') return;
   const { pathname, search } = window.location;
   if (pathname.includes('/panel/login')) return;
+  clearPanelSession();
   const back = encodeURIComponent(pathname + search);
   window.location.assign(`/panel/login?expired=1&next=${back}`);
 }

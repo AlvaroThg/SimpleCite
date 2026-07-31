@@ -3,8 +3,7 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { panelLogin, panelLogout, type PanelUser } from './panel-api';
-
-const STORAGE_KEY = 'simplecite_panel_session';
+import { PANEL_SESSION_KEY, clearPanelSession } from './panel-session-key';
 
 interface Session {
   /**
@@ -34,7 +33,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Cargar sesión desde localStorage al montar.
   useEffect(() => {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
+      const raw = localStorage.getItem(PANEL_SESSION_KEY);
       if (raw) setSession(JSON.parse(raw) as Session);
     } catch {
       // ignore
@@ -47,13 +46,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // token: '' — el JWT quedó en la cookie httpOnly; NO se persiste en
     // localStorage (un XSS ya no puede robarlo).
     const next: Session = { token: '', slug, user };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    localStorage.setItem(PANEL_SESSION_KEY, JSON.stringify(next));
     setSession(next);
   }, []);
 
   const logout = useCallback(() => {
     const slug = session?.slug;
-    localStorage.removeItem(STORAGE_KEY);
+    clearPanelSession();
     setSession(null);
     // Borra la cookie httpOnly en el API (best-effort, no bloquea el logout).
     if (slug) void panelLogout(slug);

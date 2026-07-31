@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { useAuth } from '@/lib/panel-auth';
 import { PanelApiError } from '@/lib/panel-api';
+import { clearPanelSession } from '@/lib/panel-session-key';
 
 export default function PanelLoginPage() {
   const { session, login } = useAuth();
@@ -22,15 +23,20 @@ export default function PanelLoginPage() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    setExpired(params.get('expired') === '1');
+    const isExpired = params.get('expired') === '1';
+    setExpired(isExpired);
+    // La sesión venció: si quedara algo en localStorage, el efecto de abajo
+    // rebotaría al panel y el usuario nunca podría volver a entrar.
+    if (isExpired) clearPanelSession();
     const back = params.get('next');
     if (back?.startsWith('/')) setNext(back);
   }, []);
 
-  // Si ya hay sesión, ir directo a citas.
+  // Si ya hay sesión, ir directo a citas. Nunca cuando venimos de una sesión
+  // vencida: ahí la sesión local es basura y hay que dejar iniciar de nuevo.
   useEffect(() => {
-    if (session) router.replace('/panel/appointments');
-  }, [session, router]);
+    if (session && !expired) router.replace('/panel/appointments');
+  }, [session, expired, router]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

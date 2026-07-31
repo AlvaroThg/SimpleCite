@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { AlertTriangle, RotateCcw, LogOut } from 'lucide-react';
+import { clearPanelSession } from '@/lib/panel-session-key';
 
 /**
  * Error Boundary del panel (los boundaries de React siguen exigiendo class
@@ -34,11 +35,7 @@ export class PanelErrorBoundary extends React.Component<Props, State> {
   private retry = () => this.setState({ hasError: false });
 
   private logoutAndReload = () => {
-    try {
-      localStorage.removeItem('simplecite_panel_session');
-    } catch {
-      /* storage bloqueado: el reload igual manda al login */
-    }
+    clearPanelSession();
     window.location.href = '/panel/login';
   };
 
