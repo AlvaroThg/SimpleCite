@@ -9,6 +9,7 @@ import { validateEnv } from './common/config/env.schema';
 import { DatabaseModule } from './common/database/database.module';
 import { TenantMiddleware } from './common/middleware/tenant.middleware';
 import { TenantContextInterceptor } from './common/interceptors/tenant-context.interceptor';
+import { RollingSessionInterceptor } from './common/interceptors/rolling-session.interceptor';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { HttpThrottlerGuard } from './common/guards/http-throttler.guard';
 import { TenantGuard } from './common/guards/tenant.guard';
@@ -147,6 +148,12 @@ import { InsurancesModule } from './modules/insurances/insurances.module';
     {
       provide: APP_INTERCEPTOR,
       useClass: TenantContextInterceptor,
+    },
+    // Sesión deslizante: refresca la cookie del panel con la actividad para
+    // que un usuario activo no se caiga por expiración del JWT.
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: RollingSessionInterceptor,
     },
   ],
 })

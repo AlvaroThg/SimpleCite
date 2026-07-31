@@ -100,9 +100,23 @@ function authHeaders(token: string, slug: string): Record<string, string> {
   };
 }
 
+/**
+ * Sesión expirada (401): en vez de mostrar "Unauthorized" en crudo, mandamos al
+ * login con un aviso claro y la ruta de vuelta. Solo en el navegador y fuera de
+ * la propia pantalla de login (ahí el 401 son credenciales incorrectas).
+ */
+function handleExpiredSession(): void {
+  if (typeof window === 'undefined') return;
+  const { pathname, search } = window.location;
+  if (pathname.includes('/panel/login')) return;
+  const back = encodeURIComponent(pathname + search);
+  window.location.assign(`/panel/login?expired=1&next=${back}`);
+}
+
 async function handle<T>(res: Response): Promise<T> {
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
+    if (res.status === 401) handleExpiredSession();
     throw new PanelApiError(res.status, (body as { message?: string }).message ?? res.statusText);
   }
   return res.json() as Promise<T>;

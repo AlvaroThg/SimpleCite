@@ -15,6 +15,17 @@ export default function PanelLoginPage() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  // `?expired=1` lo pone panel-api al recibir un 401: la sesión venció y hay que
+  // avisarlo en vez de mostrar "Unauthorized". `?next=` es la ruta de vuelta.
+  const [expired, setExpired] = useState(false);
+  const [next, setNext] = useState<string | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setExpired(params.get('expired') === '1');
+    const back = params.get('next');
+    if (back?.startsWith('/')) setNext(back);
+  }, []);
 
   // Si ya hay sesión, ir directo a citas.
   useEffect(() => {
@@ -25,9 +36,10 @@ export default function PanelLoginPage() {
     e.preventDefault();
     setLoading(true);
     setError('');
+    setExpired(false);
     try {
       await login(slug.trim(), email.trim(), password);
-      router.replace('/panel/appointments');
+      router.replace(next ?? '/panel/appointments');
     } catch (err) {
       setError(
         err instanceof PanelApiError
@@ -59,6 +71,12 @@ export default function PanelLoginPage() {
           onSubmit={handleSubmit}
           className="bg-surface rounded-2xl shadow-sm border border-border p-6 space-y-4"
         >
+          {expired && !error && (
+            <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-xl px-3 py-2 text-sm">
+              Tu sesión venció por seguridad. Vuelve a iniciar sesión para continuar.
+            </div>
+          )}
+
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-3 py-2 text-sm">
               {error}
