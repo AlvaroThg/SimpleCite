@@ -90,9 +90,11 @@ import { InsurancesModule } from './modules/insurances/insurances.module';
     // Para multi-instancia: cambiar storage a @nestjs/throttler-storage-redis.
     // El default abarca tráfico general; los endpoints OTP/booking declaran
     // límites más estrictos via @Throttle() en sus controllers.
-    ThrottlerModule.forRoot([
-      { name: 'default', ttl: 60_000, limit: 100 }, // 100 req/min por IP
-    ]),
+    // 300/min por IP: una clínica NATea a todo su staff tras una sola IP
+    // pública y cada pantalla del panel dispara varias llamadas en paralelo
+    // (citas + pacientes + doctores + servicios + slots). Con 100 el uso
+    // normal de recepción ya rozaba el 429.
+    ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: 300 }]),
 
     // Registro de crons (@Cron). Vive AQUÍ (no en un módulo flaggeable):
     // la limpieza de citas TENTATIVE (AppointmentsCleanupService) depende de él.

@@ -23,6 +23,14 @@ async function bootstrap() {
   // Reemplazar el logger por defecto de NestJS con Pino estructurado
   app.useLogger(app.get(Logger));
 
+  // Detrás del reverse proxy (Traefik/Dokploy) Express veía la IP del proxy en
+  // TODAS las requests: el rate limit, que cuenta por IP, se volvía un cupo
+  // único para toda la plataforma (el staff de una clínica, los pacientes de
+  // la landing y el bot compartían los mismos 100 req/min → 429 haciendo
+  // trabajo normal). Con 'trust proxy' = 1 se confía en el primer salto y
+  // req.ip pasa a ser la IP real del cliente (X-Forwarded-For).
+  app.set('trust proxy', 1);
+
   app.setGlobalPrefix('api');
 
   // Headers de seguridad HTTP (API JSON puro: la CSP no aplica a respuestas

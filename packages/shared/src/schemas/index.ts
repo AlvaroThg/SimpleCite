@@ -565,6 +565,9 @@ export const PublicTenantInfoSchema = z.object({
   paymentsEnabled: z.boolean(),
   /// Bot de WhatsApp habilitado para esta clínica (deep links de reserva/chat).
   botEnabled: z.boolean(),
+  /// Qué ofrece la página pública según el plan contratado: reserva web
+  /// completa, CTA al WhatsApp de la clínica, o solo informativa.
+  publicMode: z.enum(['BOOKING', 'WHATSAPP', 'LANDING']),
   timezone: z.string(),
   whatsappEnabled: z.boolean(),
   /// Nombres de los seguros médicos activos de la clínica (landing pública).

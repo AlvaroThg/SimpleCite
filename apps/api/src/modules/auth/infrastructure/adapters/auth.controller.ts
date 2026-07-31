@@ -22,8 +22,10 @@ import { SESSION_COOKIE, sessionCookieOptions } from './session-cookie';
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
-  // Anti fuerza-bruta: mucho más estricto que el rate limit global (100/min).
-  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  // Anti fuerza-bruta: mucho más estricto que el rate limit global. 10/min por
+  // IP y no 5, porque en una clínica varios equipos comparten la IP pública y
+  // un par de intentos fallidos del staff dejaba a los demás sin poder entrar.
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post('login')
   async login(
     @Body(new ZodValidationPipe(LoginSchema)) dto: LoginDto,

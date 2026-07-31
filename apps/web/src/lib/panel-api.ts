@@ -125,6 +125,14 @@ async function handle<T>(res: Response): Promise<T> {
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     if (res.status === 401) handleExpiredSession();
+    // El rate limit responde "ThrottlerException: Too Many Requests", que no
+    // le dice nada a la recepción. Se traduce a algo accionable.
+    if (res.status === 429) {
+      throw new PanelApiError(
+        429,
+        'Demasiadas solicitudes seguidas. Espera un momento y vuelve a intentar.',
+      );
+    }
     throw new PanelApiError(res.status, (body as { message?: string }).message ?? res.statusText);
   }
   return res.json() as Promise<T>;
