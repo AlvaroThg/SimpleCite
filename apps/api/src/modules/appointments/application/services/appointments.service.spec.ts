@@ -5,7 +5,9 @@ import { AppointmentsService } from './appointments.service';
 const waCloud = { sendAppointmentConfirmation: jest.fn() } as never;
 const logger = { error: jest.fn(), warn: jest.fn(), log: jest.fn() } as never;
 
-function makePrisma(current: { id: string; status: string } | null) {
+function makePrisma(
+  current: { id: string; status: string; medicalRecord?: { id: string } | null } | null,
+) {
   const update = jest.fn().mockImplementation(({ data }) => Promise.resolve({ id: 'a1', ...data }));
   const client = {
     appointment: {
@@ -57,6 +59,44 @@ describe('AppointmentsService.transitionStatus (máquina de estados)', () => {
     await expect(
       svc.transitionStatus('t1', 'missing', 'CONFIRMED' as never),
     ).rejects.toBeInstanceOf(NotFoundException);
+  });
+});
+
+describe('AppointmentsService.transitionStatus — completar exige consulta', () => {
+  it('rechaza CONFIRMED → COMPLETED sin historia clínica', async () => {
+    const { prisma, update } = makePrisma({ id: 'a1', status: 'CONFIRMED', medicalRecord: null });
+    const svc = new AppointmentsService(prisma, waCloud, logger);
+    await expect(svc.transitionStatus('t1', 'a1', 'COMPLETED' as never)).rejects.toThrow(
+      /consulta registrada/i,
+    );
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it('permite completar cuando la consulta ya está registrada', async () => {
+    const { prisma, update } = makePrisma({
+      id: 'a1',
+      status: 'CONFIRMED',
+      medicalRecord: { id: 'r1' },
+    });
+    const svc = new AppointmentsService(prisma, waCloud, logger);
+    await svc.transitionStatus('t1', 'a1', 'COMPLETED' as never);
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ status: 'COMPLETED' }) }),
+    );
+  });
+
+  it('force: completa sin consulta (citas que no la llevan)', async () => {
+    const { prisma, update } = makePrisma({ id: 'a1', status: 'CONFIRMED', medicalRecord: null });
+    const svc = new AppointmentsService(prisma, waCloud, logger);
+    await svc.transitionStatus('t1', 'a1', 'COMPLETED' as never, { force: true });
+    expect(update).toHaveBeenCalled();
+  });
+
+  it('el guard no afecta otras transiciones (cancelar sin consulta)', async () => {
+    const { prisma, update } = makePrisma({ id: 'a1', status: 'CONFIRMED', medicalRecord: null });
+    const svc = new AppointmentsService(prisma, waCloud, logger);
+    await svc.transitionStatus('t1', 'a1', 'CANCELLED' as never);
+    expect(update).toHaveBeenCalled();
   });
 });
 

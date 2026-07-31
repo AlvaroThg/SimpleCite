@@ -200,12 +200,14 @@ export async function transitionAppointment(
   slug: string,
   id: string,
   status: string,
+  /** Completar sin historia clínica: solo tras confirmarlo con el usuario. */
+  force?: boolean,
 ): Promise<void> {
   const res = await fetch(`${BASE}/api/appointments/${id}/status`, {
     method: 'PATCH',
     headers: authHeaders(token, slug),
     credentials: 'include',
-    body: JSON.stringify({ status }),
+    body: JSON.stringify({ status, ...(force ? { force: true } : {}) }),
   });
   await handle(res);
 }

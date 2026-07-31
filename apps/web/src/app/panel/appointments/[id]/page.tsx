@@ -60,6 +60,8 @@ function AppointmentDetailView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [acting, setActing] = useState(false);
+  /** Se intentó completar la cita sin historia clínica: pedimos qué hacer. */
+  const [needsRecord, setNeedsRecord] = useState(false);
 
   const load = useCallback(async () => {
     if (!session) return;
@@ -82,15 +84,22 @@ function AppointmentDetailView() {
     void load();
   }, [load]);
 
-  async function doTransition(status: string) {
+  async function doTransition(status: string, force?: boolean) {
     if (!session) return;
     setActing(true);
     setError('');
+    setNeedsRecord(false);
     try {
-      await transitionAppointment(session.token, session.slug, id, status);
+      await transitionAppointment(session.token, session.slug, id, status, force);
       await load();
     } catch (err) {
-      setError(err instanceof PanelApiError ? err.message : 'No se pudo actualizar el estado');
+      // Completar sin consulta registrada: en vez de un error seco, ofrecemos
+      // ir a la consulta o completar igual (hay citas que no la llevan).
+      if (err instanceof PanelApiError && err.status === 400 && status === 'COMPLETED' && !force) {
+        setNeedsRecord(true);
+      } else {
+        setError(err instanceof PanelApiError ? err.message : 'No se pudo actualizar el estado');
+      }
     } finally {
       setActing(false);
     }
@@ -207,6 +216,38 @@ function AppointmentDetailView() {
           )}
         </div>
       </div>
+
+      {needsRecord && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+          <p className="text-sm font-semibold text-amber-900">
+            Esta cita todavía no tiene una consulta registrada
+          </p>
+          <p className="mt-1 text-sm text-amber-800">
+            Si la das por completada ahora, no quedará constancia de lo que se hizo en la sesión.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-3">
+            <Link
+              href={`/panel/appointments/${appt.id}/consulta`}
+              className="rounded-xl bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700"
+            >
+              Iniciar consulta
+            </Link>
+            <button
+              onClick={() => void doTransition('COMPLETED', true)}
+              disabled={acting}
+              className="rounded-xl border border-amber-300 bg-surface px-4 py-2 text-sm font-medium text-amber-900 hover:bg-amber-100 disabled:opacity-50"
+            >
+              Completar sin consulta
+            </button>
+            <button
+              onClick={() => setNeedsRecord(false)}
+              className="px-2 py-2 text-sm text-amber-800 hover:underline"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
 
       {error && <ErrorBox message={error} />}
 

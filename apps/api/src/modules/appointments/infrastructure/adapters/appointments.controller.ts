@@ -84,7 +84,9 @@ export class AppointmentsController {
     @Param('id') id: string,
     @Body(new ZodValidationPipe(UpdateAppointmentStatusSchema)) dto: UpdateAppointmentStatusDto,
   ) {
-    const appointment = await this.appointmentsService.transitionStatus(tenantId, id, dto.status);
+    const appointment = await this.appointmentsService.transitionStatus(tenantId, id, dto.status, {
+      force: dto.force,
+    });
     return { success: true, data: appointment };
   }
 

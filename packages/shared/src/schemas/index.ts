@@ -289,6 +289,9 @@ export type CreateAppointmentDto = z.infer<typeof CreateAppointmentSchema>;
 
 export const UpdateAppointmentStatusSchema = z.object({
   status: AppointmentStatus,
+  /// Completar una cita sin historia clínica registrada. El panel lo manda solo
+  /// tras confirmarlo con el usuario (hay citas que no llevan consulta).
+  force: z.boolean().optional(),
 });
 export type UpdateAppointmentStatusDto = z.infer<typeof UpdateAppointmentStatusSchema>;
 

@@ -220,10 +220,22 @@ export class AppointmentsService {
     return appointment;
   }
 
-  async transitionStatus(tenantId: string, id: string, nextStatus: AppointmentStatus) {
+  async transitionStatus(
+    tenantId: string,
+    id: string,
+    nextStatus: AppointmentStatus,
+    opts?: { force?: boolean },
+  ) {
     const current = await this.prisma.client.appointment.findFirst({
       where: { id, tenantId },
-      select: { id: true, status: true, isPaid: true, receiptUrl: true, paymentMethod: true },
+      select: {
+        id: true,
+        status: true,
+        isPaid: true,
+        receiptUrl: true,
+        paymentMethod: true,
+        medicalRecord: { select: { id: true } },
+      },
     });
     if (!current) throw new NotFoundException('Cita no encontrada');
 
@@ -231,6 +243,15 @@ export class AppointmentsService {
     if (!allowed.includes(nextStatus)) {
       throw new BadRequestException(
         `Transición inválida: ${current.status} → ${nextStatus}. Permitidas: ${allowed.join(', ') || '(estado terminal)'}`,
+      );
+    }
+
+    // Dar por atendida una cita sin historia clínica pierde el registro de lo
+    // que se hizo. Se exige pasar por la consulta; el panel puede forzarlo
+    // (con confirmación) para las citas que no la llevan.
+    if (nextStatus === 'COMPLETED' && !current.medicalRecord && !opts?.force) {
+      throw new BadRequestException(
+        'Esta cita todavía no tiene una consulta registrada. Inicia la consulta antes de marcarla como completada.',
       );
     }
 
