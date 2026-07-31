@@ -44,6 +44,7 @@ export type BotStep =
   | 'SEARCHING_CLINIC'
   | 'MAIN_MENU'
   | 'REGISTERING_NAME'
+  | 'REGISTERING_CI'
   | 'CHOOSING_DOCTOR'
   | 'CHOOSING_SERVICE'
   | 'CHOOSING_WEEK'
@@ -56,6 +57,9 @@ export type BotStep =
 export interface ConvData {
   /// Nombre completo del paciente (del registro o del Patient existente).
   name?: string;
+  /// Cédula, opcional: sale en el informe médico. Se pide una sola vez al
+  /// registrarse y se puede omitir para no alargar el flujo.
+  ci?: string;
   doctorId?: string;
   doctorName?: string;
   serviceId?: string;

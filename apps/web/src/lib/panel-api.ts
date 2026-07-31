@@ -61,7 +61,8 @@ export interface AppointmentDetail extends AppointmentListItem {
 export interface PatientListItem {
   id: string;
   name: string;
-  phone: string;
+  /// Identidad: teléfono O CI (al menos uno). Puede faltar el teléfono.
+  phone: string | null;
   ci: string | null;
   createdAt: string;
   _count: { appointments: number };
@@ -76,7 +77,7 @@ export interface ClinicalNote {
 }
 
 export interface PatientHistory {
-  patient: { id: string; name: string; phone: string; ci: string | null; createdAt: string };
+  patient: { id: string; name: string; phone: string | null; ci: string | null; createdAt: string };
   appointments: { items: AppointmentListItem[]; nextCursor: string | null; hasMore: boolean };
   notes: ClinicalNote[];
   clinicalAccess: boolean;
@@ -290,7 +291,7 @@ export async function rescheduleAppointment(
 export async function createPatient(
   token: string,
   slug: string,
-  body: { name: string; phone: string; ci?: string },
+  body: { name: string; phone?: string; ci?: string },
 ): Promise<PatientListItem> {
   const res = await fetch(`${BASE}/api/patients`, {
     method: 'POST',

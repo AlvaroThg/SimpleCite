@@ -299,9 +299,13 @@ model StaffProfile {
 /// Paciente — Pertenece a una clínica específica por privacidad de datos.
 /// Identidad deduplicada por (tenantId, phone) y (tenantId, ci) normalizados.
 model Patient {
-  id    String  @id @default(uuid())
-  name  String
-  phone String /// E.164 sin '+' (ej: 59170000000) — normalizado al persistir
+  id   String @id @default(uuid())
+  name String
+
+  /// Identidad del paciente: se exige teléfono O CI (al menos uno), no ambos.
+  /// Los pacientes mayores suelen llegar sin celular propio y la recepción los
+  /// registra por cédula; el bot en cambio siempre tiene el teléfono del chat.
+  phone String? /// E.164 sin '+' (ej: 59170000000) — normalizado al persistir
   ci    String? /// Cédula de Identidad para validación médica/pagos
 
   // Un paciente "pertenece" a una clínica por privacidad

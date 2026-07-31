@@ -53,7 +53,8 @@ export class PublicBookingService {
 
   async createTentative(params: {
     tenantId: string;
-    phone: string;
+    /// Null cuando el paciente regresante está registrado solo con CI.
+    phone: string | null;
     dto: CreatePublicAppointmentDto;
     remoteIp?: string;
   }): Promise<{ appointmentId: string; expiresAt: Date }> {
@@ -78,7 +79,9 @@ export class PublicBookingService {
     if (!this.requireOtp) {
       const ok = await this.turnstile.verify(dto.turnstileToken, remoteIp);
       if (!ok) throw new ForbiddenException('Verificación de seguridad falló. Reintenta.');
-      await this.enforcePhoneRateLimit(tenantId, phone);
+      // Sin teléfono (paciente identificado por CI) no hay clave que limitar;
+      // Turnstile sigue siendo la barrera anti-bot.
+      if (phone) await this.enforcePhoneRateLimit(tenantId, phone);
     }
 
     // 1. Validar doctor + service activos en el tenant

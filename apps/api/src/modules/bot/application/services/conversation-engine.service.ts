@@ -135,6 +135,8 @@ export class ConversationEngine {
           return await this.onMainMenu(convo, input);
         case 'REGISTERING_NAME':
           return await this.onNameGiven(convo, msg.text ?? '');
+        case 'REGISTERING_CI':
+          return await this.onCiGiven(convo, input);
         case 'CHOOSING_DOCTOR':
           return await this.onDoctorChosen(convo, input);
         case 'CHOOSING_SERVICE':
@@ -345,6 +347,36 @@ export class ConversationEngine {
       return [{ text: 'Necesito tu nombre y apellido (ej: "María Fernández") 🙂' }];
     }
     convo.data.name = name;
+
+    // La cédula va en el informe médico, pero no se exige: pedirla como paso
+    // obligatorio alargaba el flujo justo para los pacientes mayores. Quien la
+    // omite igual reserva; la recepción puede completarla después.
+    await this.save(convo, 'REGISTERING_CI', convo.data);
+    return [
+      {
+        text:
+          'Gracias 🙌 Si quieres que tu *cédula (CI)* salga en tu informe médico, escríbela.\n\n' +
+          'Si prefieres, puedes omitir este paso.',
+        buttons: [[{ label: 'Omitir', data: 'ci:skip' }]],
+      },
+    ];
+  }
+
+  private async onCiGiven(convo: Convo, input: string): Promise<BotOutbound[]> {
+    if (input !== 'ci:skip') {
+      const ci = input.replace(/\s+/g, '').trim();
+      // Formato laxo a propósito: la cédula boliviana varía (dígitos, guion y
+      // complemento alfanumérico). Solo evitamos basura evidente.
+      if (!/^[0-9][0-9a-zA-Z-]{4,14}$/.test(ci)) {
+        return [
+          {
+            text: 'Esa cédula no parece válida 🤔. Escríbela solo con números (ej: 8123456), o toca *Omitir*.',
+            buttons: [[{ label: 'Omitir', data: 'ci:skip' }]],
+          },
+        ];
+      }
+      convo.data.ci = ci;
+    }
     return this.askDoctor(convo);
   }
 
@@ -684,6 +716,7 @@ export class ConversationEngine {
       tenantId: convo.tenantId!,
       phone: convo.chatId,
       name: convo.data.name ?? 'Paciente',
+      ci: convo.data.ci,
     });
 
     const ttlMin = this.config.get<number>('TENTATIVE_APPOINTMENT_TTL_MINUTES') ?? 15;

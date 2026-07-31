@@ -139,7 +139,15 @@ function makeHarness(opts: {
     config,
     logger,
   );
-  return { engine, client, appointmentCreate, appointmentUpdate, convoUpdate, uploadImage };
+  return {
+    engine,
+    client,
+    appointmentCreate,
+    appointmentUpdate,
+    convoUpdate,
+    uploadImage,
+    patients: patients as unknown as { findOrCreate: jest.Mock },
+  };
 }
 
 const msg = (over: object) => ({ channel: 'telegram' as const, chatId: '6840926345', ...over });
@@ -203,14 +211,63 @@ describe('ConversationEngine — registro y wizard', () => {
     expect(out[0].text).toContain('nombre y apellido');
   });
 
-  it('con nombre válido avanza al wizard: doctor único se auto-elige, el servicio SIEMPRE se elige', async () => {
+  it('con nombre válido pide la cédula, ofreciendo omitirla', async () => {
     const { engine } = makeHarness({
       conversation: { step: 'REGISTERING_NAME', tenantId: 't1' },
     });
     const out = await engine.handle(msg({ text: 'Ana Fernández' }));
+    expect(out[0].text).toMatch(/c[eé]dula/i);
+    expect(out[0].buttons!.flat().some((b) => b.data === 'ci:skip')).toBe(true);
+  });
+
+  it('omitir la cédula avanza al wizard: doctor único se auto-elige, el servicio SIEMPRE se elige', async () => {
+    const { engine } = makeHarness({
+      conversation: { step: 'REGISTERING_CI', tenantId: 't1', data: { name: 'Ana Fernández' } },
+    });
+    const out = await engine.handle(msg({ callback: 'ci:skip' }));
     // 1 doctor → auto; aunque haya 1 solo servicio, el paciente lo confirma.
     expect(out[0].text).toContain('Qué servicio');
     expect(out[0].buttons!.flat().some((b) => b.data === 'sv:svc1')).toBe(true);
+  });
+
+  it('la cédula dada se guarda y avanza al wizard', async () => {
+    const { engine, convoUpdate } = makeHarness({
+      conversation: { step: 'REGISTERING_CI', tenantId: 't1', data: { name: 'Ana Fernández' } },
+    });
+    const out = await engine.handle(msg({ text: '8123456' }));
+    expect(out[0].text).toContain('Qué servicio');
+    const saved = convoUpdate.mock.calls.at(-1)![0].data.data;
+    expect(saved.ci).toBe('8123456');
+  });
+
+  it('rechaza una cédula con formato inválido sin trabar el flujo', async () => {
+    const { engine } = makeHarness({
+      conversation: { step: 'REGISTERING_CI', tenantId: 't1', data: { name: 'Ana Fernández' } },
+    });
+    const out = await engine.handle(msg({ text: 'no tengo' }));
+    expect(out[0].text).toMatch(/no parece v[aá]lida/i);
+    expect(out[0].buttons!.flat().some((b) => b.data === 'ci:skip')).toBe(true);
+  });
+
+  it('la cédula viaja a findOrCreate al confirmar la cita', async () => {
+    const { engine, patients } = makeHarness({
+      conversation: {
+        step: 'CHOOSING_SLOT',
+        tenantId: 't1',
+        data: {
+          name: 'Ana Fernández',
+          ci: '8123456',
+          doctorId: 'doc1',
+          serviceId: 'svc1',
+          durationMin: 60,
+          dayIso: '2030-05-01',
+        },
+      },
+    });
+    await engine.handle(msg({ callback: 'slot:2030-05-01T14:00:00.000Z' }));
+    expect(patients.findOrCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ ci: '8123456', phone: '6840926345' }),
+    );
   });
 
   it('con varios doctores lista especialistas con nombre y especialidad', async () => {

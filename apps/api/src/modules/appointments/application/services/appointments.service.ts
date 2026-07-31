@@ -134,8 +134,13 @@ export class AppointmentsService {
 
       // Confirmación por el canal de mensajería activo (Telegram en pruebas /
       // WhatsApp en prod). Best-effort y no bloqueante: solo para citas ya
-      // CONFIRMED (CASH); un fallo nunca rompe la creación de la cita.
-      if (appointment.status === 'CONFIRMED' && appointment.cancellationToken) {
+      // CONFIRMED (CASH); un fallo nunca rompe la creación de la cita. Un
+      // paciente registrado solo con CI no tiene a dónde recibirla.
+      if (
+        appointment.status === 'CONFIRMED' &&
+        appointment.cancellationToken &&
+        appointment.patient.phone
+      ) {
         void this.messaging
           .sendAppointmentConfirmation(
             appointment.patient.phone,
@@ -280,7 +285,7 @@ export class AppointmentsService {
     // El staff confirmó (típicamente tras revisar un comprobante QR): avisar
     // al paciente por el canal de mensajería. Best-effort, nunca rompe la
     // transición — el paciente del panel puede no tener chat asociado.
-    if (nextStatus === 'CONFIRMED' && updated.cancellationToken) {
+    if (nextStatus === 'CONFIRMED' && updated.cancellationToken && updated.patient.phone) {
       void this.messaging
         .sendAppointmentConfirmation(
           updated.patient.phone,

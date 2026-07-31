@@ -106,7 +106,9 @@ function PatientHistoryView() {
       {/* Cabecera del paciente */}
       <div className="bg-surface rounded-2xl border border-border p-6">
         <h1 className="text-xl font-bold text-text-primary">{data.patient.name}</h1>
-        <p className="text-sm text-text-muted">{data.patient.phone}</p>
+        <p className="text-sm text-text-muted">
+          {data.patient.phone ?? (data.patient.ci ? `CI ${data.patient.ci}` : '—')}
+        </p>
         {data.patient.ci && <p className="text-sm text-text-muted">CI: {data.patient.ci}</p>}
       </div>
 

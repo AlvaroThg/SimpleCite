@@ -98,7 +98,7 @@ function PatientsList() {
                       <div className="min-w-0">
                         <p className="font-semibold text-text-primary truncate">{p.name}</p>
                         <p className="text-sm text-text-muted truncate">
-                          {p.phone}
+                          {p.phone ?? (p.ci ? `CI ${p.ci}` : '—')}
                           {p.ci ? ` · CI ${p.ci}` : ''}
                         </p>
                       </div>

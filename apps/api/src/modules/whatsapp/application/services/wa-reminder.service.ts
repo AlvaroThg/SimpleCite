@@ -49,6 +49,8 @@ export class WaReminderService {
       try {
         const instance = await this.manager.getInstanceByTenantId(appt.tenantId);
         if (!instance || instance.status !== 'CONNECTED') continue;
+        // Paciente registrado solo con CI: no hay número al que recordarle.
+        if (!appt.patient.phone) continue;
 
         const tz = appt.tenant.timezone ?? 'America/La_Paz';
         const local = toZonedTime(appt.startTime, tz);

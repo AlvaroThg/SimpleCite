@@ -178,11 +178,24 @@ export type SetDoctorInsuranceDto = z.infer<typeof SetDoctorInsuranceSchema>;
 
 // ─── Patient Schemas ───
 
-export const CreatePatientSchema = z.object({
-  name: z.string().min(2, 'El nombre debe tener al menos 2 caracteres'),
-  phone: z.string().regex(/^591\d{8}$/, 'Formato de teléfono boliviano inválido (ej: 59170000000)'),
-  ci: z.string().optional(),
-});
+/**
+ * Alta de paciente: se exige teléfono O CI, no ambos. Los pacientes mayores
+ * llegan sin celular propio y la recepción los identifica por cédula.
+ */
+export const CreatePatientSchema = z
+  .object({
+    name: z.string().min(2, 'El nombre debe tener al menos 2 caracteres'),
+    phone: z
+      .string()
+      .regex(/^591\d{8}$/, 'Formato de teléfono boliviano inválido (ej: 59170000000)')
+      .optional()
+      .or(z.literal('')),
+    ci: z.string().optional(),
+  })
+  .refine((d) => Boolean(d.phone?.trim()) || Boolean(d.ci?.trim()), {
+    message: 'Registra al menos un teléfono o una cédula (CI)',
+    path: ['phone'],
+  });
 export type CreatePatientDto = z.infer<typeof CreatePatientSchema>;
 
 // ─── Service Schemas ───

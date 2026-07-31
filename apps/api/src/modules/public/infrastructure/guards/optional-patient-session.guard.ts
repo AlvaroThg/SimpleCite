@@ -37,19 +37,20 @@ export class OptionalPatientSessionGuard implements CanActivate {
       Request & {
         patient?: { phone: string; tenantId: string };
         tenantId?: string;
-        body?: { phone?: string; patientId?: string };
+        body?: { phone?: string; patientId?: string; patient?: { ci?: string } };
       }
     >();
 
     const rawPhone = req.body?.phone;
-    // Paciente regresante (lookup por CI): viaja patientId en vez de phone;
-    // el service resuelve el teléfono desde su registro.
+    // Identidad del paciente: basta teléfono O CI. Sin teléfono se acepta
+    // cuando es un paciente regresante (patientId) o cuando trae cédula —
+    // los pacientes mayores suelen no tener celular propio.
     if (!rawPhone) {
-      if (req.body?.patientId) {
+      if (req.body?.patientId || req.body?.patient?.ci?.trim()) {
         req.patient = { phone: '', tenantId: req.tenantId ?? '' };
         return true;
       }
-      throw new BadRequestException('El número de teléfono es obligatorio');
+      throw new BadRequestException('Indica un número de teléfono o una cédula (CI)');
     }
 
     req.patient = { phone: normalizePhone(rawPhone), tenantId: req.tenantId ?? '' };

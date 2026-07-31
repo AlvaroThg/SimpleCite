@@ -252,8 +252,14 @@ export function NewAppointmentModal({
       toast.error('Selecciona un paciente');
       return;
     }
-    if (patientMode === 'new' && (!newPatient.name.trim() || !newPatient.phone.trim())) {
-      toast.error('Nombre y teléfono del nuevo paciente son obligatorios');
+    // Identidad: basta teléfono O CI. Los pacientes mayores suelen llegar sin
+    // celular propio y se los registra por cédula.
+    if (patientMode === 'new' && !newPatient.name.trim()) {
+      toast.error('El nombre del nuevo paciente es obligatorio');
+      return;
+    }
+    if (patientMode === 'new' && !newPatient.phone.trim() && !newPatient.ci.trim()) {
+      toast.error('Registra al menos un teléfono o una cédula (CI)');
       return;
     }
     if (insuranceMode && !insuranceId) {
@@ -273,7 +279,7 @@ export function NewAppointmentModal({
       if (patientMode === 'new') {
         const created = await createPatient(token, slug, {
           name: newPatient.name.trim(),
-          phone: newPatient.phone.trim(),
+          phone: newPatient.phone.trim() || undefined,
           ci: newPatient.ci.trim() || undefined,
         });
         pid = created.id;
@@ -355,7 +361,7 @@ export function NewAppointmentModal({
                   <option value="">Seleccionar paciente…</option>
                   {patients.map((p) => (
                     <option key={p.id} value={p.id}>
-                      {p.name} — {p.phone}
+                      {p.name} — {p.phone ?? p.ci ?? 'sin contacto'}
                     </option>
                   ))}
                 </select>
@@ -374,11 +380,12 @@ export function NewAppointmentModal({
                   <input
                     value={newPatient.ci}
                     onChange={(e) => setNewPatient({ ...newPatient, ci: e.target.value })}
-                    placeholder="CI (opcional)"
+                    placeholder="CI"
                     className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                   />
                   <p className="text-xs text-text-muted">
-                    Si el teléfono o CI ya existe, se usará ese paciente (no se duplica).
+                    Con el teléfono o la cédula basta. Si alguno ya existe, se usará ese paciente
+                    (no se duplica).
                   </p>
                 </div>
               )}

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import type {
   PatientListQueryDto,
   PatientHistoryQueryDto,
@@ -193,41 +193,51 @@ export class PatientsService {
    */
   async findOrCreate(params: {
     tenantId: string;
-    phone: string;
+    phone?: string | null;
     name: string;
     ci?: string;
   }): Promise<{ id: string }> {
     const { tenantId, name } = params;
-    const phone = normalizePhone(params.phone);
-    const ci = params.ci ? normalizeCi(params.ci) : undefined;
+    const phone = params.phone?.trim() ? normalizePhone(params.phone) : undefined;
+    const ci = params.ci?.trim() ? normalizeCi(params.ci) : undefined;
 
-    // 1. Buscar por phone (clave principal)
-    let patient = await this.prisma.client.patient.findFirst({
-      where: { tenantId, phone },
-      select: { id: true, ci: true },
-    });
+    // La identidad necesita al menos un dato: sin phone ni ci no hay forma de
+    // reconocer al paciente y cada visita crearía un duplicado.
+    if (!phone && !ci) {
+      throw new BadRequestException('Registra al menos un teléfono o una cédula (CI)');
+    }
+
+    // 1. Buscar por phone (clave principal cuando existe)
+    let patient = phone
+      ? await this.prisma.client.patient.findFirst({
+          where: { tenantId, phone },
+          select: { id: true, ci: true, phone: true },
+        })
+      : null;
 
     // 2. Si no hay por phone pero sí hay ci, buscar por ci
     if (!patient && ci) {
       patient = await this.prisma.client.patient.findFirst({
         where: { tenantId, ci },
-        select: { id: true, ci: true },
+        select: { id: true, ci: true, phone: true },
       });
     }
 
     if (patient) {
-      // Completar ci si faltaba y ahora lo tenemos
-      if (ci && !patient.ci) {
-        await this.prisma.client.patient.update({
-          where: { id: patient.id },
-          data: { ci },
-        });
+      // Completar los datos que faltaban y ahora tenemos (p. ej. el paciente
+      // registrado por CI en recepción que luego reserva por el bot).
+      const missing = {
+        ...(ci && !patient.ci ? { ci } : {}),
+        ...(phone && !patient.phone ? { phone } : {}),
+      };
+      if (Object.keys(missing).length > 0) {
+        await this.prisma.client.patient.update({ where: { id: patient.id }, data: missing });
       }
       return { id: patient.id };
     }
 
     const created = await this.prisma.client.patient.create({
-      data: { tenantId, phone, name, ci: ci ?? null },
+      data: { tenantId, phone: phone ?? null, name, ci: ci ?? null },
       select: { id: true },
     });
     return created;

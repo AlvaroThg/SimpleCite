@@ -165,7 +165,7 @@ export class AppointmentReportPdfService {
             body: [
               ['Paciente:', appt.patient.name],
               ['CI:', appt.patient.ci ?? '—'],
-              ['Teléfono:', appt.patient.phone],
+              ['Teléfono:', appt.patient.phone ?? '—'],
               ['Profesional:', appt.doctor.name],
               [
                 'Especialidad:',
