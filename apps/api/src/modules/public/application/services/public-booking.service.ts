@@ -61,6 +61,11 @@ export class PublicBookingService {
     const { tenantId, dto, remoteIp } = params;
     let { phone } = params;
 
+    // La reserva web es parte del plan: en modo WHATSAPP/LANDING la clínica
+    // agenda por otro canal. Se valida en el server porque ocultar el botón
+    // de la landing no impide llamar al endpoint directamente.
+    await this.assertPublicBookingAllowed(tenantId);
+
     // Paciente regresante (lookup por CI): usa su registro existente; el phone
     // sale de la DB (no se pide de nuevo) y sirve para el rate limit.
     let returningPatient: { id: string } | null = null;
@@ -178,6 +183,22 @@ export class PublicBookingService {
    * crear más de MAX_BOOKINGS_PER_PHONE reservas por hora en la misma clínica.
    * Cuenta citas recientes del teléfono (vía relación patient.phone normalizada).
    */
+  /**
+   * La reserva web solo existe en el plan que la incluye (publicMode BOOKING).
+   * En WHATSAPP/LANDING el paciente coordina por chat o por teléfono.
+   */
+  private async assertPublicBookingAllowed(tenantId: string): Promise<void> {
+    const tenant = await this.prisma.client.tenant.findUnique({
+      where: { id: tenantId },
+      select: { publicMode: true },
+    });
+    if (tenant && tenant.publicMode !== 'BOOKING') {
+      throw new ForbiddenException(
+        'Esta clínica no toma reservas por la web. Comunícate con la clínica para agendar tu cita.',
+      );
+    }
+  }
+
   private async enforcePhoneRateLimit(tenantId: string, phone: string) {
     const since = new Date(Date.now() - BOOKING_RATE_WINDOW_MS);
     const count = await this.prisma.client.appointment.count({

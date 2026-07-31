@@ -36,6 +36,17 @@ enum AppointmentStatus {
   NO_SHOW
 }
 
+/// Qué puede hacer un paciente desde la página pública de la clínica. Es un
+/// rasgo del plan contratado, no una preferencia del admin del tenant.
+enum PublicMode {
+  /// Reserva web completa (elige especialista, horario y paga). Plan Profesional.
+  BOOKING
+  /// Sin reserva web: el CTA abre el WhatsApp de la clínica. Plan Básico.
+  WHATSAPP
+  /// Página solo informativa; agenda únicamente el staff desde el panel.
+  LANDING
+}
+
 enum SubscriptionPlan {
   BASIC
   PRO
@@ -140,6 +151,10 @@ model Tenant {
   /// bot centralizado SOLO resuelve/atiende clínicas con esto en true. Lo
   /// controla la plataforma (CLI/DB), NO el admin del tenant.
   botEnabled       Boolean          @default(false)
+  /// Qué ofrece la página pública de la clínica según su plan:
+  /// BOOKING (reserva web completa), WHATSAPP (el CTA abre el chat de la
+  /// clínica) o LANDING (solo informativa; el staff agenda desde el panel).
+  publicMode       PublicMode       @default(BOOKING)
 
   // ─── Personalización de la landing pública (editable por el admin) ───
   secondaryColor   String? /// Color secundario de la paleta (hex). Acentos/gradientes.

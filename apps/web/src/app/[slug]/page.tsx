@@ -10,6 +10,7 @@ import {
   MapPin,
   Stethoscope,
   Banknote,
+  Phone,
 } from 'lucide-react';
 import { getTenantInfo, getDoctors } from '@/lib/api';
 import { getServiceIcon } from '@/lib/service-icons';
@@ -114,6 +115,50 @@ export default async function TenantLandingPage({ params }: Props) {
   // esta clínica no tiene el add-on activado).
   const botLink = tenant.botEnabled ? botDeepLink(slug) : null;
 
+  // Qué ofrece la página según el plan de la clínica:
+  //   BOOKING  → reserva web completa.
+  //   WHATSAPP → el CTA abre el chat de la clínica (sin reserva web).
+  //   LANDING  → solo informativa: el paciente llama y el staff agenda.
+  const publicMode = tenant.publicMode ?? 'BOOKING';
+  const canBookOnline = publicMode === 'BOOKING';
+  const clinicWhatsapp = tenant.whatsappContact
+    ? `https://wa.me/${tenant.whatsappContact}?text=${encodeURIComponent(
+        `Hola, quiero reservar una cita en ${tenant.name}.`,
+      )}`
+    : null;
+  // En modo WhatsApp el CTA principal es el chat; si la clínica no cargó su
+  // número, cae a llamar/ver la ubicación en vez de dejar un botón muerto.
+  const primaryCta =
+    publicMode === 'WHATSAPP' && clinicWhatsapp
+      ? { href: clinicWhatsapp, label: 'Reservar por WhatsApp', external: true }
+      : canBookOnline
+        ? { href: `/${slug}/booking`, label: 'Reservar cita', external: false }
+        : null;
+
+  // Destino de todos los "reservar" de la página. Sin reserva online apuntan al
+  // chat de la clínica; y si tampoco hay número, a la sección de contacto.
+  const bookHref = primaryCta?.href ?? (clinicWhatsapp || '#contacto');
+  const bookExternal = primaryCta ? primaryCta.external : Boolean(clinicWhatsapp);
+  /** Enlace de "reservar" que respeta el modo público de la clínica. */
+  const BookLink = ({
+    children,
+    className,
+    style,
+  }: {
+    children: React.ReactNode;
+    className?: string;
+    style?: React.CSSProperties;
+  }) =>
+    bookExternal ? (
+      <a href={bookHref} target="_blank" rel="noreferrer" className={className} style={style}>
+        {children}
+      </a>
+    ) : (
+      <Link href={bookHref} className={className} style={style}>
+        {children}
+      </Link>
+    );
+
   return (
     <div className="bg-surface text-text-primary">
       {/* ── Hero ── */}
@@ -158,16 +203,49 @@ export default async function TenantLandingPage({ params }: Props) {
             <p className="mt-5 max-w-xl text-pretty text-lg text-text-secondary">{heroSubtitle}</p>
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Link
-                href={`/${slug}/booking`}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl px-7 py-3.5 text-lg font-bold shadow-sm transition hover:opacity-90 active:scale-95"
-                style={{ backgroundColor: primary, color: onPrimary }}
-              >
-                Reservar cita <ArrowRight className="size-5" />
-              </Link>
+              {primaryCta &&
+                (primaryCta.external ? (
+                  <a
+                    href={primaryCta.href}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center justify-center gap-2 rounded-2xl px-7 py-3.5 text-lg font-bold shadow-sm transition hover:opacity-90 active:scale-95"
+                    style={{ backgroundColor: primary, color: onPrimary }}
+                  >
+                    <MessageCircle className="size-5" /> {primaryCta.label}
+                  </a>
+                ) : (
+                  <Link
+                    href={primaryCta.href}
+                    className="inline-flex items-center justify-center gap-2 rounded-2xl px-7 py-3.5 text-lg font-bold shadow-sm transition hover:opacity-90 active:scale-95"
+                    style={{ backgroundColor: primary, color: onPrimary }}
+                  >
+                    {primaryCta.label} <ArrowRight className="size-5" />
+                  </Link>
+                ))}
+              {/* Sin reserva online: el teléfono es la vía real de contacto, así
+                  que pasa a ser la acción principal en vez de un botón muerto. */}
+              {!primaryCta && tenant.whatsappContact && (
+                <a
+                  href={`tel:+${tenant.whatsappContact}`}
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl px-7 py-3.5 text-lg font-bold shadow-sm transition hover:opacity-90 active:scale-95"
+                  style={{ backgroundColor: primary, color: onPrimary }}
+                >
+                  <Phone className="size-5" /> Llamar para reservar
+                </a>
+              )}
               <a
                 href="#especialidades"
-                className="inline-flex items-center justify-center rounded-2xl border border-border bg-surface px-7 py-3.5 text-lg font-semibold text-text-secondary transition hover:bg-canvas active:scale-95"
+                className={
+                  primaryCta || tenant.whatsappContact
+                    ? 'inline-flex items-center justify-center rounded-2xl border border-border bg-surface px-7 py-3.5 text-lg font-semibold text-text-secondary transition hover:bg-canvas active:scale-95'
+                    : 'inline-flex items-center justify-center gap-2 rounded-2xl px-7 py-3.5 text-lg font-bold shadow-sm transition hover:opacity-90 active:scale-95'
+                }
+                style={
+                  primaryCta || tenant.whatsappContact
+                    ? undefined
+                    : { backgroundColor: primary, color: onPrimary }
+                }
               >
                 Ver especialidades
               </a>
@@ -201,13 +279,12 @@ export default async function TenantLandingPage({ params }: Props) {
             {services.length > 0 && (
               <div className="mt-8 flex flex-wrap gap-2">
                 {services.slice(0, 4).map((svc) => (
-                  <Link
+                  <BookLink
                     key={svc.id}
-                    href={`/${slug}/booking`}
                     className="rounded-full border border-border bg-surface px-3.5 py-1.5 text-sm text-text-secondary shadow-sm transition hover:bg-canvas hover:text-text-primary"
                   >
                     {svc.name}
-                  </Link>
+                  </BookLink>
                 ))}
               </div>
             )}
@@ -320,9 +397,8 @@ export default async function TenantLandingPage({ params }: Props) {
             {services.map((svc, i) => {
               const Icon = getServiceIcon(svc.icon, i);
               return (
-                <Link
+                <BookLink
                   key={svc.id}
-                  href={`/${slug}/booking`}
                   className="group flex items-center gap-5 p-5 transition-colors hover:bg-canvas sm:p-6"
                 >
                   <span
@@ -349,7 +425,7 @@ export default async function TenantLandingPage({ params }: Props) {
                     className="size-5 flex-shrink-0 text-text-muted transition-transform group-hover:translate-x-1"
                     style={{ color: accent }}
                   />
-                </Link>
+                </BookLink>
               );
             })}
           </div>
@@ -395,9 +471,8 @@ export default async function TenantLandingPage({ params }: Props) {
           </div>
           <div className="mt-10 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {specialties.map(([sp, count]) => (
-              <Link
+              <BookLink
                 key={sp}
-                href={`/${slug}/booking`}
                 className="group flex items-center justify-between gap-3 rounded-2xl px-5 py-4 font-semibold shadow-sm transition hover:opacity-90 active:scale-[.99]"
                 style={{ backgroundColor: primary, color: onPrimary }}
               >
@@ -408,7 +483,7 @@ export default async function TenantLandingPage({ params }: Props) {
                   </span>
                 </span>
                 <ArrowRight className="size-5 flex-shrink-0 transition-transform group-hover:translate-x-1" />
-              </Link>
+              </BookLink>
             ))}
           </div>
         </section>
@@ -473,13 +548,12 @@ export default async function TenantLandingPage({ params }: Props) {
                       ))}
                     </div>
                   )}
-                  <Link
-                    href={`/${slug}/booking`}
+                  <BookLink
                     className="mt-5 inline-flex items-center gap-1 text-sm font-semibold transition hover:gap-2"
                     style={{ color: accent }}
                   >
                     Agendar con {shortDoctorName(doctor.name)} <ArrowRight className="size-4" />
-                  </Link>
+                  </BookLink>
                 </div>
               ))}
             </div>
@@ -568,10 +642,7 @@ export default async function TenantLandingPage({ params }: Props) {
                   </span>
                 </a>
               )}
-              <Link
-                href={`/${slug}/booking`}
-                className="flex items-center gap-4 rounded-2xl border border-border bg-surface p-4 shadow-sm transition hover:border-transparent hover:shadow-md"
-              >
+              <BookLink className="flex items-center gap-4 rounded-2xl border border-border bg-surface p-4 shadow-sm transition hover:border-transparent hover:shadow-md">
                 <span
                   className="flex size-11 flex-shrink-0 items-center justify-center rounded-xl"
                   style={{ backgroundColor: `${primary}1f`, color: accent }}
@@ -584,7 +655,7 @@ export default async function TenantLandingPage({ params }: Props) {
                     Agenda disponible las 24 horas
                   </span>
                 </span>
-              </Link>
+              </BookLink>
             </div>
           </div>
         </section>
@@ -604,13 +675,12 @@ export default async function TenantLandingPage({ params }: Props) {
           <div className="relative">
             <h2 className="text-balance text-3xl font-bold">{ctaTitle}</h2>
             <p className="mx-auto mt-2 max-w-md opacity-80">{ctaSubtitle}</p>
-            <Link
-              href={`/${slug}/booking`}
+            <BookLink
               className="mt-7 inline-flex items-center justify-center gap-2 rounded-2xl bg-surface px-8 py-4 text-lg font-bold shadow-lg transition hover:bg-canvas active:scale-95"
               style={{ color: accent }}
             >
               Agendar mi cita <ArrowRight className="size-5" />
-            </Link>
+            </BookLink>
           </div>
         </div>
       </section>

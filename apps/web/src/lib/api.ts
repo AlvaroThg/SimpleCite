@@ -48,6 +48,9 @@ export interface TenantInfo {
   paymentsEnabled: boolean;
   /// Bot de WhatsApp habilitado para esta clínica (deep links de chat).
   botEnabled: boolean;
+  /// Qué ofrece la página pública según el plan: reserva web, chat de WhatsApp
+  /// o solo informativa. Opcional: una respuesta ISR vieja puede no traerlo.
+  publicMode?: 'BOOKING' | 'WHATSAPP' | 'LANDING';
   timezone: string;
   whatsappEnabled: boolean;
   /// Nombres de los seguros médicos activos (sección "Seguros aceptados").

@@ -197,6 +197,12 @@ export default function BookingWizard() {
   useEffect(() => {
     Promise.all([getTenantInfo(slug), getDoctors(slug)])
       .then(([tenant, doctors]) => {
+        // La reserva web es parte del plan: si la clínica no la tiene, esta
+        // ruta no existe para el paciente (el server también la rechaza).
+        if (tenant.publicMode && tenant.publicMode !== 'BOOKING') {
+          router.replace(`/${slug}`);
+          return;
+        }
         // Restaurar progreso guardado (refresh a mitad del wizard): se
         // reconstruyen doctor/servicio desde el catálogo recién cargado.
         const saved = loadWizard(slug);
@@ -227,7 +233,7 @@ export default function BookingWizard() {
       .catch(() =>
         set({ error: 'Error al cargar la clínica. Intenta más tarde.', loading: false }),
       );
-  }, [slug]);
+  }, [slug, router]);
 
   // Guardar el progreso en cada cambio relevante (y limpiarlo al terminar).
   useEffect(() => {

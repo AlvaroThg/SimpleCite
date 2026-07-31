@@ -30,6 +30,7 @@ type Overrides = Partial<{
   insurance: unknown;
   createThrows: unknown;
   paymentsEnabled: boolean;
+  publicMode: 'BOOKING' | 'WHATSAPP' | 'LANDING';
 }>;
 
 function makeHarness(o: Overrides = {}) {
@@ -76,6 +77,7 @@ function makeHarness(o: Overrides = {}) {
           slug: 't',
           staticQrUrl: null,
           paymentsEnabled: o.paymentsEnabled ?? true,
+          publicMode: o.publicMode ?? 'BOOKING',
         }),
       },
     },
@@ -283,5 +285,29 @@ describe('PublicBookingService.confirm', () => {
     })) as { status: string; insuranceNameSnapshot: string };
     expect(res.status).toBe('CONFIRMED');
     expect(res.insuranceNameSnapshot).toBe('Univida');
+  });
+});
+
+describe('PublicBookingService — la reserva web depende del plan (publicMode)', () => {
+  it('modo WHATSAPP: rechaza la reserva web aunque llamen al endpoint directo', async () => {
+    const { svc, appointmentCreate } = makeHarness({ publicMode: 'WHATSAPP' });
+    await expect(
+      svc.createTentative({ tenantId: 't1', phone: '59170000000', dto: baseDto }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(appointmentCreate).not.toHaveBeenCalled();
+  });
+
+  it('modo LANDING: tampoco toma reservas por la web', async () => {
+    const { svc, appointmentCreate } = makeHarness({ publicMode: 'LANDING' });
+    await expect(
+      svc.createTentative({ tenantId: 't1', phone: '59170000000', dto: baseDto }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(appointmentCreate).not.toHaveBeenCalled();
+  });
+
+  it('modo BOOKING: la reserva web funciona con normalidad', async () => {
+    const { svc, appointmentCreate } = makeHarness({ publicMode: 'BOOKING' });
+    await svc.createTentative({ tenantId: 't1', phone: '59170000000', dto: baseDto });
+    expect(appointmentCreate).toHaveBeenCalled();
   });
 });
