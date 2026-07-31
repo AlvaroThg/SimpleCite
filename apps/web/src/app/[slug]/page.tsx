@@ -85,11 +85,23 @@ export default async function TenantLandingPage({ params }: Props) {
     }, new Map<string, number>()),
   );
 
-  // Textos editables con fallbacks por defecto.
+  // Qué ofrece la página según el plan de la clínica:
+  //   BOOKING  → reserva web completa.
+  //   WHATSAPP → el CTA abre el chat de la clínica (sin reserva web).
+  //   LANDING  → solo informativa: el paciente llama y el staff agenda.
+  const publicMode = tenant.publicMode ?? 'BOOKING';
+  const canBookOnline = publicMode === 'BOOKING';
+
+  // Textos editables con fallbacks por defecto. El de reserva promete "sin
+  // llamadas": solo aplica cuando de verdad hay reserva web.
   const heroTitle = tenant.heroTitle || `Tu salud, agendada en minutos en ${tenant.name}`;
   const heroSubtitle =
     tenant.heroSubtitle ||
-    'Reserva tu cita en línea con nuestros especialistas. Sin llamadas, sin esperas: elige, confirma y listo.';
+    (canBookOnline
+      ? 'Reserva tu cita en línea con nuestros especialistas. Sin llamadas, sin esperas: elige, confirma y listo.'
+      : publicMode === 'WHATSAPP'
+        ? 'Escríbenos por WhatsApp y coordinamos tu cita con el especialista que necesitas.'
+        : 'Conoce a nuestros especialistas y comunícate con nosotros para agendar tu cita.');
   const servicesTitle = tenant.servicesTitle || 'Nuestros servicios';
   const specialistsTitle = tenant.specialistsTitle || 'Nuestros especialistas';
   const ctaTitle = tenant.ctaTitle || '¿Listo para tu cita?';
@@ -115,12 +127,6 @@ export default async function TenantLandingPage({ params }: Props) {
   // esta clínica no tiene el add-on activado).
   const botLink = tenant.botEnabled ? botDeepLink(slug) : null;
 
-  // Qué ofrece la página según el plan de la clínica:
-  //   BOOKING  → reserva web completa.
-  //   WHATSAPP → el CTA abre el chat de la clínica (sin reserva web).
-  //   LANDING  → solo informativa: el paciente llama y el staff agenda.
-  const publicMode = tenant.publicMode ?? 'BOOKING';
-  const canBookOnline = publicMode === 'BOOKING';
   const clinicWhatsapp = tenant.whatsappContact
     ? `https://wa.me/${tenant.whatsappContact}?text=${encodeURIComponent(
         `Hola, quiero reservar una cita en ${tenant.name}.`,
@@ -194,7 +200,11 @@ export default async function TenantLandingPage({ params }: Props) {
                   style={{ backgroundColor: accent }}
                 />
               </span>
-              Reservas en línea abiertas
+              {canBookOnline
+                ? 'Reservas en línea abiertas'
+                : publicMode === 'WHATSAPP'
+                  ? 'Reservas por WhatsApp'
+                  : 'Atención con cita previa'}
             </span>
 
             <h1 className="text-balance text-4xl font-extrabold leading-[1.08] tracking-tight sm:text-5xl">
@@ -371,7 +381,8 @@ export default async function TenantLandingPage({ params }: Props) {
         <div className="border-t border-border bg-surface/70 backdrop-blur-sm">
           <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-x-10 gap-y-3 px-5 py-4 text-sm text-text-secondary">
             <span className="inline-flex items-center gap-2">
-              <Clock className="size-4" style={{ color: accent }} /> Reserva online las 24 horas
+              <Clock className="size-4" style={{ color: accent }} />{' '}
+              {canBookOnline ? 'Reserva online las 24 horas' : 'Atención con cita previa'}
             </span>
             <span className="inline-flex items-center gap-2">
               <MessageCircle className="size-4" style={{ color: accent }} /> Coordinación por
@@ -650,9 +661,13 @@ export default async function TenantLandingPage({ params }: Props) {
                   <CalendarCheck className="size-5" />
                 </span>
                 <span className="min-w-0">
-                  <span className="block font-semibold">Reserva online</span>
+                  <span className="block font-semibold">
+                    {canBookOnline ? 'Reserva online' : 'Reservar cita'}
+                  </span>
                   <span className="block text-sm text-text-muted">
-                    Agenda disponible las 24 horas
+                    {canBookOnline
+                      ? 'Agenda disponible las 24 horas'
+                      : 'Coordina tu cita con nosotros'}
                   </span>
                 </span>
               </BookLink>
