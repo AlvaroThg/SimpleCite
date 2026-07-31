@@ -197,3 +197,17 @@
     font-size: 0.7rem;
   }
 }
+
+/* ── Franjas pasadas: no se puede reservar hacia atrás ──
+   Se ven apagadas para que la agenda comunique el límite sin depender del
+   mensaje de error. El bloqueo real vive en onSelectSlot + el server. */
+.sc-calendar .sc-slot-past {
+  background-color: #f8fafc;
+  cursor: not-allowed;
+}
+.sc-calendar .sc-day-past {
+  background-color: #f8fafc;
+}
+.sc-calendar .sc-day-past .rbc-button-link {
+  color: #94a3b8;
+}

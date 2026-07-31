@@ -6,6 +6,7 @@ import withDragAndDrop, {
   type withDragAndDropProps,
 } from 'react-big-calendar/lib/addons/dragAndDrop';
 import { format } from 'date-fns';
+import { toast } from 'sonner';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import 'react-big-calendar/lib/addons/dragAndDrop/styles.css';
 import './calendar.css';
@@ -152,9 +153,16 @@ export function AdminCalendar({
         popup
         resizable
         selectable
-        onSelectSlot={(slot) =>
-          onSelectSlot?.({ start: toDate(slot.start), end: toDate(slot.end) })
-        }
+        onSelectSlot={(slot) => {
+          // No se reserva hacia atrás: avisamos en vez de abrir el modal y
+          // fallar recién al guardar. El server valida igual (defensa en fondo).
+          const start = toDate(slot.start);
+          if (start.getTime() < Date.now()) {
+            toast.error('No puede reservar en una hora que ya pasó');
+            return;
+          }
+          onSelectSlot?.({ start, end: toDate(slot.end) });
+        }}
         onEventDrop={handleChange}
         onEventResize={handleChange}
         onSelectEvent={(e) => onSelectEvent?.(e as AdminEvent)}
@@ -166,6 +174,16 @@ export function AdminCalendar({
             .join(' · ');
         }}
         eventPropGetter={(e) => eventStyle(e as AdminEvent)}
+        // Las franjas ya pasadas se ven apagadas: la agenda deja claro de un
+        // vistazo hasta dónde se puede reservar.
+        slotPropGetter={(d: Date) =>
+          d.getTime() < Date.now() ? { className: 'sc-slot-past' } : {}
+        }
+        dayPropGetter={(d: Date) => {
+          const end = new Date(d);
+          end.setHours(23, 59, 59, 999);
+          return end.getTime() < Date.now() ? { className: 'sc-day-past' } : {};
+        }}
         dayLayoutAlgorithm="no-overlap"
       />
     </div>
