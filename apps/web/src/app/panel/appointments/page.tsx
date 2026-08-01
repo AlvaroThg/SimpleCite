@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { useAuth } from '@/lib/panel-auth';
@@ -120,19 +120,32 @@ function AppointmentsList() {
     [tenantConfig, doctorQrMap],
   );
 
-  // Carga todas las citas (cualquier estado) para la vista de calendario.
-  const loadCalendar = useCallback(async () => {
-    if (!session) return;
-    try {
-      setCalendarItems(await getAppointments(session.token, session.slug, {}));
-    } catch (err) {
-      toast.error(err instanceof PanelApiError ? err.message : 'Error al cargar el calendario');
-    }
-  }, [session]);
+  // Citas del rango que se está mirando (cualquier estado). Se pide el rango
+  // explícito: con `{}` el API aplicaba su ventana por defecto (-30/+15 días) y
+  // las citas más lejanas —o al navegar a otro mes— no aparecían nunca.
+  // Último rango mirado: al recargar (p. ej. tras crear una cita) se conserva
+  // la vista en la que está el usuario en vez de volver a la ventana default.
+  const calendarRange = useRef<{ from: Date; to: Date } | undefined>(undefined);
+  const loadCalendar = useCallback(
+    async (range?: { from: Date; to: Date }) => {
+      if (!session) return;
+      if (range) calendarRange.current = range;
+      else range = calendarRange.current;
+      try {
+        setCalendarItems(
+          await getAppointments(session.token, session.slug, {
+            ...(range && { from: range.from.toISOString(), to: range.to.toISOString() }),
+          }),
+        );
+      } catch (err) {
+        toast.error(err instanceof PanelApiError ? err.message : 'Error al cargar el calendario');
+      }
+    },
+    [session],
+  );
 
-  useEffect(() => {
-    if (view === 'calendar') void loadCalendar();
-  }, [view, loadCalendar]);
+  // El rango lo dispara el propio calendario (onRangeChange) al montar y al
+  // navegar, así que aquí no hace falta cargar por cambio de vista.
 
   // ADMIN/STAFF: color por ESPECIALISTA (distinguir de un vistazo quién
   // atiende cada cita) + línea extra con doctor y precio. El DOCTOR ve sus
@@ -352,6 +365,7 @@ function AppointmentsList() {
             onSelectEvent={(e) => router.push(`/panel/appointments/${e.id}`)}
             onSelectSlot={(s) => openNewAppt(s.start)}
             onReschedule={handleReschedule}
+            onRangeChange={loadCalendar}
           />
         </>
       ) : loading ? (

@@ -76,6 +76,12 @@ interface AdminCalendarProps {
   onSelectEvent?: (event: AdminEvent) => void;
   /** Clic/arrastre sobre un hueco vacío → crear cita a esa hora (Google Calendar). */
   onSelectSlot?: (slot: { start: Date; end: Date }) => void;
+  /**
+   * Rango visible (mes/semana/día que se está mirando). El panel lo usa para
+   * pedirle al backend justo esas citas: sin esto la vista dependía de la
+   * ventana por defecto del API y las citas lejanas no aparecían nunca.
+   */
+  onRangeChange?: (range: { from: Date; to: Date }) => void;
   defaultView?: View;
   minHour?: number;
   maxHour?: number;
@@ -97,12 +103,28 @@ export function AdminCalendar({
   onReschedule,
   onSelectEvent,
   onSelectSlot,
+  onRangeChange,
   defaultView = Views.WEEK,
   minHour = 7,
   maxHour = 20,
 }: AdminCalendarProps) {
   const [view, setView] = useState<View>(defaultView);
   const [date, setDate] = useState<Date>(new Date());
+
+  // Avisar qué rango se está mirando para que el panel cargue esas citas.
+  // Se pide con margen (±7 días) porque la vista de mes muestra días de los
+  // meses vecinos y la semana puede cruzar el borde del mes.
+  useEffect(() => {
+    if (!onRangeChange) return;
+    const span = view === Views.DAY ? 1 : view === Views.WEEK ? 7 : 31;
+    const from = new Date(date);
+    from.setDate(from.getDate() - span - 7);
+    from.setHours(0, 0, 0, 0);
+    const to = new Date(date);
+    to.setDate(to.getDate() + span + 7);
+    to.setHours(23, 59, 59, 999);
+    onRangeChange({ from, to });
+  }, [view, date, onRangeChange]);
 
   // Responsive: en pantallas chicas, vista Día (como Google Calendar móvil).
   useEffect(() => {

@@ -247,3 +247,38 @@ describe('AppointmentsService.reschedule', () => {
     ).rejects.toBeInstanceOf(ConflictException);
   });
 });
+
+describe('AppointmentsService.findAll — ventana por defecto', () => {
+  function makeListPrisma() {
+    const findMany = jest.fn().mockResolvedValue([]);
+    return { prisma: { client: { appointment: { findMany } } } as never, findMany };
+  }
+
+  it('una cita a 3 semanas (alcance del bot) entra en la ventana por defecto', async () => {
+    const { prisma, findMany } = makeListPrisma();
+    const svc = new AppointmentsService(prisma, waCloud, logger);
+    await svc.findAll('t1', {});
+
+    const { startTime } = findMany.mock.calls[0][0].where as {
+      startTime: { gte: Date; lte: Date };
+    };
+    const enTresSemanas = new Date(Date.now() + 21 * 86_400_000);
+    // Antes la ventana era +15 días: la cita existía pero no salía ni en la
+    // lista ni en el calendario, solo entrando al paciente.
+    expect(startTime.lte.getTime()).toBeGreaterThan(enTresSemanas.getTime());
+  });
+
+  it('un rango explícito manda sobre la ventana por defecto', async () => {
+    const { prisma, findMany } = makeListPrisma();
+    const svc = new AppointmentsService(prisma, waCloud, logger);
+    const from = new Date('2027-01-01T00:00:00Z');
+    const to = new Date('2027-01-31T23:59:59Z');
+    await svc.findAll('t1', { from, to });
+
+    const { startTime } = findMany.mock.calls[0][0].where as {
+      startTime: { gte: Date; lte: Date };
+    };
+    expect(startTime.gte).toBe(from);
+    expect(startTime.lte).toBe(to);
+  });
+});
