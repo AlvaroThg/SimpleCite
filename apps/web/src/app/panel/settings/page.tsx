@@ -102,6 +102,21 @@ function Settings() {
 }
 
 // ─── Branding ───────────────────────────────────────────────────────────
+
+/** Bloques guardables de Configuración: cada uno tiene su propio botón. */
+type SettingsSection = 'marca' | 'pagos' | 'sesion' | 'qr' | 'textos';
+
+const SECTION_LABELS: Record<SettingsSection, string> = {
+  marca: 'Marca',
+  pagos: 'Módulo de pagos',
+  sesion: 'Sesión del panel',
+  qr: 'QR bancarios',
+  textos: 'Textos de la página',
+};
+
+/** Campos que acepta el guardado parcial del tenant. */
+type TenantBrandingPatch = Parameters<typeof updateTenantBranding>[2];
+
 function Branding({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantConfig) => void }) {
   const { session } = useAuth();
   const [name, setName] = useState(cfg.name);
@@ -121,7 +136,11 @@ function Branding({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantConf
   const [extendedSessionAdminOnly, setExtendedSessionAdminOnly] = useState(
     cfg.extendedSessionAdminOnly ?? false,
   );
-  const [saving, setSaving] = useState(false);
+  // Qué sección se está guardando (null = ninguna). Antes había un único
+  // "Guardar marca" que mandaba TODO junto: tocar un switch de pagos obligaba a
+  // guardar también textos y colores, y no quedaba claro qué se estaba
+  // aplicando. Ahora cada bloque guarda solo lo suyo.
+  const [savingSection, setSavingSection] = useState<SettingsSection | null>(null);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [uploadingQr, setUploadingQr] = useState(false);
   const [uploadingQr2, setUploadingQr2] = useState(false);
@@ -131,36 +150,42 @@ function Branding({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantConf
   const qr2InputRef = useRef<HTMLInputElement>(null);
   const heroInputRef = useRef<HTMLInputElement>(null);
 
-  async function save() {
+  /** Guarda SOLO los campos de una sección, con su propio estado de carga. */
+  async function save(section: SettingsSection, patch: TenantBrandingPatch) {
     if (!session) return;
-    setSaving(true);
+    setSavingSection(section);
     try {
-      const updated = await updateTenantBranding(session.token, session.slug, {
-        name: name.trim(),
-        primaryColor: color,
-        secondaryColor: secondaryColor || null,
-        staticQrLabel: qrLabel.trim() || null,
-        staticQrLabel2: qrLabel2.trim() || null,
-        qrAssignmentMode: qrMode,
-        paymentsEnabled,
-        extendedSession,
-        extendedSessionAdminOnly,
-        heroTitle: heroTitle.trim() || null,
-        heroSubtitle: heroSubtitle.trim() || null,
-        servicesTitle: servicesTitle.trim() || null,
-        specialistsTitle: specialistsTitle.trim() || null,
-        ctaTitle: ctaTitle.trim() || null,
-        ctaSubtitle: ctaSubtitle.trim() || null,
-      });
+      const updated = await updateTenantBranding(session.token, session.slug, patch);
       onSaved(updated);
       revalidateTenantLanding(session.slug); // la landing refleja el cambio ya
-      toast.success('Cambios guardados.');
+      toast.success(`${SECTION_LABELS[section]}: cambios guardados.`);
     } catch (e) {
       toast.error(e instanceof PanelApiError ? e.message : 'No se pudo guardar');
     } finally {
-      setSaving(false);
+      setSavingSection(null);
     }
   }
+
+  /** Botón de guardado de una sección. */
+  const SaveSection = ({
+    section,
+    patch,
+    disabled,
+  }: {
+    section: SettingsSection;
+    patch: () => TenantBrandingPatch;
+    disabled?: boolean;
+  }) => (
+    <div className="mt-4 flex justify-end">
+      <button
+        onClick={() => void save(section, patch())}
+        disabled={disabled || savingSection !== null}
+        className="px-4 py-2 rounded-xl bg-brand-600 text-white text-sm font-semibold hover:bg-brand-700 disabled:opacity-50"
+      >
+        {savingSection === section ? 'Guardando…' : 'Guardar'}
+      </button>
+    </div>
+  );
 
   function handleFileUpload(
     type: 'logo' | 'static-qr' | 'static-qr-2' | 'hero',
@@ -333,6 +358,16 @@ function Branding({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantConf
         </div>
       </div>
 
+      <SaveSection
+        section="marca"
+        patch={() => ({
+          name: name.trim(),
+          primaryColor: color,
+          secondaryColor: secondaryColor || null,
+        })}
+        disabled={!name.trim()}
+      />
+
       {/* Módulo de pagos: cobrar en línea (QR + comprobante) o en la clínica */}
       <div className="border-t border-border pt-4">
         <div className="flex items-start justify-between gap-4">
@@ -348,10 +383,10 @@ function Branding({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantConf
         </div>
         {!paymentsEnabled && (
           <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-            Con el módulo apagado, el booking no muestra QR ni pide método de pago. Recuerda guardar
-            los cambios.
+            Con el módulo apagado, el booking no muestra QR ni pide método de pago.
           </p>
         )}
+        <SaveSection section="pagos" patch={() => ({ paymentsEnabled })} />
       </div>
 
       {/* Sesión del panel: mantener la sesión iniciada (30 días) */}
@@ -395,6 +430,10 @@ function Branding({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantConf
             contraseña. El cambio aplica desde el próximo inicio de sesión.
           </p>
         )}
+        <SaveSection
+          section="sesion"
+          patch={() => ({ extendedSession, extendedSessionAdminOnly })}
+        />
       </div>
 
       {/* Static QR upload (hasta 2 bancos) */}
@@ -523,6 +562,14 @@ function Branding({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantConf
             />
           </div>
         </div>
+        <SaveSection
+          section="qr"
+          patch={() => ({
+            staticQrLabel: qrLabel.trim() || null,
+            staticQrLabel2: qrLabel2.trim() || null,
+            qrAssignmentMode: qrMode,
+          })}
+        />
       </div>
 
       {/* Hero image upload */}
@@ -642,16 +689,17 @@ function Branding({ cfg, onSaved }: { cfg: TenantConfig; onSaved: (c: TenantConf
             className="w-full border border-border-strong rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
           />
         </label>
-      </div>
-
-      <div className="flex justify-end">
-        <button
-          onClick={save}
-          disabled={saving || !name.trim()}
-          className="px-4 py-2 rounded-xl bg-brand-600 text-white text-sm font-semibold hover:bg-brand-700 disabled:opacity-50"
-        >
-          {saving ? 'Guardando…' : 'Guardar marca'}
-        </button>
+        <SaveSection
+          section="textos"
+          patch={() => ({
+            heroTitle: heroTitle.trim() || null,
+            heroSubtitle: heroSubtitle.trim() || null,
+            servicesTitle: servicesTitle.trim() || null,
+            specialistsTitle: specialistsTitle.trim() || null,
+            ctaTitle: ctaTitle.trim() || null,
+            ctaSubtitle: ctaSubtitle.trim() || null,
+          })}
+        />
       </div>
     </section>
   );
