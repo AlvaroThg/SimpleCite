@@ -132,14 +132,17 @@ export default async function TenantLandingPage({ params }: Props) {
         `Hola, quiero reservar una cita en ${tenant.name}.`,
       )}`
     : null;
-  // En modo WhatsApp el CTA principal es el chat; si la clínica no cargó su
-  // número, cae a llamar/ver la ubicación en vez de dejar un botón muerto.
-  const primaryCta =
-    publicMode === 'WHATSAPP' && clinicWhatsapp
+  // Sin reserva web (WHATSAPP y LANDING) el CTA principal es el chat de la
+  // clínica: escribir es el canal que más usa el paciente. La llamada queda
+  // como segunda opción visible — cada quien elige cómo contactar.
+  const primaryCta = canBookOnline
+    ? { href: `/${slug}/booking`, label: 'Reservar cita', external: false }
+    : clinicWhatsapp
       ? { href: clinicWhatsapp, label: 'Reservar por WhatsApp', external: true }
-      : canBookOnline
-        ? { href: `/${slug}/booking`, label: 'Reservar cita', external: false }
-        : null;
+      : null;
+  /** Botón de llamada, solo cuando no hay reserva web y hay número cargado. */
+  const callHref =
+    !canBookOnline && tenant.whatsappContact ? `tel:+${tenant.whatsappContact}` : null;
 
   // Destino de todos los "reservar" de la página. Sin reserva online apuntan al
   // chat de la clínica; y si tampoco hay número, a la sección de contacto.
@@ -233,26 +236,31 @@ export default async function TenantLandingPage({ params }: Props) {
                     {primaryCta.label} <ArrowRight className="size-5" />
                   </Link>
                 ))}
-              {/* Sin reserva online: el teléfono es la vía real de contacto, así
-                  que pasa a ser la acción principal en vez de un botón muerto. */}
-              {!primaryCta && tenant.whatsappContact && (
+              {/* Llamar: segunda vía real de contacto cuando no hay reserva
+                  web. Si no hay ni chat ni teléfono, "Ver especialidades" toma
+                  el estilo principal para no dejar el hero sin acción. */}
+              {callHref && (
                 <a
-                  href={`tel:+${tenant.whatsappContact}`}
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl px-7 py-3.5 text-lg font-bold shadow-sm transition hover:opacity-90 active:scale-95"
-                  style={{ backgroundColor: primary, color: onPrimary }}
+                  href={callHref}
+                  className={
+                    primaryCta
+                      ? 'inline-flex items-center justify-center gap-2 rounded-2xl border border-border bg-surface px-7 py-3.5 text-lg font-semibold text-text-secondary transition hover:bg-canvas active:scale-95'
+                      : 'inline-flex items-center justify-center gap-2 rounded-2xl px-7 py-3.5 text-lg font-bold shadow-sm transition hover:opacity-90 active:scale-95'
+                  }
+                  style={primaryCta ? undefined : { backgroundColor: primary, color: onPrimary }}
                 >
-                  <Phone className="size-5" /> Llamar para reservar
+                  <Phone className="size-5" /> Llamar
                 </a>
               )}
               <a
                 href="#especialidades"
                 className={
-                  primaryCta || tenant.whatsappContact
+                  primaryCta || callHref
                     ? 'inline-flex items-center justify-center rounded-2xl border border-border bg-surface px-7 py-3.5 text-lg font-semibold text-text-secondary transition hover:bg-canvas active:scale-95'
                     : 'inline-flex items-center justify-center gap-2 rounded-2xl px-7 py-3.5 text-lg font-bold shadow-sm transition hover:opacity-90 active:scale-95'
                 }
                 style={
-                  primaryCta || tenant.whatsappContact
+                  primaryCta || callHref
                     ? undefined
                     : { backgroundColor: primary, color: onPrimary }
                 }
