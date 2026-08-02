@@ -22,6 +22,7 @@ export const messagesEs = {
   allDay: 'Todo el día',
   week: 'Semana',
   work_week: 'Semana laboral',
+  threeDay: '3 días', /// vista propia (móvil)
   day: 'Día',
   month: 'Mes',
   previous: 'Anterior',

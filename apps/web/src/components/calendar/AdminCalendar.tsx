@@ -11,7 +11,11 @@ import 'react-big-calendar/lib/css/react-big-calendar.css';
 import 'react-big-calendar/lib/addons/dragAndDrop/styles.css';
 import './calendar.css';
 import { localizer, messagesEs, formatsEs } from './localizer';
+import { ThreeDayView } from './ThreeDayView';
 import { readableOn } from '@/lib/tenant-color';
+
+/** Vista propia de 3 días (móvil). El resto son las nativas de RBC. */
+const THREE_DAY = 'threeDay' as View;
 
 /** Cita tal como la ve el doctor: con nombre del paciente, estado y servicio. */
 export interface AdminEvent {
@@ -54,15 +58,18 @@ function eventStyle(e: AdminEvent): { className?: string; style?: CSSProperties 
  */
 function AdminEventCell({ event }: { event: AdminEvent }) {
   return (
-    <div className="leading-tight">
-      <div className="truncate text-[11px] font-semibold">
-        {format(event.start, 'HH:mm')} {event.title}
+    <div className="sc-ev leading-tight">
+      <div className="sc-ev-main truncate text-[11px] font-semibold">
+        <span className="sc-ev-time">{format(event.start, 'HH:mm')} </span>
+        {event.title}
       </div>
       {event.serviceName && (
-        <div className="truncate text-[10px] opacity-90">{event.serviceName}</div>
+        <div className="sc-ev-sub truncate text-[10px] opacity-90">{event.serviceName}</div>
       )}
       {event.detailLine && (
-        <div className="truncate text-[10px] font-medium opacity-90">{event.detailLine}</div>
+        <div className="sc-ev-sub truncate text-[10px] font-medium opacity-90">
+          {event.detailLine}
+        </div>
       )}
     </div>
   );
@@ -116,7 +123,7 @@ export function AdminCalendar({
   // meses vecinos y la semana puede cruzar el borde del mes.
   useEffect(() => {
     if (!onRangeChange) return;
-    const span = view === Views.DAY ? 1 : view === Views.WEEK ? 7 : 31;
+    const span = view === Views.DAY ? 1 : view === THREE_DAY ? 3 : view === Views.WEEK ? 7 : 31;
     const from = new Date(date);
     from.setDate(from.getDate() - span - 7);
     from.setHours(0, 0, 0, 0);
@@ -126,12 +133,30 @@ export function AdminCalendar({
     onRangeChange({ from, to });
   }, [view, date, onRangeChange]);
 
-  // Responsive: en pantallas chicas, vista Día (como Google Calendar móvil).
+  // Responsive: en pantallas chicas abre en 3 días (como Google Calendar
+  // móvil): da contexto de los días vecinos sin apretar la semana entera.
+  const [isMobile, setIsMobile] = useState(false);
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.matchMedia('(max-width: 640px)').matches) {
-      setView(Views.DAY);
-    }
+    if (typeof window === 'undefined') return;
+    const mq = window.matchMedia('(max-width: 640px)');
+    setIsMobile(mq.matches);
+    if (mq.matches) setView(THREE_DAY);
   }, []);
+
+  // En móvil la vista Semana no entra (7 columnas ilegibles): la reemplaza
+  // "3 días", así la barra queda con tres opciones y no saturada.
+  const views = useMemo(
+    () =>
+      isMobile
+        ? { [THREE_DAY]: ThreeDayView, [Views.DAY]: true, [Views.MONTH]: true }
+        : {
+            [Views.MONTH]: true,
+            [Views.WEEK]: true,
+            [THREE_DAY]: ThreeDayView,
+            [Views.DAY]: true,
+          },
+    [isMobile],
+  );
 
   const min = useMemo(() => {
     const d = new Date();
@@ -154,7 +179,10 @@ export function AdminCalendar({
   };
 
   return (
-    <div className="sc-calendar sc-selectable h-[640px] rounded-2xl border border-gray-100 bg-white p-2 sm:h-[720px] sm:p-3">
+    // Móvil: la agenda ocupa el alto disponible real (dvh descuenta la barra
+    // del navegador) en vez de una altura fija que dejaba media pantalla
+    // vacía o forzaba doble scroll.
+    <div className="sc-calendar sc-selectable h-[min(78dvh,640px)] rounded-2xl border border-gray-100 bg-white p-2 sm:h-[720px] sm:p-3">
       <DnDCalendar
         localizer={localizer}
         culture="es"
@@ -166,7 +194,7 @@ export function AdminCalendar({
         onView={setView}
         date={date}
         onNavigate={setDate}
-        views={[Views.MONTH, Views.WEEK, Views.DAY]}
+        views={views}
         min={min}
         max={max}
         step={30}
@@ -175,6 +203,11 @@ export function AdminCalendar({
         popup
         resizable
         selectable
+        // Táctil: RBC arranca el arrastre/selección con una pulsación
+        // sostenida. 300 ms (vs 250 por defecto) evita que un scroll con el
+        // dedo se interprete como querer mover una cita — el error más molesto
+        // en móvil, porque reprograma sin querer.
+        longPressThreshold={300}
         onSelectSlot={(slot) => {
           // No se reserva hacia atrás: avisamos en vez de abrir el modal y
           // fallar recién al guardar. El server valida igual (defensa en fondo).

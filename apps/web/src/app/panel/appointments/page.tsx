@@ -219,9 +219,19 @@ function AppointmentsList() {
   }
 
   // Reprogramación con actualización optimista (revierte si el backend falla).
-  const handleReschedule = async ({ id, start, end }: { id: string; start: Date; end: Date }) => {
+  /**
+   * Mueve una cita (arrastre en el calendario). Es una acción de un solo gesto
+   * y con el dedo es fácil soltar donde no era, así que en vez de pedir
+   * confirmación se aplica al instante y se ofrece deshacer, como Google
+   * Calendar. `undoable` corta la recursión: al deshacer no se vuelve a ofrecer.
+   */
+  const handleReschedule = async (
+    { id, start, end }: { id: string; start: Date; end: Date },
+    undoable = true,
+  ) => {
     if (!session) return;
     const prev = calendarItems;
+    const before = prev.find((a) => a.id === id);
     setCalendarItems((items) =>
       items.map((a) =>
         a.id === id ? { ...a, startTime: start.toISOString(), endTime: end.toISOString() } : a,
@@ -229,7 +239,23 @@ function AppointmentsList() {
     );
     try {
       await rescheduleAppointment(session.token, session.slug, id, start, end);
-      toast.success('Cita reprogramada');
+      toast.success(`Se movió a ${fmtDateTime(start.toISOString())}`, {
+        action:
+          undoable && before
+            ? {
+                label: 'Deshacer',
+                onClick: () =>
+                  void handleReschedule(
+                    {
+                      id,
+                      start: new Date(before.startTime),
+                      end: new Date(before.endTime),
+                    },
+                    false,
+                  ),
+              }
+            : undefined,
+      });
     } catch (err) {
       setCalendarItems(prev);
       toast.error(err instanceof PanelApiError ? err.message : 'No se pudo reprogramar');
