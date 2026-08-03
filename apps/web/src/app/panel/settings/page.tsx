@@ -82,6 +82,7 @@ function Settings() {
       ) : cfg ? (
         session?.user.role === 'ADMIN' ? (
           <>
+            <PlanSummary cfg={cfg} />
             <Branding cfg={cfg} onSaved={setCfg} />
             <ContactInfo cfg={cfg} onSaved={setCfg} />
             <Gallery />
@@ -98,6 +99,81 @@ function Settings() {
         )
       ) : null}
     </div>
+  );
+}
+
+// ─── Plan y add-ons (solo lectura) ──────────────────────────────────────
+
+const PLAN_LABELS: Record<string, string> = {
+  BASIC: 'Básico',
+  PRO: 'Profesional',
+  ELITE: 'Élite',
+};
+
+const PUBLIC_MODE_LABELS: Record<string, string> = {
+  BOOKING: 'Reserva en línea desde tu página',
+  WHATSAPP: 'Tu página deriva a WhatsApp (sin reserva en línea)',
+  LANDING: 'Página informativa (agenda tu equipo desde el panel)',
+};
+
+/**
+ * Qué incluye el plan contratado. Es informativo a propósito: estos add-ons los
+ * activa la plataforma, no el admin de la clínica, así que mostrarlos como
+ * switches editables prometería un control que no existe. Sirve para responder
+ * "¿tengo el bot activo?" sin escribirnos.
+ */
+function PlanSummary({ cfg }: { cfg: TenantConfig }) {
+  const rows: { label: string; value: string; on: boolean }[] = [
+    {
+      label: 'Bot de reservas por WhatsApp',
+      value: cfg.botEnabled ? 'Activo' : 'No incluido',
+      on: !!cfg.botEnabled,
+    },
+    {
+      label: 'Página pública',
+      value: PUBLIC_MODE_LABELS[cfg.publicMode ?? 'BOOKING'] ?? '—',
+      on: true,
+    },
+    {
+      label: 'Cobros en línea',
+      value: cfg.paymentsEnabled ? 'Activos' : 'Se cobra en la clínica',
+      on: !!cfg.paymentsEnabled,
+    },
+  ];
+
+  return (
+    <section className="bg-surface rounded-2xl border border-border p-5 space-y-4">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-sm font-semibold text-text-secondary">Tu plan</h2>
+          <p className="text-xs text-text-muted mt-1">
+            Lo que incluye tu suscripción. Para cambiarlo, escríbenos.
+          </p>
+        </div>
+        <span className="shrink-0 rounded-full bg-brand-50 px-3 py-1 text-sm font-semibold text-brand-700">
+          {PLAN_LABELS[cfg.plan] ?? cfg.plan}
+        </span>
+      </div>
+
+      <ul className="divide-y divide-border rounded-xl border border-border">
+        {rows.map((r) => (
+          <li key={r.label} className="flex items-center justify-between gap-4 px-3 py-2.5">
+            <span className="text-sm text-text-secondary">{r.label}</span>
+            <span
+              className={`flex items-center gap-1.5 text-xs font-medium ${
+                r.on ? 'text-[var(--success)]' : 'text-text-muted'
+              }`}
+            >
+              <span
+                aria-hidden
+                className={`size-1.5 rounded-full ${r.on ? 'bg-[var(--success)]' : 'bg-text-disabled'}`}
+              />
+              {r.value}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 

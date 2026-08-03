@@ -730,6 +730,9 @@ export interface TenantConfig {
   mapsUrl: string | null;
   timezone: string;
   plan: string;
+  /// Add-ons del plan (solo lectura: los activa la plataforma).
+  botEnabled?: boolean;
+  publicMode?: 'BOOKING' | 'WHATSAPP' | 'LANDING';
   whatsappEnabled: boolean;
   /// Módulo de pagos del booking público (switch solo-ADMIN).
   paymentsEnabled: boolean;

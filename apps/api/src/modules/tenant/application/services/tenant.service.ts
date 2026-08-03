@@ -102,6 +102,10 @@ export class TenantService implements TenantServicePort {
         mapsUrl: true,
         timezone: true,
         plan: true,
+        // Add-ons que controla la plataforma (no el admin del tenant): se
+        // exponen solo para MOSTRAR qué incluye su plan en Configuración.
+        botEnabled: true,
+        publicMode: true,
         whatsappEnabled: true,
         paymentsEnabled: true,
         extendedSession: true,

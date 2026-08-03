@@ -9,11 +9,27 @@ import { generateCancellationToken } from '../../../appointments/application/ser
 import type { BotInbound, BotOutbound, BotButton, BotStep, ConvData } from '../../bot.types';
 
 /// La conversación se reinicia con gentileza pasado este tiempo sin actividad.
-const CONVERSATION_TTL_MIN = 30;
+/**
+ * Vida de la conversación del bot. Se RENUEVA en cada paso (`save`), así que
+ * son 3 h de inactividad, no un plazo fijo desde el saludo: quien avanza nunca
+ * la pierde. Se avisa en el primer mensaje para que el paciente no deje la
+ * reserva a medias y tenga que empezar de nuevo.
+ */
+const CONVERSATION_TTL_MIN = 180;
+const CONVERSATION_TTL_HINT =
+  '\n\n⏳ Para no perder tu reserva, terminemos sin pausas largas: si dejas de ' +
+  'responder por 3 horas, la conversación se cierra y habría que empezar de nuevo.';
 /// Máximo de opciones por lista (límite de las interactive lists de Meta).
 const MAX_OPTIONS = 8;
 /// Ventana de búsqueda de disponibilidad (~1 mes; se navega semana → día).
 const AVAILABILITY_DAYS = 30;
+
+/**
+ * Cierre de todo flujo que deja una cita en pie. Escribir "cancelar" sin nada a
+ * medio camino lista las citas próximas para darlas de baja (ver `abort`), así
+ * que el aviso es literal: el paciente no tiene que buscar cómo hacerlo.
+ */
+const CANCEL_HINT = '\n\nSi necesitas cancelar alguna cita, puedes escribir *cancelar*.';
 
 /** Lunes (yyyy-MM-dd) de la semana de una fecha local yyyy-MM-dd. */
 function mondayOf(dayIso: string): string {
@@ -63,8 +79,37 @@ export class ConversationEngine {
   async handle(msg: BotInbound): Promise<BotOutbound[]> {
     const convo = await this.loadConversation(msg);
     const input = (msg.callback ?? msg.text ?? '').trim();
+    // Arrancaba de cero: si este mensaje abre un flujo, se le adjunta el aviso
+    // de vigencia (solo el primero — repetirlo en cada paso sería ruido).
+    const wasIdle = convo.step === 'IDLE';
 
     try {
+      const out = await this.route(convo, msg, input);
+      if (wasIdle && convo.step !== 'IDLE' && out.length > 0 && out[0].text) {
+        return [{ ...out[0], text: out[0].text + CONVERSATION_TTL_HINT }, ...out.slice(1)];
+      }
+      return out;
+    } catch (err) {
+      this.logger.error(
+        {
+          event: 'bot.engine.error',
+          chatId: msg.chatId,
+          step: convo.step,
+          err: (err as Error).message,
+        },
+        'ConversationEngine',
+      );
+      return [
+        {
+          text: 'Ups, algo salió mal de mi lado 😓. Escribe "hola" para empezar de nuevo, o "cancelar" para salir.',
+        },
+      ];
+    }
+  }
+
+  /** Decide qué hacer con el mensaje según deep links, comandos y paso actual. */
+  private async route(convo: Convo, msg: BotInbound, input: string): Promise<BotOutbound[]> {
+    {
       // Deep links: `r-<appointmentId>` viene del checkout web ("enviar
       // comprobante por chat"); cualquier otro payload es el slug de la
       // clínica desde su landing. Siempre ganan sobre el estado previo.
@@ -120,6 +165,11 @@ export class ConversationEngine {
       if (/cambiar de cl[ií]nica/i.test(input) || input === 'switch-clinic') {
         return await this.askClinic(convo);
       }
+      // "Otra clínica" es global, no solo del paso CHOOSING_CLINIC: el botón
+      // queda visible en mensajes viejos del chat y la conversación puede haber
+      // vencido (vuelve a IDLE). Sin esto, tocarlo devolvía la MISMA pregunta
+      // con los mismos botones y parecía que el bot se había colgado.
+      if (input === 'otra') return await this.askClinicName(convo);
 
       // Fotos: hoy solo tienen sentido como comprobante de pago.
       if (msg.photo) return await this.onPhotoReceived(convo, msg.photo);
@@ -160,21 +210,6 @@ export class ConversationEngine {
         default:
           return await this.askClinic(convo);
       }
-    } catch (err) {
-      this.logger.error(
-        {
-          event: 'bot.engine.error',
-          chatId: msg.chatId,
-          step: convo.step,
-          err: (err as Error).message,
-        },
-        'ConversationEngine',
-      );
-      return [
-        {
-          text: 'Ups, algo salió mal de mi lado 😓. Escribe "hola" para empezar de nuevo, o "cancelar" para salir.',
-        },
-      ];
     }
   }
 
@@ -209,11 +244,18 @@ export class ConversationEngine {
     return [{ text: '¡Hola! 👋 ¿Para cuál clínica es tu cita?', buttons: rows }];
   }
 
+  /** Pide el nombre de la clínica por escrito y deja la conversación esperándolo. */
+  private async askClinicName(convo: Convo): Promise<BotOutbound[]> {
+    await this.save(convo, 'SEARCHING_CLINIC', {});
+    return [
+      {
+        text: 'Claro 👍 Por favor, escribe el nombre de la clínica o consultorio al que quieres ir:',
+      },
+    ];
+  }
+
   private async onClinicChosen(convo: Convo, input: string): Promise<BotOutbound[]> {
-    if (input === 'otra') {
-      await this.save(convo, 'SEARCHING_CLINIC', {});
-      return [{ text: 'Claro 👍 Escríbeme el nombre de la clínica o consultorio:' }];
-    }
+    if (input === 'otra') return this.askClinicName(convo);
     if (input.startsWith('t:')) return this.selectClinic(convo, input.slice(2));
     // Texto libre en vez de botón: trátalo como búsqueda.
     return this.onClinicSearch(convo, input);
@@ -872,7 +914,8 @@ export class ConversationEngine {
         text:
           `¡Gracias${first ? ` ${first}` : ''}! 🎉 ${doctorName} te atenderá el ${when}.\n\n` +
           payLine +
-          maps,
+          maps +
+          CANCEL_HINT,
       },
     ];
   }
@@ -1448,7 +1491,8 @@ export class ConversationEngine {
       {
         text:
           `¡Listo! 🎉 Tu cita quedó reprogramada: ${doctorName}, ${when}.\n\n` +
-          `Tu pago sigue registrado ✅${maps}`,
+          `Tu pago sigue registrado ✅${maps}` +
+          CANCEL_HINT,
       },
     ];
   }

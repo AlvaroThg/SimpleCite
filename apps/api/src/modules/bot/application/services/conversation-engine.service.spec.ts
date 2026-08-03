@@ -896,3 +896,67 @@ describe('ConversationEngine — gate por botEnabled (add-on de plataforma)', ()
     );
   });
 });
+
+describe('ConversationEngine — "Otra clínica" y aviso de cancelación', () => {
+  it('"Otra clínica" pide el nombre por escrito (no repite la misma pregunta)', async () => {
+    const { engine } = makeHarness({
+      visitedTenants: [{ id: 't1', name: 'Regenera' }],
+      conversation: { step: 'CHOOSING_CLINIC', tenantId: null },
+    });
+    const out = await engine.handle(msg({ callback: 'otra' }));
+    expect(out[0].text).toMatch(/escribe el nombre/i);
+    expect(out[0].buttons).toBeUndefined();
+  });
+
+  it('funciona aunque la conversación haya vencido y vuelto a IDLE', async () => {
+    // El botón queda visible en mensajes viejos: tocarlo devolvía la misma
+    // pregunta con los mismos botones y parecía que el bot se colgaba.
+    const { engine } = makeHarness({
+      visitedTenants: [{ id: 't1', name: 'Regenera' }],
+      conversation: { step: 'IDLE', tenantId: null },
+    });
+    const out = await engine.handle(msg({ callback: 'otra' }));
+    expect(out[0].text).toMatch(/escribe el nombre/i);
+  });
+
+  it('al cerrar la reserva avisa cómo cancelar', async () => {
+    const { engine } = makeHarness({
+      tenant: { paymentsEnabled: false },
+      conversation: {
+        step: 'CHOOSING_SLOT',
+        tenantId: 't1',
+        data: {
+          name: 'Ana Fernández',
+          doctorId: 'doc1',
+          serviceId: 'svc1',
+          durationMin: 60,
+          dayIso: '2030-05-01',
+        },
+      },
+    });
+    const out = await engine.handle(msg({ callback: 'slot:2030-05-01T14:00:00.000Z' }));
+    expect(out[out.length - 1].text).toMatch(/escribir \*cancelar\*/i);
+  });
+});
+
+describe('ConversationEngine — aviso de vigencia (solo al abrir el flujo)', () => {
+  it('el primer mensaje del flujo incluye el aviso de las 3 horas', async () => {
+    const { engine } = makeHarness({ visitedTenants: [], conversation: { step: 'IDLE' } });
+    const out = await engine.handle(msg({ text: 'hola' }));
+    expect(out[0].text).toMatch(/3 horas/);
+  });
+
+  it('los pasos siguientes NO lo repiten', async () => {
+    const { engine } = makeHarness({
+      conversation: { step: 'REGISTERING_CI', tenantId: 't1', data: { name: 'Ana Fernández' } },
+    });
+    const out = await engine.handle(msg({ callback: 'ci:skip' }));
+    expect(out[0].text).not.toMatch(/3 horas/);
+  });
+
+  it('una respuesta que no abre flujo (sin citas que cancelar) tampoco lo trae', async () => {
+    const { engine } = makeHarness({ conversation: { step: 'IDLE' }, upcoming: [] });
+    const out = await engine.handle(msg({ text: 'cancelar' }));
+    expect(out[0].text).not.toMatch(/3 horas/);
+  });
+});
