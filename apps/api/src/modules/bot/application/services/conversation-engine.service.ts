@@ -8,7 +8,6 @@ import { PatientsService } from '../../../patients/application/services/patients
 import { generateCancellationToken } from '../../../appointments/application/services/appointments.service';
 import type { BotInbound, BotOutbound, BotButton, BotStep, ConvData } from '../../bot.types';
 
-/// La conversación se reinicia con gentileza pasado este tiempo sin actividad.
 /**
  * Vida de la conversación del bot. Se RENUEVA en cada paso (`save`), así que
  * son 3 h de inactividad, no un plazo fijo desde el saludo: quien avanza nunca
