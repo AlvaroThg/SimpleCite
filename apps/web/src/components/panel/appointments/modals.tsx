@@ -22,7 +22,25 @@ import {
 import { Spinner } from '@/components/panel/ui';
 import { Button } from '@/components/ui/button';
 import { PhoneField } from '@/components/PhoneField';
-import { X, Banknote, QrCode, ShieldCheck } from 'lucide-react';
+import { X, Banknote, QrCode, ShieldCheck, Repeat, CalendarCheck, CalendarX2 } from 'lucide-react';
+
+/** Días de la semana con el índice de Date.getDay() (0 = domingo). */
+const WEEKDAYS = [
+  { value: 1, short: 'L', name: 'lunes' },
+  { value: 2, short: 'M', name: 'martes' },
+  { value: 3, short: 'X', name: 'miércoles' },
+  { value: 4, short: 'J', name: 'jueves' },
+  { value: 5, short: 'V', name: 'viernes' },
+  { value: 6, short: 'S', name: 'sábado' },
+  { value: 0, short: 'D', name: 'domingo' },
+];
+
+/** Resultado de crear un tratamiento (lo devuelve el API). */
+interface SeriesResult {
+  id: string;
+  created: number;
+  skipped: { startTime: string; reason: string }[];
+}
 
 // ─── A11y helper para modales ─────────────────────────────────────────
 // Escape cierra, foco entra al diálogo al abrir y se restaura al cerrar.
@@ -173,7 +191,23 @@ export function NewAppointmentModal({
   const [insurances, setInsurances] = useState<DoctorInsuranceOption[]>([]);
   const [insuranceId, setInsuranceId] = useState('');
   const [saving, setSaving] = useState(false);
+  // Tratamiento: repetir la cita en varios días (ej. 10 sesiones lun/mié/vie).
+  const [repeat, setRepeat] = useState(false);
+  const [weekdays, setWeekdays] = useState<number[]>([]);
+  const [endMode, setEndMode] = useState<'count' | 'until'>('count');
+  const [count, setCount] = useState(10);
+  const [until, setUntil] = useState('');
+  // Resultado de la serie cuando hubo fechas omitidas (se muestra en modal).
+  const [seriesResult, setSeriesResult] = useState<SeriesResult | null>(null);
   const dialogRef = useDialogA11y(onClose);
+
+  // Al activar "repetir", se marca el día de la fecha elegida: es el patrón
+  // más probable y evita que el usuario tenga que deducirlo.
+  useEffect(() => {
+    if (repeat && weekdays.length === 0 && selectedStart) {
+      setWeekdays([new Date(selectedStart).getDay()]);
+    }
+  }, [repeat, weekdays.length, selectedStart]);
 
   useEffect(() => {
     Promise.all([getPatients(token, slug, { limit: 100 }), getDoctorsAdmin(token, slug)])
@@ -284,7 +318,7 @@ export function NewAppointmentModal({
         });
         pid = created.id;
       }
-      await createAppointment(token, slug, {
+      const created = await createAppointment(token, slug, {
         patientId: pid,
         doctorId,
         serviceId,
@@ -293,14 +327,39 @@ export function NewAppointmentModal({
         // Modo seguro: se confirma directo con el seguro elegido (sin cobro).
         paymentMethod: insuranceMode ? 'INSURANCE' : paymentMethod,
         ...(insuranceMode && { tenantInsuranceId: insuranceId }),
+        ...(repeat && weekdays.length > 0
+          ? {
+              recurrence: {
+                weekdays,
+                ...(endMode === 'count' ? { count } : { until: `${until}T23:59:59.000Z` }),
+              },
+            }
+          : {}),
       });
-      toast.success('Cita creada.');
+
+      // Salió todo: un toast basta. Hubo omisiones: modal, porque el usuario
+      // necesita ver QUÉ fechas quedaron fuera para reagendarlas.
+      if (created.series && created.series.skipped.length > 0) {
+        setSeriesResult(created.series);
+        setSaving(false);
+        return;
+      }
+      toast.success(
+        created.series ? `Tratamiento creado: ${created.series.created} sesiones.` : 'Cita creada.',
+      );
       onCreated();
     } catch (err) {
       toast.error(err instanceof PanelApiError ? err.message : 'Error al crear cita');
       setSaving(false);
     }
   };
+
+  // Tratamiento con fechas omitidas: se muestra el resumen en vez del
+  // formulario. Es información que el usuario debe leer (qué quedó sin
+  // agendar), no un aviso que se desvanece solo.
+  if (seriesResult) {
+    return <SeriesResultModal result={seriesResult} onClose={onCreated} />;
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-[rgba(2,6,23,0.4)] p-0 backdrop-blur-[2px] sm:items-center sm:p-4">
@@ -564,16 +623,196 @@ export function NewAppointmentModal({
               </fieldset>
             )}
 
+            {/* Tratamiento: repetir la cita en varios días. Plegado por
+                defecto — la mayoría de las citas son sueltas y no debe
+                estorbar el flujo normal. */}
+            <div className="rounded-xl border border-border p-3">
+              <label className="flex cursor-pointer items-center gap-2.5">
+                <input
+                  type="checkbox"
+                  checked={repeat}
+                  onChange={(e) => setRepeat(e.target.checked)}
+                  className="size-4 accent-brand-600"
+                />
+                <span className="inline-flex items-center gap-1.5 text-sm font-medium text-text-secondary">
+                  <Repeat className="size-4 text-text-muted" /> Repetir esta cita (tratamiento)
+                </span>
+              </label>
+
+              {repeat && (
+                <div className="mt-3 space-y-3 border-t border-border pt-3">
+                  <div>
+                    <span className="text-sm font-medium text-text-secondary">Días</span>
+                    <div className="mt-1.5 flex flex-wrap gap-1.5">
+                      {WEEKDAYS.map((d) => {
+                        const active = weekdays.includes(d.value);
+                        return (
+                          <button
+                            key={d.value}
+                            type="button"
+                            aria-pressed={active}
+                            aria-label={d.name}
+                            onClick={() =>
+                              setWeekdays((prev) =>
+                                prev.includes(d.value)
+                                  ? prev.filter((x) => x !== d.value)
+                                  : [...prev, d.value],
+                              )
+                            }
+                            className={`size-9 rounded-full border text-sm font-medium transition ${
+                              active
+                                ? 'border-primary bg-primary text-white'
+                                : 'border-border text-text-secondary hover:border-border-strong'
+                            }`}
+                          >
+                            {d.short}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div>
+                    <span className="text-sm font-medium text-text-secondary">Hasta cuándo</span>
+                    <div className="mt-1.5 flex gap-2">
+                      <button
+                        type="button"
+                        aria-pressed={endMode === 'count'}
+                        onClick={() => setEndMode('count')}
+                        className={`rounded-lg border px-3 py-2 text-sm transition ${
+                          endMode === 'count'
+                            ? 'border-primary bg-accent text-accent-foreground'
+                            : 'border-border text-text-secondary hover:border-border-strong'
+                        }`}
+                      >
+                        Nº de sesiones
+                      </button>
+                      <button
+                        type="button"
+                        aria-pressed={endMode === 'until'}
+                        onClick={() => setEndMode('until')}
+                        className={`rounded-lg border px-3 py-2 text-sm transition ${
+                          endMode === 'until'
+                            ? 'border-primary bg-accent text-accent-foreground'
+                            : 'border-border text-text-secondary hover:border-border-strong'
+                        }`}
+                      >
+                        Fecha límite
+                      </button>
+                    </div>
+
+                    {endMode === 'count' ? (
+                      <input
+                        type="number"
+                        min={2}
+                        max={60}
+                        value={count}
+                        onChange={(e) => setCount(Number(e.target.value))}
+                        aria-label="Número de sesiones"
+                        className="mt-2 w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                      />
+                    ) : (
+                      <input
+                        type="date"
+                        value={until}
+                        min={date || undefined}
+                        onChange={(e) => setUntil(e.target.value)}
+                        aria-label="Fecha límite del tratamiento"
+                        className="mt-2 w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                      />
+                    )}
+                  </div>
+
+                  <p className="text-xs text-text-muted">
+                    Se agenda una sesión por cada día marcado. Si alguna fecha ya está ocupada, se
+                    omite y te avisamos cuál.
+                  </p>
+                </div>
+              )}
+            </div>
+
             <div className="flex gap-3 pt-2">
               <Button type="button" variant="outline" className="flex-1 h-11" onClick={onClose}>
                 Cancelar
               </Button>
               <Button type="submit" className="flex-1 h-11" disabled={saving}>
-                {saving ? 'Guardando…' : 'Crear Cita'}
+                {saving ? 'Guardando…' : repeat ? 'Crear tratamiento' : 'Crear Cita'}
               </Button>
             </div>
           </form>
         )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Resultado del tratamiento ────────────────────────────────────────
+
+/**
+ * Resumen tras crear un tratamiento con fechas omitidas.
+ *
+ * Va como modal y no como toast a propósito: el usuario necesita LEER qué
+ * sesiones quedaron sin agendar para reprogramarlas, y un aviso que se
+ * desvanece solo se pierde justo cuando importa.
+ */
+function SeriesResultModal({ result, onClose }: { result: SeriesResult; onClose: () => void }) {
+  const dialogRef = useDialogA11y(onClose);
+  const fmt = (iso: string) =>
+    new Date(iso).toLocaleString('es-BO', {
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    });
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-[rgba(2,6,23,0.4)] p-0 backdrop-blur-[2px] sm:items-center sm:p-4">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Resultado del tratamiento"
+        className="bg-surface-raised rounded-t-2xl sm:rounded-2xl w-full sm:max-w-md shadow-modal max-h-[90dvh] overflow-y-auto"
+      >
+        <div className="border-b border-border px-5 py-4">
+          <p className="font-semibold text-text-primary">Tratamiento agendado</p>
+        </div>
+
+        <div className="space-y-4 p-5">
+          <p className="inline-flex items-center gap-2 text-sm text-text-secondary">
+            <CalendarCheck className="size-4 text-[var(--success)]" />
+            <span>
+              <strong className="text-text-primary">{result.created}</strong>{' '}
+              {result.created === 1 ? 'sesión agendada' : 'sesiones agendadas'}
+            </span>
+          </p>
+
+          <div>
+            <p className="inline-flex items-center gap-2 text-sm font-medium text-text-secondary">
+              <CalendarX2 className="size-4 text-[var(--warning)]" />
+              {result.skipped.length} sin agendar
+            </p>
+            <ul className="mt-2 divide-y divide-border rounded-xl border border-border">
+              {result.skipped.map((sk) => (
+                <li key={sk.startTime} className="px-3 py-2.5">
+                  <p className="text-sm font-medium text-text-primary">{fmt(sk.startTime)}</p>
+                  <p className="text-xs text-text-muted">{sk.reason}</p>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-2 text-xs text-text-muted">
+              Puedes agendarlas a otra hora desde el calendario.
+            </p>
+          </div>
+        </div>
+
+        <div className="px-5 pb-5">
+          <Button className="h-11 w-full" onClick={onClose}>
+            Entendido
+          </Button>
+        </div>
       </div>
     </div>
   );

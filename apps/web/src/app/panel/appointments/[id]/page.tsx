@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { FileText, ShieldCheck } from 'lucide-react';
+import { Repeat, FileText, ShieldCheck } from 'lucide-react';
 import { useAuth } from '@/lib/panel-auth';
 import {
   getAppointment,
@@ -145,7 +145,17 @@ function AppointmentDetailView() {
             <p className="text-sm text-text-muted">{appt.patient.phone}</p>
             {appt.patient.ci && <p className="text-sm text-text-muted">CI: {appt.patient.ci}</p>}
           </div>
-          <StatusBadge status={appt.status} />
+          <div className="flex flex-col items-end gap-1.5">
+            <StatusBadge status={appt.status} />
+            {/* Cita de un tratamiento: sitúa la sesión dentro del plan, para
+                que el doctor sepa en qué punto va sin abrir el historial. */}
+            {appt.session && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-accent px-2.5 py-0.5 text-xs font-medium text-accent-foreground">
+                <Repeat className="size-3" />
+                Sesión {appt.session.index} de {appt.session.total}
+              </span>
+            )}
+          </div>
         </div>
 
         <dl className="grid grid-cols-2 gap-3 text-sm border-t border-border pt-4">

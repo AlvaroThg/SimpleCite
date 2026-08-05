@@ -57,6 +57,19 @@ export interface AppointmentListItem {
 
 export interface AppointmentDetail extends AppointmentListItem {
   patient: { id: string; name: string; phone: string; ci?: string | null };
+  /// Presente si la cita es parte de un tratamiento: "Sesión 3 de 10".
+  session?: { index: number; total: number };
+}
+
+/** Resultado de crear una cita: con `series` cuando fue un tratamiento. */
+export interface AppointmentWithSeries extends AppointmentListItem {
+  series?: {
+    id: string;
+    created: number;
+    /// Fechas que no se pudieron agendar, con el motivo. Se le muestran al
+    /// usuario para que decida si las reagenda a otra hora.
+    skipped: { startTime: string; reason: string }[];
+  };
 }
 
 export interface PatientListItem {
@@ -240,8 +253,10 @@ export async function createAppointment(
     paymentMethod?: PaymentMethod;
     /// Requerido cuando paymentMethod=INSURANCE.
     tenantInsuranceId?: string;
+    /// Tratamiento de varias sesiones. Ausente = cita suelta.
+    recurrence?: { weekdays: number[]; count?: number; until?: string };
   },
-): Promise<AppointmentListItem> {
+): Promise<AppointmentWithSeries> {
   const res = await fetch(`${BASE}/api/appointments`, {
     method: 'POST',
     headers: authHeaders(token, slug),

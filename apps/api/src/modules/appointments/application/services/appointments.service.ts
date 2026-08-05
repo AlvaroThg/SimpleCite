@@ -278,6 +278,22 @@ export class AppointmentsService {
       },
     });
     if (!appointment) throw new NotFoundException('Cita no encontrada');
+
+    // Cita de un tratamiento: su posición dentro de la serie ("Sesión 3 de
+    // 10"). Se calcula al vuelo contando las citas de la serie, por eso la
+    // serie no necesita tabla propia.
+    if (appointment.seriesId) {
+      const siblings = await this.prisma.client.appointment.findMany({
+        where: { tenantId, seriesId: appointment.seriesId },
+        select: { id: true },
+        orderBy: { startTime: 'asc' },
+      });
+      const index = siblings.findIndex((s) => s.id === appointment.id);
+      return {
+        ...appointment,
+        session: { index: index + 1, total: siblings.length },
+      };
+    }
     return appointment;
   }
 
