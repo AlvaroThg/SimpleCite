@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { Repeat, FileText, ShieldCheck } from 'lucide-react';
+import { Download, Stethoscope, Repeat, FileText, ShieldCheck } from 'lucide-react';
 import { useAuth } from '@/lib/panel-auth';
 import {
   getAppointment,
@@ -17,6 +17,7 @@ import {
 } from '@/lib/panel-api';
 import { PanelShell } from '@/components/panel/PanelShell';
 import { BackLink, StatusBadge, fmtDate, fmtTime, ErrorBox } from '@/components/panel/ui';
+import { Button } from '@/components/ui/button';
 import { SkeletonDetail } from '@/components/panel/Skeleton';
 
 // Transiciones permitidas desde el panel (espejo del backend state machine).
@@ -185,24 +186,28 @@ function AppointmentDetailView() {
           )}
         </dl>
 
-        <div className="flex flex-wrap items-center gap-4 border-t border-border pt-4">
-          <Link
-            href={`/panel/patients/${appt.patient.id}`}
-            className="inline-flex items-center gap-1 text-sm font-medium text-brand-600 hover:text-brand-800"
-          >
-            Ver historial clínico del paciente →
-          </Link>
+        {/* Acciones como botones y no como enlaces con flecha: la consulta es
+            LA acción del doctor en esta pantalla y debe leerse como tal. */}
+        <div className="flex flex-wrap items-center gap-2 border-t border-border pt-4">
           {session?.user.role !== 'STAFF' &&
             (appt.status === 'CONFIRMED' || appt.status === 'COMPLETED') && (
-              <Link
-                href={`/panel/appointments/${appt.id}/consulta`}
-                className="inline-flex items-center gap-1 text-sm font-semibold text-brand-600 hover:text-brand-800"
-              >
-                {appt.status === 'COMPLETED' ? 'Ver consulta' : 'Iniciar consulta'} →
-              </Link>
+              <Button asChild className="h-10">
+                <Link href={`/panel/appointments/${appt.id}/consulta`}>
+                  <Stethoscope className="size-4" />
+                  {appt.status === 'COMPLETED' ? 'Ver consulta' : 'Iniciar consulta'}
+                </Link>
+              </Button>
             )}
+          <Button asChild variant="outline" className="h-10">
+            <Link href={`/panel/patients/${appt.patient.id}`}>
+              <FileText className="size-4" />
+              Historial del paciente
+            </Link>
+          </Button>
           {session?.user.role !== 'STAFF' && appt.status === 'COMPLETED' && (
-            <button
+            <Button
+              variant="outline"
+              className="h-10"
               onClick={async () => {
                 if (!session) return;
                 try {
@@ -213,10 +218,9 @@ function AppointmentDetailView() {
                   );
                 }
               }}
-              className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-600 hover:text-brand-800"
             >
-              <FileText className="size-4" /> Descargar informe PDF
-            </button>
+              <Download className="size-4" /> Informe PDF
+            </Button>
           )}
         </div>
       </div>

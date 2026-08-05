@@ -22,7 +22,16 @@ import {
 import { Spinner } from '@/components/panel/ui';
 import { Button } from '@/components/ui/button';
 import { PhoneField } from '@/components/PhoneField';
-import { X, Banknote, QrCode, ShieldCheck, Repeat, CalendarCheck, CalendarX2 } from 'lucide-react';
+import {
+  X,
+  Banknote,
+  QrCode,
+  ShieldCheck,
+  Repeat,
+  CalendarCheck,
+  CalendarX2,
+  Search,
+} from 'lucide-react';
 
 /** Días de la semana con el índice de Date.getDay() (0 = domingo). */
 const WEEKDAYS = [
@@ -176,6 +185,7 @@ export function NewAppointmentModal({
 
   const [patientId, setPatientId] = useState('');
   const [patientMode, setPatientMode] = useState<'existing' | 'new'>('existing');
+  const [patientQuery, setPatientQuery] = useState('');
   const [newPatient, setNewPatient] = useState({ name: '', phone: '', ci: '' });
   const [doctorId, setDoctorId] = useState(lockedDoctor?.id ?? '');
   const [serviceId, setServiceId] = useState('');
@@ -232,6 +242,17 @@ export function NewAppointmentModal({
       })
       .catch(() => setServices([]));
   }, [doctorId, token, slug]);
+
+  const selectedPatient = patients.find((p) => p.id === patientId);
+  // Filtrado en cliente: los pacientes ya vienen cargados en el modal, así que
+  // buscar no dispara peticiones ni espera.
+  const filteredPatients = (() => {
+    const q = patientQuery.trim().toLowerCase();
+    if (!q) return patients;
+    return patients.filter((p) =>
+      [p.name, p.phone ?? '', p.ci ?? ''].some((f) => f.toLowerCase().includes(q)),
+    );
+  })();
 
   const selectedDoctor = doctors.find((d) => d.id === doctorId);
   const insuranceMode = selectedDoctor?.insuranceMode ?? false;
@@ -412,18 +433,73 @@ export function NewAppointmentModal({
               </div>
 
               {patientMode === 'existing' ? (
-                <select
-                  value={patientId}
-                  onChange={(e) => setPatientId(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                >
-                  <option value="">Seleccionar paciente…</option>
-                  {patients.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name} — {p.phone ?? p.ci ?? 'sin contacto'}
-                    </option>
-                  ))}
-                </select>
+                /* Buscador en vez de un <select>: con cientos de pacientes la
+                   lista desplegable es inservible, y el nombre casi nunca se
+                   recuerda completo (se busca por apellido, teléfono o CI). */
+                <div className="mt-1">
+                  {selectedPatient ? (
+                    <div className="flex items-center justify-between gap-3 rounded-lg border border-primary bg-accent px-3 py-2">
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-medium text-text-primary">
+                          {selectedPatient.name}
+                        </span>
+                        <span className="block truncate text-xs text-text-muted">
+                          {selectedPatient.phone ?? selectedPatient.ci ?? 'sin contacto'}
+                        </span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPatientId('');
+                          setPatientQuery('');
+                        }}
+                        className="shrink-0 text-sm font-medium text-text-secondary hover:text-text-primary"
+                      >
+                        Cambiar
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="relative">
+                        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-text-muted" />
+                        <input
+                          type="search"
+                          value={patientQuery}
+                          onChange={(e) => setPatientQuery(e.target.value)}
+                          placeholder="Buscar por nombre, teléfono o CI…"
+                          aria-label="Buscar paciente"
+                          className="w-full rounded-lg border border-border py-2 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                        />
+                      </div>
+                      <ul className="mt-2 max-h-48 divide-y divide-border overflow-y-auto rounded-lg border border-border">
+                        {filteredPatients.length === 0 ? (
+                          <li className="px-3 py-3 text-center text-xs text-text-muted">
+                            {patientQuery
+                              ? 'Ningún paciente coincide. Usa "Nuevo" para registrarlo.'
+                              : 'Aún no hay pacientes registrados.'}
+                          </li>
+                        ) : (
+                          filteredPatients.slice(0, 20).map((p) => (
+                            <li key={p.id}>
+                              <button
+                                type="button"
+                                onClick={() => setPatientId(p.id)}
+                                className="w-full px-3 py-2 text-left transition hover:bg-canvas"
+                              >
+                                <span className="block truncate text-sm text-text-primary">
+                                  {p.name}
+                                </span>
+                                <span className="block truncate text-xs text-text-muted">
+                                  {p.phone ?? p.ci ?? 'sin contacto'}
+                                </span>
+                              </button>
+                            </li>
+                          ))
+                        )}
+                      </ul>
+                    </>
+                  )}
+                </div>
               ) : (
                 <div className="mt-1 space-y-2 rounded-lg border border-border bg-canvas p-3">
                   <input

@@ -31,7 +31,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar } from '@/components/ui/avatar';
 import { Switch } from '@/components/ui/switch';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
-import { Stethoscope, Upload, Shield } from 'lucide-react';
+import { Stethoscope, Upload, Shield, MoreHorizontal, Pencil, Archive } from 'lucide-react';
 import { compressImageFile } from '@/lib/compress-image';
 import { toast } from 'sonner';
 
@@ -173,6 +173,7 @@ function Doctors() {
   }
 
   // Doctor pendiente de archivar (abre el modal de confirmación).
+  const [sheet, setSheet] = useState<Doctor | null>(null);
   const [toArchive, setToArchive] = useState<Doctor | null>(null);
   const [archiving, setArchiving] = useState(false);
 
@@ -401,7 +402,16 @@ function Doctors() {
                     </p>
                   </div>
                 </div>
-                <div className="flex gap-2 flex-shrink-0 text-sm">
+                {/* Móvil: la fila de tres acciones no entra al lado del nombre,
+                    así que se resume en un botón que abre la hoja de acciones. */}
+                <button
+                  onClick={() => setSheet(d)}
+                  aria-label={`Acciones de ${d.name}`}
+                  className="flex size-9 flex-shrink-0 items-center justify-center rounded-lg text-text-muted transition hover:bg-canvas hover:text-text-primary sm:hidden"
+                >
+                  <MoreHorizontal className="size-5" />
+                </button>
+                <div className="hidden gap-2 flex-shrink-0 text-sm sm:flex">
                   <button
                     onClick={() => setExpanded(expanded === d.id ? null : d.id)}
                     className="text-text-muted hover:text-text-primary font-medium transition-colors"
@@ -442,6 +452,76 @@ function Doctors() {
             </li>
           ))}
         </ul>
+      )}
+
+      {/* Hoja de acciones (móvil): las mismas tres opciones del escritorio,
+          con área de toque cómoda en vez de tres enlaces de texto apretados. */}
+      {sheet && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-[rgba(2,6,23,0.4)] backdrop-blur-[2px] sm:hidden"
+          onClick={() => setSheet(null)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Acciones de ${sheet.name}`}
+            className="w-full rounded-t-2xl bg-surface-raised shadow-modal"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="border-b border-border px-5 py-4">
+              <p className="font-semibold text-text-primary">{sheet.name}</p>
+              <p className="text-sm text-text-muted">{sheet.specialty ?? 'Sin especialidad'}</p>
+            </div>
+            <div className="flex flex-col p-2">
+              <button
+                onClick={() => {
+                  setExpanded(expanded === sheet.id ? null : sheet.id);
+                  setSheet(null);
+                }}
+                className="flex min-h-12 items-center gap-3 rounded-xl px-3 text-left text-sm font-medium text-text-primary transition hover:bg-canvas"
+              >
+                <Stethoscope className="size-4 text-text-muted" /> Servicios que atiende
+              </button>
+              <button
+                onClick={() => {
+                  setDraft({
+                    id: sheet.id,
+                    email: sheet.email,
+                    password: '',
+                    name: sheet.name,
+                    specialty: sheet.specialty ?? '',
+                    licenseNumber: sheet.licenseNumber ?? '',
+                    bio: sheet.bio ?? '',
+                    qrUrl: sheet.qrUrl ?? '',
+                    qrLabel: sheet.qrLabel ?? '',
+                    isActive: sheet.isActive,
+                    insuranceMode: sheet.insuranceMode,
+                  });
+                  setSheet(null);
+                }}
+                className="flex min-h-12 items-center gap-3 rounded-xl px-3 text-left text-sm font-medium text-text-primary transition hover:bg-canvas"
+              >
+                <Pencil className="size-4 text-text-muted" /> Editar doctor
+              </button>
+              {sheet.isActive && (
+                <button
+                  onClick={() => {
+                    setToArchive(sheet);
+                    setSheet(null);
+                  }}
+                  className="flex min-h-12 items-center gap-3 rounded-xl px-3 text-left text-sm font-medium text-red-600 transition hover:bg-red-50"
+                >
+                  <Archive className="size-4" /> Archivar
+                </button>
+              )}
+            </div>
+            <div className="px-4 pb-4">
+              <Button variant="outline" className="h-11 w-full" onClick={() => setSheet(null)}>
+                Cancelar
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Confirmación de archivado (reversible desde Editar → Activo) */}

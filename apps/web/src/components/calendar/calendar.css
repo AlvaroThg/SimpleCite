@@ -165,8 +165,18 @@
 .sc-calendar .rbc-day-slot .rbc-event {
   border: 1px solid #fff;
 }
+/* El contenedor de eventos es una capa absoluta que cubre TODA la columna del
+   día y se comía el hover de los huecos libres: el "+" de "crear cita" solo
+   aparecía en la franja derecha que la capa deja sin tapar. Se le quita el
+   puntero a la capa y se le devuelve a las citas, que sí deben recibir clic,
+   arrastre y redimensión. */
 .sc-calendar .rbc-day-slot .rbc-events-container {
   margin-right: 4px;
+  pointer-events: none;
+}
+.sc-calendar .rbc-day-slot .rbc-events-container .rbc-event,
+.sc-calendar .rbc-day-slot .rbc-events-container .rbc-background-event {
+  pointer-events: auto;
 }
 /* La etiqueta de hora propia de RBC dentro del evento se oculta:
    usamos un contenido propio (más limpio, sin truncar). */
