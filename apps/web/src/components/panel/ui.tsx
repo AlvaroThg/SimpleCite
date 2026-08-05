@@ -1,7 +1,8 @@
 'use client';
 
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Eye, EyeOff } from 'lucide-react';
 
 /** Helpers de UI compartidos del panel: badges de estado, formato de fechas. */
 
@@ -153,5 +154,49 @@ export function BackLink({ label = 'Volver', href }: { label?: string; href?: st
       <ArrowLeft className="size-4" />
       {label}
     </button>
+  );
+}
+
+/**
+ * Campo de contraseña con "ojo" para revelar lo escrito.
+ *
+ * Compartido a propósito: el login y el alta de doctores tenían cada uno su
+ * propio input y el ojo se agregó solo en uno. Renderiza el input y el botón;
+ * la etiqueta la pone cada pantalla, que ya tiene su propio estilo.
+ */
+export function PasswordInput({
+  value,
+  onChange,
+  placeholder,
+  className = '',
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  className?: string;
+}) {
+  const [reveal, setReveal] = useState(false);
+  return (
+    <span className="relative block">
+      <input
+        type={reveal ? 'text' : 'password'}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className={`pr-11 ${className}`}
+      />
+      <button
+        type="button"
+        // El botón vive dentro de un <label> en algunas pantallas: sin esto el
+        // clic se reenvía al input y el foco salta mientras se revela.
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={() => setReveal((v) => !v)}
+        aria-label={reveal ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+        aria-pressed={reveal}
+        className="absolute inset-y-0 right-0 flex w-11 items-center justify-center rounded-r-xl text-text-muted transition hover:text-text-primary"
+      >
+        {reveal ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+      </button>
+    </span>
   );
 }

@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { useAuth } from '@/lib/panel-auth';
 import { PanelApiError } from '@/lib/panel-api';
 import { clearPanelSession } from '@/lib/panel-session-key';
-import { Eye, EyeOff } from 'lucide-react';
+import { PasswordInput } from '@/components/panel/ui';
 
 export default function PanelLoginPage() {
   const { session, login } = useAuth();
@@ -137,36 +137,27 @@ function Field({
   placeholder?: string;
   type?: string;
 }) {
-  // Ver la contraseña que se está escribiendo: en el celular la recepción se
-  // equivoca al teclear y quedaba adivinando por qué "no entra".
-  const [reveal, setReveal] = useState(false);
-  const isPassword = type === 'password';
-
+  const base =
+    'w-full border border-border-strong rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-transparent';
   return (
     <div className="space-y-1">
       <label className="text-sm font-medium text-text-secondary">{label}</label>
-      <div className="relative">
+      {type === 'password' ? (
+        <PasswordInput
+          value={value}
+          onChange={onChange}
+          placeholder={placeholder}
+          className={base}
+        />
+      ) : (
         <input
-          type={isPassword && reveal ? 'text' : type}
+          type={type}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
-          className={`w-full border border-border-strong rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-transparent ${
-            isPassword ? 'pr-11' : ''
-          }`}
+          className={base}
         />
-        {isPassword && (
-          <button
-            type="button"
-            onClick={() => setReveal((v) => !v)}
-            aria-label={reveal ? 'Ocultar contraseña' : 'Mostrar contraseña'}
-            aria-pressed={reveal}
-            className="absolute inset-y-0 right-0 flex w-11 items-center justify-center rounded-r-xl text-text-muted transition hover:text-text-primary"
-          >
-            {reveal ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-          </button>
-        )}
-      </div>
+      )}
     </div>
   );
 }

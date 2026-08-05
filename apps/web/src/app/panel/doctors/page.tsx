@@ -26,6 +26,7 @@ import {
 import { PanelShell } from '@/components/panel/PanelShell';
 import { ErrorBox } from '@/components/panel/ui';
 import { SkeletonList } from '@/components/panel/Skeleton';
+import { PasswordInput } from '@/components/panel/ui';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Button } from '@/components/ui/button';
 import { Avatar } from '@/components/ui/avatar';
@@ -945,15 +946,21 @@ function Input({
   onChange: (v: string) => void;
   type?: string;
 }) {
+  const base =
+    'w-full border border-border-strong rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400';
   return (
     <label className="block space-y-1">
       <span className="text-sm font-medium text-text-secondary">{label}</span>
-      <input
-        type={type}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full border border-border-strong rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
-      />
+      {type === 'password' ? (
+        <PasswordInput value={value} onChange={onChange} className={base} />
+      ) : (
+        <input
+          type={type}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className={base}
+        />
+      )}
     </label>
   );
 }
