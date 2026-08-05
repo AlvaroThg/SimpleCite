@@ -3,12 +3,11 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { Lock, Sparkles } from 'lucide-react';
+import { Lock, Sparkles, Stethoscope } from 'lucide-react';
 import { useAuth } from '@/lib/panel-auth';
 import {
   getPatientHistory,
   getDoctorsAdmin,
-  createNote,
   PanelApiError,
   type PatientHistory,
   type Doctor,
@@ -23,6 +22,7 @@ import {
   ErrorBox,
 } from '@/components/panel/ui';
 import { SkeletonDetail } from '@/components/panel/Skeleton';
+import { Button } from '@/components/ui/button';
 import { Markdown } from '@/components/panel/Markdown';
 
 export default function PatientHistoryPage() {
@@ -99,6 +99,11 @@ function PatientHistoryView() {
 
   const canWrite = session?.user.role === 'ADMIN' || session?.user.role === 'DOCTOR';
   const allAppts = [...data.appointments.items, ...moreAppts];
+  // Cita a la que apunta el botón de consulta: la próxima confirmada; si no
+  // hay ninguna futura, la última ya atendida (para revisar lo registrado).
+  const activeAppt =
+    allAppts.find((a) => a.status === 'CONFIRMED' && new Date(a.startTime) >= new Date()) ??
+    allAppts.find((a) => a.status === 'COMPLETED');
 
   return (
     <div className="space-y-6">
@@ -113,19 +118,42 @@ function PatientHistoryView() {
         {data.patient.ci && <p className="text-sm text-text-muted">CI: {data.patient.ci}</p>}
       </div>
 
-      {/* Editor de notas (solo ADMIN/DOCTOR) */}
-      {canWrite && data.clinicalAccess && <NoteEditor patientId={id} onSaved={load} />}
+      {/* La ficha del paciente es su HISTORIA: se lee, no se edita. Lo que se
+          escribe (síntomas, diagnóstico, tratamiento, notas) vive dentro de la
+          consulta de una cita concreta, para que quede atado a su atención.
+          Antes había un compositor suelto aquí que competía con ese registro. */}
+      {canWrite && data.clinicalAccess && activeAppt && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-surface p-4">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-text-primary">
+              {activeAppt.status === 'COMPLETED' ? 'Última consulta' : 'Próxima cita'}
+            </p>
+            <p className="truncate text-sm text-text-muted">
+              {activeAppt.service.name} · {fmtDateTime(activeAppt.startTime)}
+            </p>
+          </div>
+          <Button asChild className="h-10">
+            <Link href={`/panel/appointments/${activeAppt.id}/consulta`}>
+              <Stethoscope className="size-4" />
+              {activeAppt.status === 'COMPLETED' ? 'Ver consulta' : 'Iniciar consulta'}
+            </Link>
+          </Button>
+        </div>
+      )}
 
-      {/* Notas clínicas */}
+      {/* Historia clínica: notas registradas en consultas anteriores. */}
       <section>
-        <h2 className="text-sm font-semibold text-text-secondary mb-3">Notas clínicas</h2>
+        <h2 className="text-sm font-semibold text-text-secondary mb-3">Historia clínica</h2>
         {!data.clinicalAccess ? (
           <div className="flex items-center justify-center gap-2 bg-canvas border border-border rounded-xl px-4 py-6 text-center text-sm text-text-muted">
             <Lock className="size-4 flex-shrink-0" /> No tienes acceso al contenido clínico de este
             paciente.
           </div>
         ) : data.notes.length === 0 ? (
-          <p className="text-text-muted text-sm">Aún no hay notas clínicas.</p>
+          <p className="text-text-muted text-sm">
+            Aún no hay registros. Se van creando al atender cada cita desde{' '}
+            <span className="font-medium text-text-secondary">Iniciar consulta</span>.
+          </p>
         ) : (
           <ul className="space-y-3">
             {data.notes.map((n) => (
@@ -221,76 +249,6 @@ function PatientHistoryView() {
           </>
         )}
       </section>
-    </div>
-  );
-}
-
-/** Editor de notas con Markdown + preview en vivo. */
-function NoteEditor({ patientId, onSaved }: { patientId: string; onSaved: () => void }) {
-  const { session } = useAuth();
-  const [content, setContent] = useState('');
-  const [preview, setPreview] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
-
-  async function save() {
-    if (!session || content.trim().length < 3) return;
-    setSaving(true);
-    setError('');
-    try {
-      await createNote(session.token, session.slug, patientId, content.trim());
-      setContent('');
-      setPreview(false);
-      onSaved();
-    } catch (err) {
-      setError(err instanceof PanelApiError ? err.message : 'No se pudo guardar la nota');
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <div className="bg-surface rounded-2xl border border-border p-4 space-y-3">
-      <div className="flex items-center justify-between">
-        <p className="text-sm font-semibold text-text-secondary">Nueva nota clínica</p>
-        <button
-          onClick={() => setPreview((p) => !p)}
-          className="text-xs text-brand-600 hover:text-brand-800 font-medium"
-        >
-          {preview ? 'Editar' : 'Vista previa'}
-        </button>
-      </div>
-
-      {error && <ErrorBox message={error} />}
-
-      {preview ? (
-        <div className="min-h-[120px] border border-border rounded-xl p-3 bg-canvas">
-          {content.trim() ? (
-            <Markdown content={content} />
-          ) : (
-            <p className="text-text-muted text-sm">Nada que previsualizar.</p>
-          )}
-        </div>
-      ) : (
-        <textarea
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          placeholder="Escribe la nota… Soporta Markdown: **negrita**, *itálica*, # títulos, - listas"
-          rows={5}
-          className="w-full border border-border-strong rounded-xl px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-transparent resize-y"
-        />
-      )}
-
-      <div className="flex items-center justify-between">
-        <span className="text-xs text-text-muted">Markdown soportado</span>
-        <button
-          onClick={save}
-          disabled={saving || content.trim().length < 3}
-          className="px-4 py-2 rounded-xl bg-brand-600 text-white text-sm font-semibold transition hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {saving ? 'Guardando…' : 'Guardar nota'}
-        </button>
-      </div>
     </div>
   );
 }
