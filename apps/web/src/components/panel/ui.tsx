@@ -1,5 +1,8 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
+import { ArrowLeft } from 'lucide-react';
+
 /** Helpers de UI compartidos del panel: badges de estado, formato de fechas. */
 
 /**
@@ -130,5 +133,25 @@ export function ErrorBox({ message }: { message: string }) {
     <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm">
       {message}
     </div>
+  );
+}
+
+/**
+ * Volver a la pantalla anterior. Antes cada pantalla lo resolvía a mano —dos
+ * con una flecha "←" de texto y otra con ícono— y varias directamente no lo
+ * tenían, dejando al usuario sin salida en móvil (donde no hay barra lateral
+ * a la vista). Área de toque de 44px: el mínimo cómodo con el dedo.
+ */
+export function BackLink({ label = 'Volver', href }: { label?: string; href?: string }) {
+  const router = useRouter();
+  return (
+    <button
+      type="button"
+      onClick={() => (href ? router.push(href) : router.back())}
+      className="-ml-2 inline-flex min-h-11 items-center gap-1.5 rounded-xl px-2 text-sm font-medium text-text-secondary transition hover:bg-canvas hover:text-text-primary active:scale-95"
+    >
+      <ArrowLeft className="size-4" />
+      {label}
+    </button>
   );
 }

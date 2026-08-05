@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Lock, Sparkles } from 'lucide-react';
 import { useAuth } from '@/lib/panel-auth';
@@ -14,7 +14,14 @@ import {
   type Doctor,
 } from '@/lib/panel-api';
 import { PanelShell } from '@/components/panel/PanelShell';
-import { StatusBadge, fmtDate, fmtTime, fmtDateTime, ErrorBox } from '@/components/panel/ui';
+import {
+  BackLink,
+  StatusBadge,
+  fmtDate,
+  fmtTime,
+  fmtDateTime,
+  ErrorBox,
+} from '@/components/panel/ui';
 import { SkeletonDetail } from '@/components/panel/Skeleton';
 import { Markdown } from '@/components/panel/Markdown';
 
@@ -29,7 +36,6 @@ export default function PatientHistoryPage() {
 function PatientHistoryView() {
   const { id } = useParams<{ id: string }>();
   const { session } = useAuth();
-  const router = useRouter();
   const [data, setData] = useState<PatientHistory | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -96,12 +102,7 @@ function PatientHistoryView() {
 
   return (
     <div className="space-y-6">
-      <button
-        onClick={() => router.back()}
-        className="text-sm text-text-muted hover:text-text-primary"
-      >
-        ← Volver
-      </button>
+      <BackLink />
 
       {/* Cabecera del paciente */}
       <div className="bg-surface rounded-2xl border border-border p-6">

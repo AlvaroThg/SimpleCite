@@ -258,7 +258,21 @@
   -webkit-user-select: none;
   user-select: none;
   -webkit-touch-callout: none;
+  /* pan-y deja el gesto vertical al navegador (scroll). useTouchDrag lo cambia
+     a `none` en la cita concreta cuando la pulsación sostenida se cumple, que
+     es cuando el arrastre pasa a ser nuestro. */
   touch-action: pan-y;
+}
+
+/* Cita "despegada" tras la pulsación sostenida: se nota que ya se puede
+   mover, para que el usuario no siga presionando sin saber si funcionó. */
+.sc-calendar .rbc-event.sc-ev-armed {
+  transform: scale(1.03);
+  box-shadow: 0 8px 20px rgb(15 23 42 / 0.35);
+  z-index: 30;
+  transition:
+    transform 120ms ease,
+    box-shadow 120ms ease;
 }
 /* Mientras se arrastra: se levanta del resto para ver dónde va a caer. */
 .sc-calendar .rbc-addons-dnd-dragged-event {

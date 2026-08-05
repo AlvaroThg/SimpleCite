@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { FileText, ShieldCheck } from 'lucide-react';
 import { useAuth } from '@/lib/panel-auth';
@@ -16,7 +16,7 @@ import {
   type MedicalRecord,
 } from '@/lib/panel-api';
 import { PanelShell } from '@/components/panel/PanelShell';
-import { StatusBadge, fmtDate, fmtTime, ErrorBox } from '@/components/panel/ui';
+import { BackLink, StatusBadge, fmtDate, fmtTime, ErrorBox } from '@/components/panel/ui';
 import { SkeletonDetail } from '@/components/panel/Skeleton';
 
 // Transiciones permitidas desde el panel (espejo del backend state machine).
@@ -54,7 +54,6 @@ export default function AppointmentDetailPage() {
 function AppointmentDetailView() {
   const { id } = useParams<{ id: string }>();
   const { session } = useAuth();
-  const router = useRouter();
   const [appt, setAppt] = useState<AppointmentDetail | null>(null);
   const [record, setRecord] = useState<MedicalRecord | null>(null);
   const [loading, setLoading] = useState(true);
@@ -137,12 +136,7 @@ function AppointmentDetailView() {
 
   return (
     <div className="space-y-5">
-      <button
-        onClick={() => router.back()}
-        className="text-sm text-text-muted hover:text-text-primary"
-      >
-        ← Volver
-      </button>
+      <BackLink />
 
       <div className="bg-surface rounded-2xl border border-border p-6 space-y-4">
         <div className="flex items-start justify-between gap-3">

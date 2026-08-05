@@ -12,6 +12,7 @@ import 'react-big-calendar/lib/addons/dragAndDrop/styles.css';
 import './calendar.css';
 import { localizer, messagesEs, formatsEs } from './localizer';
 import { ThreeDayView } from './ThreeDayView';
+import { useTouchDrag } from './useTouchDrag';
 import { readableOn } from '@/lib/tenant-color';
 
 /** Vista propia de 3 días (móvil). El resto son las nativas de RBC. */
@@ -158,6 +159,11 @@ export function AdminCalendar({
     [isMobile],
   );
 
+  // Arrastre táctil: la pulsación sostenida le quita el gesto al scroll (ver
+  // useTouchDrag). Sin esto, mover una cita con el dedo hacia arriba o abajo
+  // lo interpretaba el navegador como desplazamiento de la página.
+  useTouchDrag('.sc-calendar');
+
   const min = useMemo(() => {
     const d = new Date();
     d.setHours(minHour, 0, 0, 0);
@@ -203,11 +209,11 @@ export function AdminCalendar({
         popup
         resizable
         selectable
-        // Táctil: RBC arranca el arrastre/selección con una pulsación
-        // sostenida. 300 ms (vs 250 por defecto) evita que un scroll con el
-        // dedo se interprete como querer mover una cita — el error más molesto
-        // en móvil, porque reprograma sin querer.
-        longPressThreshold={300}
+        // Táctil: RBC arranca el arrastre y la selección de huecos con una
+        // pulsación sostenida. 320 ms (vs 250 por defecto) y alineado con
+        // useTouchDrag: un toque suelto ya no abre "Nueva cita" ni mueve nada,
+        // que era demasiado sensible con el dedo.
+        longPressThreshold={320}
         onSelectSlot={(slot) => {
           // No se reserva hacia atrás: avisamos en vez de abrir el modal y
           // fallar recién al guardar. El server valida igual (defensa en fondo).
