@@ -279,6 +279,27 @@ export type CreateScheduleBlockDto = z.infer<typeof CreateScheduleBlockSchema>;
 
 // ─── Appointment Schemas ───
 
+/**
+ * Repetición de una cita como tratamiento (ej. 10 sesiones lun/mié/vie).
+ * El primer turno es el de `startTime`; a partir de ahí se generan las demás
+ * en los días marcados, hasta cumplir `count` o llegar a `until`.
+ */
+export const AppointmentRecurrenceSchema = z
+  .object({
+    /// Días de la semana a repetir (0 = domingo … 6 = sábado).
+    weekdays: z.array(z.number().int().min(0).max(6)).min(1).max(7),
+    /// Cuántas citas crear en total (contando la primera). Máx. 60: un
+    /// tratamiento más largo que eso conviene agendarlo por tramos.
+    count: z.number().int().min(2).max(60).optional(),
+    /// Fecha límite (inclusive) como alternativa a `count`.
+    until: z.string().datetime().optional(),
+  })
+  .refine((r) => !!r.count || !!r.until, {
+    message: 'Indica cuántas sesiones o hasta qué fecha repetir',
+    path: ['count'],
+  });
+export type AppointmentRecurrenceDto = z.infer<typeof AppointmentRecurrenceSchema>;
+
 export const CreateAppointmentSchema = z
   .object({
     startTime: z.string().datetime(),
@@ -289,6 +310,8 @@ export const CreateAppointmentSchema = z
     paymentMethod: PaymentMethod.default('CASH'),
     /// Requerido cuando paymentMethod=INSURANCE: seguro que cubre la cita.
     tenantInsuranceId: z.string().uuid().optional(),
+    /// Ausente = cita suelta (comportamiento por defecto).
+    recurrence: AppointmentRecurrenceSchema.optional(),
   })
   .refine((d) => new Date(d.endTime) > new Date(d.startTime), {
     message: 'endTime debe ser posterior a startTime',

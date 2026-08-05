@@ -403,6 +403,11 @@ model Appointment {
   /// aplica (cita no pagada o no cancelada).
   refundResolution RefundResolution?
 
+  /// Agrupa las citas creadas juntas como tratamiento ("Sesión 3 de 10").
+  /// Null = cita suelta. Sin tabla propia a propósito: el total sale de contar
+  /// las citas de la serie, y cada una se edita/cancela por separado.
+  seriesId String?
+
   /// Seguro que cubre esta cita (solo paymentMethod=INSURANCE).
   tenantInsuranceId String?
   tenantInsurance   TenantInsurance? @relation(fields: [tenantInsuranceId], references: [id], onDelete: SetNull)

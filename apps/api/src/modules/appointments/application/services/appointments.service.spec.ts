@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
-import { AppointmentsService } from './appointments.service';
+import { AppointmentsService, occurrenceDates } from './appointments.service';
 
 // Stubs de dependencias no usadas por transitionStatus.
 const waCloud = { sendAppointmentConfirmation: jest.fn() } as never;
@@ -346,5 +346,152 @@ describe('AppointmentsService.reschedule — respeta el horario del doctor', () 
     const { svc, update } = makeSvc([]);
     await svc.reschedule('t1', 'a1', dto);
     expect(update).toHaveBeenCalled();
+  });
+});
+
+describe('occurrenceDates — fechas del tratamiento', () => {
+  // Lunes 3 de agosto de 2026, 09:00 (hora local del runner).
+  const monday = new Date(2026, 7, 3, 9, 0, 0);
+  const dow = (d: Date) => d.getDay();
+
+  it('lun/mié/vie × 10: crea 10 fechas solo en esos días', () => {
+    const out = occurrenceDates(monday, { weekdays: [1, 3, 5], count: 10 });
+    expect(out).toHaveLength(10);
+    expect(out.every((d) => [1, 3, 5].includes(dow(d)))).toBe(true);
+  });
+
+  it('conserva la hora en todas las sesiones', () => {
+    const out = occurrenceDates(monday, { weekdays: [1, 3, 5], count: 6 });
+    expect(out.every((d) => d.getHours() === 9 && d.getMinutes() === 0)).toBe(true);
+  });
+
+  it('la primera cita entra aunque su día no esté marcado (la eligió el usuario)', () => {
+    const out = occurrenceDates(monday, { weekdays: [4], count: 3 });
+    expect(out[0]).toEqual(monday);
+    expect(dow(out[1])).toBe(4);
+  });
+
+  it('respeta la fecha límite en vez del conteo', () => {
+    const until = new Date(2026, 7, 14, 23, 59).toISOString(); // viernes 14 ago
+    const out = occurrenceDates(monday, { weekdays: [1, 3, 5], until });
+    expect(out.every((d) => d <= new Date(until))).toBe(true);
+    expect(out.length).toBeGreaterThan(1);
+  });
+
+  it('no se cuelga si los días marcados nunca alcanzan el conteo', () => {
+    // Solo domingos pero pidiendo 60: corta por el barrido de un año.
+    const out = occurrenceDates(monday, { weekdays: [0], count: 60 });
+    expect(out.length).toBeLessThanOrEqual(60);
+    expect(out.length).toBeGreaterThan(50);
+  });
+
+  it('sin recurrencia semanal útil devuelve al menos la cita ancla', () => {
+    const out = occurrenceDates(monday, { weekdays: [1], count: 2 });
+    expect(out[0]).toEqual(monday);
+  });
+});
+
+describe('AppointmentsService.create — tratamiento recurrente', () => {
+  const start = new Date(Date.now() + 7 * 86_400_000);
+  const end = new Date(start.getTime() + 3_600_000);
+
+  /** @param failOn índices (0-based) de sesiones que chocan con otra cita. */
+  function makeSeriesPrisma(failOn: number[] = []) {
+    let n = 0;
+    const create = jest.fn().mockImplementation(() => {
+      const i = n++;
+      if (failOn.includes(i)) return Promise.reject({ code: 'P2010', meta: { code: '23P01' } });
+      return Promise.resolve({ id: `a${i}`, startTime: start });
+    });
+    const send = jest.fn().mockResolvedValue(undefined);
+    const client = {
+      patient: { findFirst: jest.fn().mockResolvedValue({ id: 'p1' }) },
+      user: { findFirst: jest.fn().mockResolvedValue({ id: 'doc1' }) },
+      doctorService: {
+        findFirst: jest
+          .fn()
+          .mockResolvedValue({ id: 'ds1', customPrice: 100, service: { price: 80 } }),
+      },
+      tenant: { findUnique: jest.fn().mockResolvedValue({ timezone: 'America/La_Paz' }) },
+      doctorScheduleRule: { findMany: jest.fn().mockResolvedValue([]) },
+      doctorScheduleBlock: { findFirst: jest.fn().mockResolvedValue(null) },
+      appointment: {
+        create,
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'a0',
+          status: 'CONFIRMED',
+          cancellationToken: 'tok',
+          startTime: start,
+          patient: { phone: '59170000000', name: 'Ana' },
+          doctor: { name: 'Dr. Bryan' },
+          tenant: { mapsUrl: null, timezone: 'America/La_Paz' },
+        }),
+      },
+    };
+    const messaging = { sendAppointmentConfirmation: send } as never;
+    return { svc: new AppointmentsService({ client } as never, messaging, logger), create, send };
+  }
+
+  const dto = (recurrence?: object) =>
+    ({
+      startTime: start.toISOString(),
+      endTime: end.toISOString(),
+      patientId: 'p1',
+      doctorId: 'doc1',
+      serviceId: 'svc1',
+      paymentMethod: 'CASH',
+      ...(recurrence ? { recurrence } : {}),
+    }) as never;
+
+  it('crea una cita por sesión, todas con el mismo seriesId', async () => {
+    const { svc, create } = makeSeriesPrisma();
+    const res = (await svc.create('t1', dto({ weekdays: [1, 3, 5], count: 5 }))) as {
+      series: { id: string; created: number };
+    };
+    expect(create).toHaveBeenCalledTimes(5);
+    expect(res.series.created).toBe(5);
+
+    const ids = create.mock.calls.map((c) => c[0].data.seriesId);
+    expect(new Set(ids).size).toBe(1);
+    expect(ids[0]).toBeTruthy();
+  });
+
+  it('cada sesión lleva su propio token de cancelación', async () => {
+    const { svc, create } = makeSeriesPrisma();
+    await svc.create('t1', dto({ weekdays: [1, 3, 5], count: 4 }));
+    const tokens = create.mock.calls.map((c) => c[0].data.cancellationToken);
+    expect(new Set(tokens).size).toBe(4);
+  });
+
+  it('una sesión que choca se omite y se informa; las demás se crean', async () => {
+    const { svc, create } = makeSeriesPrisma([2]);
+    const res = (await svc.create('t1', dto({ weekdays: [1, 3, 5], count: 5 }))) as {
+      series: { created: number; skipped: { reason: string }[] };
+    };
+    expect(create).toHaveBeenCalledTimes(5);
+    expect(res.series.created).toBe(4);
+    expect(res.series.skipped).toHaveLength(1);
+    expect(res.series.skipped[0].reason).toMatch(/ya tiene una cita/i);
+  });
+
+  it('avisa al paciente UNA sola vez por tratamiento, no una por sesión', async () => {
+    const { svc, send } = makeSeriesPrisma();
+    await svc.create('t1', dto({ weekdays: [1, 3, 5], count: 6 }));
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(send.mock.calls[0][5]).toMatchObject({ totalSessions: 6 });
+  });
+
+  it('si TODAS las fechas chocan, no deja una serie a medias: 409', async () => {
+    const { svc } = makeSeriesPrisma([0, 1, 2]);
+    await expect(svc.create('t1', dto({ weekdays: [1], count: 3 }))).rejects.toBeInstanceOf(
+      ConflictException,
+    );
+  });
+
+  it('sin recurrencia sigue creando UNA cita suelta (sin seriesId)', async () => {
+    const { svc, create } = makeSeriesPrisma();
+    await svc.create('t1', dto());
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(create.mock.calls[0][0].data.seriesId).toBeUndefined();
   });
 });

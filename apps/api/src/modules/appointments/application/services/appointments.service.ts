@@ -1,4 +1,4 @@
-import { randomBytes } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import {
   Injectable,
   Inject,
@@ -37,6 +37,36 @@ const ALLOWED_TRANSITIONS: Record<AppointmentStatus, AppointmentStatus[]> = {
   CANCELLED: [], // terminal
   NO_SHOW: [], // terminal
 };
+
+/**
+ * Fechas de un tratamiento recurrente, incluida la primera.
+ *
+ * La cita ancla (`start`) siempre entra, aunque su día no esté marcado: es la
+ * fecha que el usuario eligió a mano. A partir del día siguiente se avanza día
+ * a día tomando los que caen en `weekdays`, conservando la hora.
+ *
+ * Se suman días en milisegundos porque Bolivia no tiene horario de verano; si
+ * algún día se opera en un país con DST, esto debe pasar a aritmética zonal.
+ */
+export function occurrenceDates(
+  start: Date,
+  recurrence: { weekdays: number[]; count?: number; until?: string },
+): Date[] {
+  const DAY_MS = 86_400_000;
+  const limit = recurrence.count ?? 60;
+  const until = recurrence.until ? new Date(recurrence.until) : null;
+  const days = new Set(recurrence.weekdays);
+
+  const out: Date[] = [start];
+  // Tope de barrido: un año. Evita girar sin fin si `until` queda muy lejos y
+  // los días marcados nunca alcanzan el `count`.
+  for (let i = 1; i <= 366 && out.length < limit; i++) {
+    const d = new Date(start.getTime() + i * DAY_MS);
+    if (until && d > until) break;
+    if (days.has(d.getDay())) out.push(d);
+  }
+  return out;
+}
 
 @Injectable()
 export class AppointmentsService {
@@ -109,6 +139,26 @@ export class AppointmentsService {
         throw new BadRequestException('Seguro no válido para este especialista');
       }
       insuranceData = { tenantInsuranceId: insurance.id, insuranceNameSnapshot: insurance.name };
+    }
+
+    // Tratamiento recurrente: las validaciones de arriba (paciente, doctor,
+    // servicio, precio, seguro) valen para toda la serie, así que se hacen una
+    // sola vez y a partir de aquí solo cambia la fecha de cada sesión.
+    if (dto.recurrence) {
+      return await this.createRecurring(tenantId, {
+        base: {
+          patientId: dto.patientId,
+          doctorId: dto.doctorId,
+          serviceId: dto.serviceId,
+          paymentMethod,
+          status,
+          price,
+          insuranceData,
+        },
+        start,
+        end,
+        recurrence: dto.recurrence,
+      });
     }
 
     try {
@@ -468,6 +518,133 @@ export class AppointmentsService {
       }
       throw e;
     }
+  }
+
+  /**
+   * Crea el tratamiento completo: una cita por fecha de la serie.
+   *
+   * Cada sesión se intenta por separado a propósito. Si una choca con otra cita
+   * del doctor o cae fuera de su horario, se OMITE y se informa cuál — nunca se
+   * pisa una cita existente ni se cae toda la serie por un solo conflicto.
+   * Tampoco va en una transacción única: perder 9 sesiones válidas porque la
+   * décima chocaba sería peor para la recepción que crear las 9.
+   */
+  private async createRecurring(
+    tenantId: string,
+    params: {
+      base: {
+        patientId: string;
+        doctorId: string;
+        serviceId: string;
+        paymentMethod: string;
+        status: string;
+        price: unknown;
+        insuranceData: { tenantInsuranceId: string; insuranceNameSnapshot: string } | null;
+      };
+      start: Date;
+      end: Date;
+      recurrence: { weekdays: number[]; count?: number; until?: string };
+    },
+  ) {
+    const { base, start, end, recurrence } = params;
+    const seriesId = randomUUID();
+    const durationMs = end.getTime() - start.getTime();
+    const dates = occurrenceDates(start, recurrence);
+
+    const created: { id: string; startTime: Date }[] = [];
+    const skipped: { startTime: Date; reason: string }[] = [];
+
+    for (const occStart of dates) {
+      const occEnd = new Date(occStart.getTime() + durationMs);
+      try {
+        await this.assertWithinDoctorSchedule(tenantId, base.doctorId, occStart, occEnd);
+        const appt = await this.prisma.client.appointment.create({
+          data: {
+            tenantId,
+            patientId: base.patientId,
+            doctorId: base.doctorId,
+            serviceId: base.serviceId,
+            startTime: occStart,
+            endTime: occEnd,
+            paymentMethod: base.paymentMethod as never,
+            status: base.status as never,
+            price: base.price as never,
+            // Único por cita: es el magic link de cancelación de ESA sesión.
+            cancellationToken: generateCancellationToken(),
+            seriesId,
+            ...(base.insuranceData ?? {}),
+          },
+          select: { id: true, startTime: true },
+        });
+        created.push(appt);
+      } catch (e: unknown) {
+        if (this.isExclusionViolation(e)) {
+          skipped.push({ startTime: occStart, reason: 'El especialista ya tiene una cita' });
+          continue;
+        }
+        if (e instanceof BadRequestException) {
+          skipped.push({ startTime: occStart, reason: 'Fuera del horario de atención' });
+          continue;
+        }
+        throw e;
+      }
+    }
+
+    if (created.length === 0) {
+      throw new ConflictException(
+        'Ninguna de las fechas quedó libre en la agenda del especialista.',
+      );
+    }
+
+    // Un solo aviso por tratamiento: mandar 10 confirmaciones al paciente por
+    // la misma reserva sería spam (y consumo innecesario de WhatsApp).
+    await this.notifySeriesCreated(tenantId, created[0].id, created.length);
+
+    this.logger.log(
+      {
+        event: 'appointment.series.created',
+        tenantId,
+        seriesId,
+        created: created.length,
+        skipped: skipped.length,
+      },
+      'AppointmentsService',
+    );
+
+    const first = await this.prisma.client.appointment.findFirst({
+      where: { id: created[0].id, tenantId },
+    });
+    return { ...first, series: { id: seriesId, created: created.length, skipped } };
+  }
+
+  /** Confirmación al paciente por el tratamiento (una sola, la de la 1ª sesión). */
+  private async notifySeriesCreated(tenantId: string, appointmentId: string, total: number) {
+    const appt = await this.prisma.client.appointment.findFirst({
+      where: { id: appointmentId, tenantId },
+      include: {
+        patient: { select: { phone: true, name: true } },
+        doctor: { select: { name: true } },
+        tenant: { select: { mapsUrl: true, timezone: true } },
+      },
+    });
+    if (!appt || appt.status !== 'CONFIRMED' || !appt.cancellationToken || !appt.patient.phone) {
+      return;
+    }
+    void this.messaging
+      .sendAppointmentConfirmation(
+        appt.patient.phone,
+        appt.patient.name,
+        appt.doctor.name,
+        appt.startTime,
+        appt.cancellationToken,
+        { mapsUrl: appt.tenant.mapsUrl, timezone: appt.tenant.timezone, totalSessions: total },
+      )
+      .catch((err) =>
+        this.logger.error(
+          { event: 'appointment.series-msg.failed', err: (err as Error).message },
+          'AppointmentsService',
+        ),
+      );
   }
 
   /**

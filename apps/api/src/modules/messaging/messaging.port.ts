@@ -12,6 +12,10 @@ export interface AppointmentConfirmationExtras {
   mapsUrl?: string | null;
   /// Timezone del tenant para formatear la fecha (default America/La_Paz).
   timezone?: string | null;
+  /// Tratamiento de varias sesiones: cuántas se agendaron. El aviso se manda
+  /// UNA sola vez (por la primera) y menciona el total, en vez de enviar una
+  /// confirmación por sesión.
+  totalSessions?: number;
 }
 
 export interface IMessagingService {
