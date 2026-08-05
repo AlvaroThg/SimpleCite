@@ -148,6 +148,9 @@ services:
         NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${NEXT_PUBLIC_TURNSTILE_SITE_KEY:-}
         # Bot de reservas (deep links en landing y checkout). Vacío = sin CTAs.
         NEXT_PUBLIC_BOT_URL: ${NEXT_PUBLIC_BOT_URL:-}
+        # Maps Embed API: sin key el mapa de la landing no se muestra (cae a la
+        # foto de fachada + botón "Cómo llegar"), nunca queda un iframe roto.
+        NEXT_PUBLIC_GOOGLE_MAPS_KEY: ${NEXT_PUBLIC_GOOGLE_MAPS_KEY:-}
     image: simplecite-web:prod
     container_name: simplecite-web
     restart: unless-stopped
