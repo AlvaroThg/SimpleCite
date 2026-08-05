@@ -33,13 +33,19 @@ export class PatientsService {
     const limit = clampLimit(query.limit);
     const q = query.q?.trim();
 
+    // Cada criterio se agrega SOLO si su versión normalizada no quedó vacía.
+    // Buscar "Braulio" dejaba normalizePhone() en '' → `contains: ''` es
+    // LIKE '%%' en Postgres, que hace match con TODAS las filas: el buscador
+    // devolvía la lista completa y parecía no funcionar.
+    const phoneQ = q ? normalizePhone(q) : '';
+    const ciQ = q ? normalizeCi(q) : '';
     const where = {
       tenantId,
       ...(q && {
         OR: [
           { name: { contains: q, mode: 'insensitive' as const } },
-          { phone: { contains: normalizePhone(q) } },
-          { ci: { contains: normalizeCi(q) } },
+          ...(phoneQ ? [{ phone: { contains: phoneQ } }] : []),
+          ...(ciQ ? [{ ci: { contains: ciQ } }] : []),
         ],
       }),
     };

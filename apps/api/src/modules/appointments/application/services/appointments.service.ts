@@ -7,6 +7,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { Logger } from 'nestjs-pino';
+import { toZonedTime } from 'date-fns-tz';
 import type { CreateAppointmentDto, AppointmentStatus } from '@simplecite/shared';
 import { PrismaService } from '../../../../common/database/prisma.service';
 import { MESSAGING_SERVICE, type IMessagingService } from '../../../messaging/messaging.port';
@@ -454,6 +455,8 @@ export class AppointmentsService {
       throw new BadRequestException(`No se puede reprogramar una cita en estado ${current.status}`);
     }
 
+    await this.assertWithinDoctorSchedule(tenantId, current.doctorId, start, end);
+
     try {
       return await this.prisma.client.appointment.update({
         where: { id },
@@ -464,6 +467,64 @@ export class AppointmentsService {
         throw new ConflictException('El doctor ya tiene una cita en ese horario. Elige otro.');
       }
       throw e;
+    }
+  }
+
+  /**
+   * Exige que el rango caiga dentro del horario de atención del doctor y fuera
+   * de sus bloqueos. El calendario permite soltar una cita en cualquier franja
+   * (arrastrar es libre), así que sin esto se podían agendar citas a las 3 AM o
+   * en el día de descanso del especialista.
+   *
+   * Las reglas se guardan como minutos desde medianoche EN LA ZONA DEL TENANT,
+   * así que el rango se convierte antes de comparar.
+   *
+   * Si el doctor todavía no tiene ninguna regla cargada no se valida nada: su
+   * agenda aún no está configurada y bloquear sería peor que permitir.
+   */
+  private async assertWithinDoctorSchedule(
+    tenantId: string,
+    doctorId: string,
+    start: Date,
+    end: Date,
+  ): Promise<void> {
+    const tenant = await this.prisma.client.tenant.findUnique({
+      where: { id: tenantId },
+      select: { timezone: true },
+    });
+    const timezone = tenant?.timezone ?? 'America/La_Paz';
+
+    const rules = await this.prisma.client.doctorScheduleRule.findMany({
+      where: { tenantId, doctorId, isActive: true },
+      select: { dayOfWeek: true, startMinute: true, endMinute: true },
+    });
+    if (rules.length === 0) return; // agenda sin configurar
+
+    const localStart = toZonedTime(start, timezone);
+    const localEnd = toZonedTime(end, timezone);
+    const startMin = localStart.getHours() * 60 + localStart.getMinutes();
+    const endMin = localEnd.getHours() * 60 + localEnd.getMinutes();
+
+    // Cita que cruza la medianoche: ninguna franja diaria puede contenerla.
+    const sameDay = localStart.toDateString() === localEnd.toDateString();
+    const fits =
+      sameDay &&
+      rules.some(
+        (r) =>
+          r.dayOfWeek === localStart.getDay() && startMin >= r.startMinute && endMin <= r.endMinute,
+      );
+    if (!fits) {
+      throw new BadRequestException(
+        'Ese horario está fuera del horario de atención del especialista.',
+      );
+    }
+
+    const blocked = await this.prisma.client.doctorScheduleBlock.findFirst({
+      where: { tenantId, doctorId, startTime: { lt: end }, endTime: { gt: start } },
+      select: { id: true },
+    });
+    if (blocked) {
+      throw new BadRequestException('El especialista tiene un bloqueo en ese horario.');
     }
   }
 

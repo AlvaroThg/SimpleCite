@@ -90,3 +90,40 @@ describe('PatientsService.findOrCreate — identidad teléfono O CI', () => {
     expect(update).not.toHaveBeenCalled();
   });
 });
+
+describe('PatientsService.list — búsqueda libre', () => {
+  function makeListService() {
+    const findMany = jest.fn().mockResolvedValue([]);
+    const prisma = { client: { patient: { findMany } } } as never;
+    return { svc: new PatientsService(prisma), findMany };
+  }
+
+  const orOf = (findMany: jest.Mock) =>
+    (findMany.mock.calls[0][0].where as { OR?: object[] }).OR ?? [];
+
+  it('buscar por nombre NO agrega un filtro de teléfono vacío', async () => {
+    // normalizePhone('Braulio') → '' y `contains: ''` es LIKE '%%' en Postgres:
+    // hacía match con todos los pacientes y el buscador no filtraba nada.
+    const { svc, findMany } = makeListService();
+    await svc.list('t1', { q: 'Braulio' } as never);
+
+    const or = orOf(findMany);
+    expect(JSON.stringify(or)).not.toContain('"contains":""');
+    expect(or.some((c) => 'name' in c)).toBe(true);
+    expect(or.some((c) => 'phone' in c)).toBe(false);
+  });
+
+  it('buscar por número sí filtra por teléfono', async () => {
+    const { svc, findMany } = makeListService();
+    await svc.list('t1', { q: '69303930' } as never);
+
+    const or = orOf(findMany);
+    expect(or.some((c) => 'phone' in c)).toBe(true);
+  });
+
+  it('sin término de búsqueda no arma ningún OR', async () => {
+    const { svc, findMany } = makeListService();
+    await svc.list('t1', {} as never);
+    expect((findMany.mock.calls[0][0].where as { OR?: unknown }).OR).toBeUndefined();
+  });
+});

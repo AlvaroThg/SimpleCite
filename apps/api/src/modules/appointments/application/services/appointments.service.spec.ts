@@ -175,6 +175,11 @@ function makeReschedulePrisma(
       findFirst: jest.fn().mockResolvedValue(current),
       update,
     },
+    // Sin reglas de horario cargadas la validación de agenda no aplica: estos
+    // casos prueban otras reglas (estado, pasado, solape), no el horario.
+    tenant: { findUnique: jest.fn().mockResolvedValue({ timezone: 'America/La_Paz' }) },
+    doctorScheduleRule: { findMany: jest.fn().mockResolvedValue([]) },
+    doctorScheduleBlock: { findFirst: jest.fn().mockResolvedValue(null) },
   };
   return { prisma: { client } as never, update };
 }
@@ -280,5 +285,66 @@ describe('AppointmentsService.findAll — ventana por defecto', () => {
     };
     expect(startTime.gte).toBe(from);
     expect(startTime.lte).toBe(to);
+  });
+});
+
+describe('AppointmentsService.reschedule — respeta el horario del doctor', () => {
+  /** Lunes 2030-05-06, 10:00–11:00 en La Paz (UTC-4) → 14:00–15:00 UTC. */
+  const start = new Date('2030-05-06T14:00:00Z');
+  const end = new Date('2030-05-06T15:00:00Z');
+
+  function makeSvc(
+    rules: { dayOfWeek: number; startMinute: number; endMinute: number }[],
+    block = false,
+  ) {
+    const update = jest
+      .fn()
+      .mockImplementation(({ data }) => Promise.resolve({ id: 'a1', ...data }));
+    const client = {
+      appointment: {
+        findFirst: jest.fn().mockResolvedValue({ id: 'a1', status: 'CONFIRMED', doctorId: 'doc1' }),
+        update,
+      },
+      tenant: { findUnique: jest.fn().mockResolvedValue({ timezone: 'America/La_Paz' }) },
+      doctorScheduleRule: { findMany: jest.fn().mockResolvedValue(rules) },
+      doctorScheduleBlock: {
+        findFirst: jest.fn().mockResolvedValue(block ? { id: 'b1' } : null),
+      },
+    };
+    return { svc: new AppointmentsService({ client } as never, waCloud, logger), update };
+  }
+
+  const dto = { startTime: start.toISOString(), endTime: end.toISOString() };
+  // Lunes = 1. Atiende 08:00–12:00 (480–720 min).
+  const MONDAY_MORNING = [{ dayOfWeek: 1, startMinute: 480, endMinute: 720 }];
+
+  it('permite mover dentro del horario de atención', async () => {
+    const { svc, update } = makeSvc(MONDAY_MORNING);
+    await svc.reschedule('t1', 'a1', dto);
+    expect(update).toHaveBeenCalled();
+  });
+
+  it('rechaza mover fuera del horario (el doctor sale a las 12:00)', async () => {
+    const { svc, update } = makeSvc([{ dayOfWeek: 1, startMinute: 480, endMinute: 540 }]);
+    await expect(svc.reschedule('t1', 'a1', dto)).rejects.toBeInstanceOf(BadRequestException);
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it('rechaza mover a un día en que el doctor no atiende', async () => {
+    const { svc, update } = makeSvc([{ dayOfWeek: 3, startMinute: 480, endMinute: 720 }]);
+    await expect(svc.reschedule('t1', 'a1', dto)).rejects.toBeInstanceOf(BadRequestException);
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it('rechaza mover sobre un bloqueo del especialista', async () => {
+    const { svc, update } = makeSvc(MONDAY_MORNING, true);
+    await expect(svc.reschedule('t1', 'a1', dto)).rejects.toBeInstanceOf(BadRequestException);
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it('sin agenda configurada no bloquea (la clínica aún no cargó horarios)', async () => {
+    const { svc, update } = makeSvc([]);
+    await svc.reschedule('t1', 'a1', dto);
+    expect(update).toHaveBeenCalled();
   });
 });
