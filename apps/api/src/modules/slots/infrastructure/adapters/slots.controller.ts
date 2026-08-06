@@ -11,7 +11,7 @@ export class SlotsController {
   /**
    * GET /api/slots?doctorId=...&serviceId=...&from=...&to=...
    * Retorna los slots de disponibilidad del doctor en el rango.
-   * Usado por staff, doctores y por el Web Booking portal (vÃ­a un endpoint pÃºblico en otra fase).
+   * Usado por staff, doctores y por el Web Booking portal (vía un endpoint público en otra fase).
    */
   @Get()
   async generate(

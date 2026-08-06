@@ -219,7 +219,7 @@ export class DoctorsService {
 
   /**
    * Soft delete: marca el usuario como inactivo. Las citas pasadas conservan referencia.
-   * Para borrado fÃ­sico, el ADMIN deberÃ­a tener una ruta separada.
+   * Para borrado físico, el ADMIN debería tener una ruta separada.
    */
   async archive(tenantId: string, doctorId: string) {
     const doctor = await this.prisma.client.user.findFirst({
@@ -227,7 +227,7 @@ export class DoctorsService {
       select: { id: true, isActive: true },
     });
     if (!doctor) throw new NotFoundException('Doctor no encontrado');
-    if (!doctor.isActive) throw new BadRequestException('El doctor ya estÃ¡ archivado');
+    if (!doctor.isActive) throw new BadRequestException('El doctor ya está archivado');
 
     await this.prisma.client.user.update({
       where: { id: doctorId },

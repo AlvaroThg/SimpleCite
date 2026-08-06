@@ -11,7 +11,7 @@ import { PrismaService } from '../../../../common/database/prisma.service';
 export class ServicesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  // â”€â”€â”€â”€â”€ Service (catÃ¡logo del tenant) â”€â”€â”€â”€â”€
+  // ───── Service (catálogo del tenant) ─────
 
   async create(tenantId: string, dto: CreateServiceDto) {
     const existing = await this.prisma.client.service.findFirst({
@@ -67,7 +67,7 @@ export class ServicesService {
     return { success: true };
   }
 
-  // â”€â”€â”€â”€â”€ DoctorService (asignaciÃ³n catÃ¡logo â†” doctor) â”€â”€â”€â”€â”€
+  // ───── DoctorService (asignación catálogo ↔ doctor) ─────
 
   async assignToDoctor(tenantId: string, doctorId: string, dto: AssignServiceToDoctorDto) {
     // Validar que doctor y service pertenezcan al tenant
@@ -120,7 +120,7 @@ export class ServicesService {
     const link = await this.prisma.client.doctorService.findFirst({
       where: { id: doctorServiceId, tenantId },
     });
-    if (!link) throw new NotFoundException('AsignaciÃ³n no encontrada');
+    if (!link) throw new NotFoundException('Asignación no encontrada');
 
     return this.prisma.client.doctorService.update({
       where: { id: doctorServiceId },
@@ -133,7 +133,7 @@ export class ServicesService {
     const link = await this.prisma.client.doctorService.findFirst({
       where: { id: doctorServiceId, tenantId },
     });
-    if (!link) throw new NotFoundException('AsignaciÃ³n no encontrada');
+    if (!link) throw new NotFoundException('Asignación no encontrada');
 
     await this.prisma.client.doctorService.delete({ where: { id: doctorServiceId } });
     return { success: true };

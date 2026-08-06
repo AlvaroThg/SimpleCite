@@ -20,7 +20,7 @@ import { ServicesService } from '../../application/services/services.service';
 export class ServicesController {
   constructor(private readonly servicesService: ServicesService) {}
 
-  // â”€â”€â”€â”€â”€ CatÃ¡logo del tenant â”€â”€â”€â”€â”€
+  // ───── Catálogo del tenant ─────
 
   @Roles('ADMIN')
   @Post()
@@ -66,7 +66,7 @@ export class ServicesController {
     return this.servicesService.remove(tenantId, id);
   }
 
-  // â”€â”€â”€â”€â”€ Asignaciones doctor â†” servicio â”€â”€â”€â”€â”€
+  // ───── Asignaciones doctor ↔ servicio ─────
 
   /**
    * El doctor elige el color de UNO de sus servicios en SU calendario.

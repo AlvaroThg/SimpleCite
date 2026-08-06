@@ -50,7 +50,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   /**
-   * Llamado automÃ¡ticamente por Passport despuÃ©s de verificar la firma del JWT.
+   * Llamado automáticamente por Passport después de verificar la firma del JWT.
    * El valor retornado se inyecta en request.user.
    */
   async validate(payload: JwtPayload) {

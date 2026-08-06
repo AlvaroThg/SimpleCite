@@ -6,9 +6,9 @@ import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 
 /**
  * Guard JWT global. Valida el Bearer token en cada request.
- * Rutas marcadas con @Public() pasan sin validaciÃ³n.
+ * Rutas marcadas con @Public() pasan sin validación.
  *
- * Registrado como APP_GUARD en AppModule â†’ cubre TODOS los endpoints
+ * Registrado como APP_GUARD en AppModule → cubre TODOS los endpoints
  * sin necesidad de aplicarlo uno por uno.
  */
 @Injectable()

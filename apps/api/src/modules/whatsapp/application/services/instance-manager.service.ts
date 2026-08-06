@@ -13,6 +13,19 @@ import { PrismaService } from '../../../../common/database/prisma.service';
 const WA_INTERNAL_PORT = 4000;
 
 /**
+ * Estrecha un error de dockerode a lo que realmente consultamos. dockerode no
+ * tipa sus errores: `statusCode` viene del API HTTP de Docker (404 = el
+ * contenedor ya no existe, el caso que se ignora a propósito).
+ */
+function asDockerError(err: unknown): { statusCode?: number; message: string } {
+  if (typeof err === 'object' && err !== null) {
+    const e = err as { statusCode?: number; message?: string };
+    return { statusCode: e.statusCode, message: e.message ?? String(err) };
+  }
+  return { message: String(err) };
+}
+
+/**
  * Orquestador de contenedores WhatsApp (un contenedor Baileys por tenant).
  *
  * Todos los cambios de estado (CREATING → STARTING, etc.) se reflejan
@@ -189,10 +202,11 @@ export class InstanceManagerService implements OnModuleInit {
       try {
         const container = this.docker.getContainer(instance.containerId);
         await container.stop({ t: 10 });
-      } catch (err: any) {
-        // Si el contenedor no existe, ignoramos
-        if (err?.statusCode !== 404) {
-          this.logger.warn({ event: 'wa.stop.error', err: err.message }, 'InstanceManagerService');
+      } catch (err: unknown) {
+        // Si el contenedor no existe (404 de Docker), ignoramos
+        const e = asDockerError(err);
+        if (e.statusCode !== 404) {
+          this.logger.warn({ event: 'wa.stop.error', err: e.message }, 'InstanceManagerService');
         }
       }
     }
@@ -214,12 +228,10 @@ export class InstanceManagerService implements OnModuleInit {
         const container = this.docker.getContainer(instance.containerId);
         await container.stop({ t: 5 }).catch(() => {});
         await container.remove({ force: true });
-      } catch (err: any) {
-        if (err?.statusCode !== 404) {
-          this.logger.warn(
-            { event: 'wa.destroy.error', err: err.message },
-            'InstanceManagerService',
-          );
+      } catch (err: unknown) {
+        const e = asDockerError(err);
+        if (e.statusCode !== 404) {
+          this.logger.warn({ event: 'wa.destroy.error', err: e.message }, 'InstanceManagerService');
         }
       }
     }
