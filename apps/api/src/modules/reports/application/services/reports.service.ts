@@ -293,6 +293,82 @@ export class ReportsService {
    * Historial completo de citas del tenant como CSV (Excel-friendly).
    * Sin from/to exporta TODO; con rango, esa franja. Sin contenido clínico.
    */
+  /**
+   * Libro de ingresos: el detalle de lo COBRADO, cita por cita.
+   *
+   * Replica la libreta que la clínica lleva a mano (fecha · paciente · monto ·
+   * forma de pago), porque es como el dueño piensa el dinero: un dashboard con
+   * gráficos no le deja verificar el total del día. El resumen analítico ya
+   * vive en `analytics`; esto es el respaldo línea a línea.
+   *
+   * Solo citas con el pago registrado: es plata que entró, no lo agendado.
+   */
+  async income(
+    tenantId: string,
+    filters: {
+      from?: string;
+      to?: string;
+      doctorId?: string;
+      serviceId?: string;
+      patientId?: string;
+    },
+  ) {
+    const tenant = await this.prisma.client.tenant.findUnique({
+      where: { id: tenantId },
+      select: { timezone: true },
+    });
+
+    const rows = await this.prisma.client.appointment.findMany({
+      where: {
+        tenantId,
+        isPaid: true,
+        // Una cita cancelada que ya estaba pagada sigue siendo dinero
+        // recibido: se muestra, y su resolución se maneja en el reporte de
+        // reembolsos. Excluirla descuadraría el total contra la caja.
+        ...(filters.doctorId && { doctorId: filters.doctorId }),
+        ...(filters.serviceId && { serviceId: filters.serviceId }),
+        ...(filters.patientId && { patientId: filters.patientId }),
+        ...((filters.from || filters.to) && {
+          startTime: {
+            ...(filters.from && { gte: new Date(filters.from) }),
+            ...(filters.to && { lte: new Date(filters.to) }),
+          },
+        }),
+      },
+      select: {
+        id: true,
+        startTime: true,
+        status: true,
+        paymentMethod: true,
+        price: true,
+        insuranceNameSnapshot: true,
+        refundResolution: true,
+        patient: { select: { id: true, name: true } },
+        doctor: { select: { id: true, name: true } },
+        service: { select: { id: true, name: true } },
+      },
+      orderBy: { startTime: 'asc' },
+    });
+
+    return {
+      timezone: tenant?.timezone ?? 'America/La_Paz',
+      items: rows.map((r) => ({
+        id: r.id,
+        startTime: r.startTime,
+        patient: r.patient,
+        doctor: r.doctor,
+        service: r.service,
+        amount: r.price ? Number(r.price) : 0,
+        paymentMethod: r.paymentMethod,
+        insuranceName: r.insuranceNameSnapshot,
+        // La recepción necesita ver de un vistazo qué cobros corresponden a
+        // citas que después se cancelaron (dinero a devolver o acreditar).
+        cancelled: r.status === 'CANCELLED',
+        refundResolution: r.refundResolution,
+      })),
+    };
+  }
+
   async appointmentsCsv(
     tenantId: string,
     fromIso?: string,

@@ -45,6 +45,30 @@ export class ReportsController {
     return { success: true, data };
   }
 
+  /**
+   * Libro de ingresos: el detalle de lo cobrado, cita por cita.
+   * STAFF incluido a propósito — es recepción quien cuadra la caja del día.
+   */
+  @Get('income')
+  @Roles('ADMIN', 'STAFF')
+  async income(
+    @CurrentUser('tenantId') tenantId: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('doctorId') doctorId?: string,
+    @Query('serviceId') serviceId?: string,
+    @Query('patientId') patientId?: string,
+  ) {
+    const data = await this.reports.income(tenantId, {
+      from,
+      to,
+      doctorId,
+      serviceId,
+      patientId,
+    });
+    return { success: true, data };
+  }
+
   @Get('analytics/pdf')
   @Roles('ADMIN')
   async analyticsPdf(

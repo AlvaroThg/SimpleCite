@@ -615,6 +615,43 @@ export interface CancelledPaidRow {
   amount: number;
   refundResolution: RefundResolution;
 }
+/** Una línea del libro de ingresos (una cita cobrada). */
+export interface IncomeRow {
+  id: string;
+  startTime: string;
+  patient: { id: string; name: string };
+  doctor: { id: string; name: string };
+  service: { id: string; name: string };
+  amount: number;
+  paymentMethod: PaymentMethod;
+  insuranceName: string | null;
+  /// Cobro de una cita que después se canceló: hay que devolver o acreditar.
+  cancelled: boolean;
+  refundResolution: RefundResolution;
+}
+
+/** Libro de ingresos: el detalle de lo cobrado, cita por cita. */
+export const getIncome = (
+  t: string,
+  s: string,
+  filters: {
+    from?: string;
+    to?: string;
+    doctorId?: string;
+    serviceId?: string;
+    patientId?: string;
+  },
+) => {
+  const qs = new URLSearchParams();
+  for (const [k, v] of Object.entries(filters)) if (v) qs.set(k, v);
+  const suffix = qs.toString() ? `?${qs.toString()}` : '';
+  return get<{ data: { timezone: string; items: IncomeRow[] } }>(
+    `/api/reports/income${suffix}`,
+    t,
+    s,
+  ).then((r) => r.data);
+};
+
 /** Citas pagadas que se cancelaron: dinero pendiente de resolución (ADMIN). */
 export const getCancelledPaid = (t: string, s: string, from?: string, to?: string) => {
   const qs = new URLSearchParams();

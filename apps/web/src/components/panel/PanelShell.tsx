@@ -15,6 +15,7 @@ import {
   Settings,
   Package,
   BarChart3,
+  Wallet,
   LogOut,
   type LucideIcon,
 } from 'lucide-react';
@@ -141,6 +142,9 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   {
     label: 'Cuenta',
     items: [
+      // Ingresos es operativo (recepción cuadra la caja del día), por eso
+      // incluye STAFF; Reportes es el análisis del dueño y queda solo-ADMIN.
+      { href: '/panel/income', label: 'Ingresos', icon: Wallet, roles: ['ADMIN', 'STAFF'] },
       { href: '/panel/reports', label: 'Reportes', icon: BarChart3, roles: ['ADMIN'] },
       { href: '/panel/billing', label: 'Suscripción', icon: CreditCard, roles: ['ADMIN'] },
       { href: '/panel/settings', label: 'Configuración', icon: Settings, roles: ['ADMIN'] },
