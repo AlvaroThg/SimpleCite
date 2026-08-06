@@ -38,6 +38,18 @@ export default tseslint.config(
       '**/coverage/**',
       '**/*.d.ts',
       'packages/database/prisma/migrations/**',
+      // ── Tooling y artefactos que NO son código de SimpleCite ──
+      // Scripts del skill `impeccable` y bundles del design-sync: son de sus
+      // propios proyectos, con su propio estilo y sus propios globals. Al
+      // lintearlos, `pnpm lint:root` (el paso de CI) devolvía ~5.700 errores
+      // ajenos y quedaba en rojo permanente: una compuerta de calidad que
+      // siempre falla no informa nada, y entrena al equipo a ignorarla.
+      '.claude/**',
+      '.github/skills/**',
+      '.ds-sync/**',
+      '.design-sync/**',
+      'ds-bundle/**',
+      'simplecite-observability/**',
     ],
   },
   js.configs.recommended,
@@ -123,6 +135,20 @@ export default tseslint.config(
     rules: {
       'no-empty': ['error', { allowEmptyCatch: true }],
       'no-unused-vars': ['error', { caughtErrorsIgnorePattern: '^_' }],
+    },
+  },
+  {
+    // Scripts sueltos de Node en ESM (smoke tests, utilidades de deploy).
+    // No pasan por TypeScript ni por un bundler: necesitan los globals de Node
+    // declarados a mano, igual que `apps/whatsapp-instance`.
+    files: ['scripts/**/*.{js,mjs}', 'apps/*/scripts/**/*.{js,mjs}'],
+    languageOptions: {
+      ecmaVersion: 2023,
+      sourceType: 'module',
+      globals: NODE_GLOBALS,
+    },
+    rules: {
+      'no-console': 'off',
     },
   },
   {

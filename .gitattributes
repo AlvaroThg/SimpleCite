@@ -1,0 +1,31 @@
+# Fin de línea: LF en el repositorio Y en el working tree, en todas las plataformas.
+#
+# Sin esto, un checkout en Windows (core.autocrlf=true) deja CRLF mientras
+# .prettierrc pide `endOfLine: "lf"`: `pnpm format:check` —que es un paso de CI—
+# falla localmente sobre ~120 archivos que nadie tocó, y pasa en CI solo porque
+# ahí el runner es Linux. La compuerta queda roja para todo el equipo en Windows
+# y verde en el pipeline: lo peor de los dos mundos.
+#
+# Al adoptar este archivo hay que renormalizar UNA vez, en su propio commit:
+#   git add --renormalize .
+#   git commit -m "chore: normalizar fines de línea a LF (.gitattributes)"
+
+* text=auto eol=lf
+
+# Binarios: que git no los toque.
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.webp  binary
+*.ico   binary
+*.pdf   binary
+*.ttf   binary
+*.otf   binary
+*.woff  binary
+*.woff2 binary
+*.mp4   binary
+*.webm  binary
+
+# Lockfile: generado, no vale la pena revisarlo a mano en los diffs.
+pnpm-lock.yaml -diff linguist-generated=true
