@@ -8,6 +8,7 @@
  * El JWT y el slug se guardan en localStorage (ver panel-auth).
  */
 
+import type { AppointmentStatus } from '@simplecite/shared';
 import { apiBase } from './api-base';
 import { clearPanelSession } from './panel-session-key';
 
@@ -39,14 +40,22 @@ export interface AppointmentListItem {
   id: string;
   startTime: string;
   endTime: string;
-  status: string;
+  /// El enum de `@simplecite/shared`, no `string`: así el compilador atrapa un
+  /// estado mal escrito en el panel en vez de dejarlo fallar con un 400.
+  status: AppointmentStatus;
   isPaid: boolean;
   paymentMethod: PaymentMethod;
   receiptUrl: string | null;
   /// Monto congelado al crear la cita (override del doctor ?? precio del
   /// servicio). Null en citas legacy → usar service.price como fallback.
   price: string | null;
-  /// Nombre del seguro congelado al crear la cita (solo INSURANCE).
+  /**
+   * Nombre del seguro **congelado** al crear la cita (solo `INSURANCE`), no el
+   * nombre actual del catálogo. Existe porque el admin puede renombrar o
+   * archivar un seguro después: si los reportes y PDFs leyeran la relación
+   * viva, una cita de hace seis meses cambiaría de seguro sola. Mostralo tal
+   * cual — nunca lo resuelvas contra `tenantInsuranceId`.
+   */
   insuranceNameSnapshot?: string | null;
   patient: { id: string; name: string; phone: string; ci?: string | null };
   doctor: { id: string; name: string };
@@ -228,7 +237,7 @@ export async function transitionAppointment(
   token: string,
   slug: string,
   id: string,
-  status: string,
+  status: AppointmentStatus,
   /** Completar sin historia clínica: solo tras confirmarlo con el usuario. */
   force?: boolean,
 ): Promise<void> {

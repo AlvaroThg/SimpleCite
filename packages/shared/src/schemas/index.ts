@@ -35,6 +35,32 @@ export const AppointmentStatus = z.enum([
 ]);
 export type AppointmentStatus = z.infer<typeof AppointmentStatus>;
 
+/**
+ * Ciclo de vida de una cita: desde cada estado, a cuáles puede pasar.
+ * Estados terminales (COMPLETED / CANCELLED / NO_SHOW) no tienen salida.
+ *
+ * Vive en `shared` porque la usan los dos lados y tienen que coincidir: el API
+ * la aplica (rechaza con 400 lo que no esté aquí) y el panel la lee para saber
+ * qué botones mostrar. Cuando estaban duplicadas, agregar una transición en el
+ * backend dejaba el botón invisible en el panel hasta que alguien se acordara
+ * de tocar el otro archivo.
+ */
+export const ALLOWED_APPOINTMENT_TRANSITIONS: Record<AppointmentStatus, AppointmentStatus[]> = {
+  // TENTATIVE → confirmada por OTP (sin pago) o pendiente de pago,
+  // o cancelada por expiración / decisión del paciente o del staff.
+  TENTATIVE: ['CONFIRMED', 'PENDING_PAYMENT', 'CANCELLED'],
+  PENDING_PAYMENT: ['CONFIRMED', 'CANCELLED'],
+  CONFIRMED: ['COMPLETED', 'CANCELLED', 'NO_SHOW'],
+  COMPLETED: [],
+  CANCELLED: [],
+  NO_SHOW: [],
+};
+
+/** ¿La cita puede pasar de `from` a `to`? */
+export function canTransitionAppointment(from: AppointmentStatus, to: AppointmentStatus): boolean {
+  return ALLOWED_APPOINTMENT_TRANSITIONS[from].includes(to);
+}
+
 export const SubscriptionPlan = z.enum(['BASIC', 'PRO', 'ELITE']);
 export type SubscriptionPlan = z.infer<typeof SubscriptionPlan>;
 

@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Download, Stethoscope, Repeat, FileText, ShieldCheck } from 'lucide-react';
+import { ALLOWED_APPOINTMENT_TRANSITIONS, type AppointmentStatus } from '@simplecite/shared';
 import { useAuth } from '@/lib/panel-auth';
 import {
   getAppointment,
@@ -20,22 +21,31 @@ import { BackLink, StatusBadge, fmtDate, fmtTime, ErrorBox } from '@/components/
 import { Button } from '@/components/ui/button';
 import { SkeletonDetail } from '@/components/panel/Skeleton';
 
-// Transiciones permitidas desde el panel (espejo del backend state machine).
-const TRANSITIONS: Record<string, { status: string; label: string; cls: string }[]> = {
-  PENDING_PAYMENT: [
-    {
-      status: 'CONFIRMED',
-      label: 'Confirmar pago recibido',
-      cls: 'bg-green-600 hover:bg-green-700',
-    },
-    { status: 'CANCELLED', label: 'Cancelar', cls: 'bg-red-600 hover:bg-red-700' },
-  ],
-  CONFIRMED: [
-    { status: 'COMPLETED', label: 'Marcar completada', cls: 'bg-brand-600 hover:bg-brand-700' },
-    { status: 'NO_SHOW', label: 'No asistió', cls: 'bg-orange-600 hover:bg-orange-700' },
-    { status: 'CANCELLED', label: 'Cancelar', cls: 'bg-red-600 hover:bg-red-700' },
-  ],
+/**
+ * Cómo se presenta cada transición en el panel. QUÉ transiciones existen lo
+ * decide `ALLOWED_APPOINTMENT_TRANSITIONS` (en `@simplecite/shared`, la misma
+ * tabla que aplica el API): acá solo vive la etiqueta y el color.
+ *
+ * TENTATIVE no aparece: esa reserva la resuelve el paciente en el wizard o la
+ * expira el cron; el staff no la toca a mano desde esta pantalla.
+ */
+const TRANSITION_UI: Partial<Record<AppointmentStatus, { label: string; cls: string }>> = {
+  CONFIRMED: { label: 'Confirmar pago recibido', cls: 'bg-green-600 hover:bg-green-700' },
+  COMPLETED: { label: 'Marcar completada', cls: 'bg-brand-600 hover:bg-brand-700' },
+  NO_SHOW: { label: 'No asistió', cls: 'bg-orange-600 hover:bg-orange-700' },
+  CANCELLED: { label: 'Cancelar', cls: 'bg-red-600 hover:bg-red-700' },
 };
+
+/** Acciones ofrecidas desde el estado actual, en el orden de la tabla compartida. */
+function transitionsFor(
+  status: AppointmentStatus,
+): { status: AppointmentStatus; label: string; cls: string }[] {
+  if (status === 'TENTATIVE') return [];
+  return (ALLOWED_APPOINTMENT_TRANSITIONS[status] ?? []).flatMap((next) => {
+    const ui = TRANSITION_UI[next];
+    return ui ? [{ status: next, ...ui }] : [];
+  });
+}
 
 /** Etiqueta humana del método de pago (INSURANCE muestra el seguro, no el enum). */
 function payLabel(a: AppointmentDetail): string {
@@ -84,7 +94,7 @@ function AppointmentDetailView() {
     void load();
   }, [load]);
 
-  async function doTransition(status: string, force?: boolean) {
+  async function doTransition(status: AppointmentStatus, force?: boolean) {
     if (!session) return;
     setActing(true);
     setError('');
@@ -125,7 +135,7 @@ function AppointmentDetailView() {
   if (!appt) return null;
 
   // Citas de seguro nunca ofrecen "Confirmar pago": no hay cobro que aprobar.
-  const transitions = (TRANSITIONS[appt.status] ?? []).filter(
+  const transitions = transitionsFor(appt.status).filter(
     (t) => !(appt.paymentMethod === 'INSURANCE' && t.status === 'CONFIRMED'),
   );
   // El pago se registra en recepción (efectivo o QR físico): clave para las
