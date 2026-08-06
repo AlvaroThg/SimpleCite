@@ -19,15 +19,13 @@ export class PatientSessionGuard extends AuthGuard('patient-jwt') {
     const ok = (await super.canActivate(context)) as boolean;
     if (!ok) return false;
 
-    const req = context
-      .switchToHttp()
-      .getRequest<
-        Request & {
-          user?: PatientJwtPayload;
-          patient?: { phone: string; tenantId: string };
-          tenantId?: string;
-        }
-      >();
+    const req = context.switchToHttp().getRequest<
+      Request & {
+        user?: PatientJwtPayload;
+        patient?: { phone: string; tenantId: string };
+        tenantId?: string;
+      }
+    >();
     const payload = req.user;
     if (!payload || payload.type !== 'patient-session') return false;
 
