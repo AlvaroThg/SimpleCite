@@ -1,4 +1,5 @@
 import { ConflictException } from '@nestjs/common';
+import type { CreateDoctorDto } from '@simplecite/shared';
 import { DoctorsService } from './doctors.service';
 
 const storage = { uploadImageFromBase64: jest.fn() } as never;
@@ -29,12 +30,12 @@ function makePrisma(opts: {
   return { prisma: { client } as never, create };
 }
 
-const dto = {
+const dto: CreateDoctorDto = {
   email: 'nuevo@x.com',
   password: 'clave12345',
   name: 'Dra. Nueva',
   specialty: 'Fisio',
-} as never;
+};
 
 describe('DoctorsService.create', () => {
   it('rechaza el especialista 11 en plan Profesional (límite 10 activos)', async () => {

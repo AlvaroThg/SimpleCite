@@ -29,7 +29,15 @@ function makeHarness(opts: {
   patientInTenant?: { name: string } | null;
   conversation?: { step: string; tenantId?: string | null; data?: object };
   slots?: { startTime: string; endTime: string; available: boolean }[];
-  appointment?: { id: string; status: string; expiresAt: Date | null; startTime: Date };
+  appointment?: {
+    id: string;
+    status: string;
+    expiresAt: Date | null;
+    startTime: Date;
+    /// Presente cuando el caso bajo prueba necesita la relación (subida del
+    /// comprobante a R2, que arma la ruta con el slug de la clínica).
+    tenant?: { slug: string };
+  };
   doctors?: { id: string; name: string; doctorProfile: { specialty: string | null } | null }[];
   tenant?: object;
   doctorQr?: { qrUrl: string | null; qrLabel: string | null } | null;

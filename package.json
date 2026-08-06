@@ -24,6 +24,15 @@
     "tenant:new": "pnpm --filter @simplecite/database tenant:new",
     "tenant:renew": "pnpm --filter @simplecite/database tenant:renew"
   },
+  "pnpm": {
+    "overrides": {
+      "multer": "^2.2.0",
+      "qs": "^6.15.2",
+      "body-parser": "^2.3.0",
+      "postcss": "^8.5.23",
+      "protobufjs": "^7.6.5"
+    }
+  },
   "lint-staged": {
     "*.{ts,tsx,js,jsx}": [
       "eslint --fix",

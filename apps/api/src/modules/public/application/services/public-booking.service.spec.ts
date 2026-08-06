@@ -6,6 +6,7 @@ import {
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
+import type { CreatePublicAppointmentDto } from '@simplecite/shared';
 import { PublicBookingService } from './public-booking.service';
 
 /**
@@ -100,12 +101,12 @@ function makeHarness(o: Overrides = {}) {
   return { svc, appointmentCreate, appointmentUpdate, patients, prisma };
 }
 
-const baseDto = {
+const baseDto: CreatePublicAppointmentDto = {
   doctorId: 'doc-1',
   serviceId: 'svc-1',
   startTime: new Date(Date.now() + 86_400_000).toISOString(), // mañana
   patient: { name: 'Juan Pérez' },
-} as never;
+};
 
 describe('PublicBookingService.createTentative', () => {
   it('rechaza cuando Turnstile (anti-bot) falla', async () => {
