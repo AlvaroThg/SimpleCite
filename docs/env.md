@@ -56,6 +56,12 @@ no arranca y dice exactamente cuál.
 | `NEXT_PUBLIC_LIGHTWIDGET_ID` | Opcional: widget de Instagram (LightWidget) en la landing.                                                                  |
 | `NEXT_PUBLIC_BOT_URL`        | Opcional: base del bot de reservas (`https://t.me/<bot>` o `https://wa.me/<nro>`). **Build arg.** Vacío = sin CTAs de chat. |
 
+## Enlaces salientes del API
+
+| Variable         | Descripción                                                                                                                                                                                 |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `WEB_PUBLIC_URL` | Base del frontend (`https://simplecite.com.bo`) para el magic link de cancelación que se manda por WhatsApp/Telegram. Vacía = se ofrece cancelar por chat en vez de mandar el token pelado. |
+
 ## Feature flags
 
 | Variable          | Default | Descripción                                                                                                                             |
@@ -64,15 +70,15 @@ no arranca y dice exactamente cuál.
 
 ## Bot de WhatsApp (solo con `ENABLE_WHATSAPP=true`)
 
-| Variable             | Descripción                                                                                                                    |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `WA_INTERNAL_SECRET` | Secret del webhook interno instancia→API. Mínimo 16 caracteres.                                                                |
-| `WA_DOCKER_NETWORK`  | Red Docker donde viven las instancias (`simplecite-internal`).                                                                 |
-| `WA_CALLBACK_URL`    | URL del webhook del API vista desde las instancias.                                                                            |
-| `WA_INSTANCE_IMAGE`  | Imagen Docker de la instancia Baileys.                                                                                         |
-| `META_WA_*`          | Credenciales de WhatsApp Cloud API (bot centralizado futuro): `PHONE_NUMBER_ID`, `ACCESS_TOKEN`, `VERIFY_TOKEN`, `APP_SECRET`. |
-| `MESSAGING_PROVIDER` | `whatsapp` o `telegram` (pruebas).                                                                                             |
-| `TELEGRAM_BOT_TOKEN` | Solo pruebas locales del canal de mensajería.                                                                                  |
+| Variable             | Descripción                                                                                                                                                                                                                                                                                 |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `WA_INTERNAL_SECRET` | Secret del webhook interno instancia→API. Mínimo 16 caracteres.                                                                                                                                                                                                                             |
+| `WA_DOCKER_NETWORK`  | Red Docker donde viven las instancias (`simplecite-internal`).                                                                                                                                                                                                                              |
+| `WA_CALLBACK_URL`    | URL del webhook del API vista desde las instancias.                                                                                                                                                                                                                                         |
+| `WA_INSTANCE_IMAGE`  | Imagen Docker de la instancia Baileys.                                                                                                                                                                                                                                                      |
+| `META_WA_*`          | Credenciales de WhatsApp Cloud API (bot centralizado futuro): `PHONE_NUMBER_ID`, `ACCESS_TOKEN`, `VERIFY_TOKEN`, `APP_SECRET`, y `BASE_URL` (base versionada de la Graph API; default `https://graph.facebook.com/v25.0`). **Nunca salen en una respuesta del API**, ni al panel del admin. |
+| `MESSAGING_PROVIDER` | `whatsapp` o `telegram` (pruebas).                                                                                                                                                                                                                                                          |
+| `TELEGRAM_BOT_TOKEN` | Solo pruebas locales del canal de mensajería.                                                                                                                                                                                                                                               |
 
 ## Compose (Postgres del stack)
 
