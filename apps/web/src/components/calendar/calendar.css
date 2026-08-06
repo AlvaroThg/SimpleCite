@@ -261,17 +261,17 @@
 }
 
 /* ── Arrastrar con el dedo ──
-   Al mantener presionada una cita el navegador ofrecía el menú de selección de
-   texto y "robaba" el gesto. Con esto la pulsación sostenida queda libre para
-   mover la cita. El scroll vertical se conserva (touch-action: pan-y). */
+   Se bloquea la selección de texto y el menú contextual del navegador, que se
+   disparaban al mantener presionada una cita y robaban el gesto. */
 .sc-calendar .rbc-event {
   -webkit-user-select: none;
   user-select: none;
   -webkit-touch-callout: none;
-  /* pan-y deja el gesto vertical al navegador (scroll). useTouchDrag lo cambia
-     a `none` en la cita concreta cuando la pulsación sostenida se cumple, que
-     es cuando el arrastre pasa a ser nuestro. */
-  touch-action: pan-y;
+  /* El gesto sobre una cita es SIEMPRE nuestro: el navegador decide en el
+     touchstart y no reconsidera después, así que dejarle el pan-y hacía
+     imposible arrastrar. useTouchDrag reparte: pulsación sostenida = mover,
+     dedo que se desliza = desplazar la agenda (lo hace a mano). */
+  touch-action: none;
 }
 
 /* Cita "despegada" tras la pulsación sostenida: se nota que ya se puede
