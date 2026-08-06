@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import type { PublicTenantInfo, SlotsQueryDto } from '@simplecite/shared';
 import { PrismaService } from '../../../../common/database/prisma.service';
+import { normalizeCi } from '../../../../common/utils/phone';
 import { SlotsService } from '../../../slots/application/services/slots.service';
 
 /**
@@ -175,8 +176,14 @@ export class PublicTenantService {
     const MIN_RESPONSE_MS = 150;
     const started = Date.now();
 
+    // Misma normalización que al dar de alta (`PatientsService.findOrCreate`):
+    // el CI se guarda en mayúsculas y sin espacios. Con `trim()` a secas, un
+    // paciente registrado como "1234567-1A" no aparecía si escribía
+    // "1234567 1a", y el wizard lo trataba como nuevo (paciente duplicado).
+    const normalized = normalizeCi(ci);
+
     const patient = await this.prisma.client.patient.findFirst({
-      where: { ci: ci.trim(), tenantId },
+      where: { ci: normalized, tenantId },
       select: { id: true, name: true },
     });
 

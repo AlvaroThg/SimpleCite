@@ -1,3 +1,4 @@
+import { randomInt } from 'node:crypto';
 import {
   Injectable,
   ForbiddenException,
@@ -205,13 +206,13 @@ export class PublicOtpService {
   }
 
   /**
-   * Genera 6 dígitos. `Math.random()` no es criptográfico pero es suficiente
-   * para OTPs cortos donde la entropía real viene de: (a) TTL corto, (b) max
-   * intentos, (c) rate limit, (d) bcrypt cost. Si se quisiera endurecer,
-   * usar `crypto.randomInt(100000, 1000000)`.
+   * Genera 6 dígitos con el CSPRNG del sistema. `Math.random()` (lo que había)
+   * es un PRNG cuyo estado interno se puede reconstruir observando salidas
+   * suficientes: con este OTP el atacante llega a la cuenta del paciente y a su
+   * historial. `randomInt` cuesta lo mismo y quita el problema de raíz —
+   * uniforme y sin sesgo de módulo en [100000, 999999].
    */
   private generateOtpCode(): string {
-    const n = Math.floor(100000 + Math.random() * 900000);
-    return n.toString();
+    return randomInt(100_000, 1_000_000).toString();
   }
 }

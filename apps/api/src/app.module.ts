@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import type { MiddlewareConsumer, NestModule } from '@nestjs/common';
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
@@ -32,6 +33,17 @@ import { MedicalRecordsModule } from './modules/medical-records/medical-records.
 import { ProductsModule } from './modules/products/products.module';
 import { InsurancesModule } from './modules/insurances/insurances.module';
 
+/**
+ * Lo que pino-http ve de una request. Es más chico que `express.Request`
+ * (pino recibe el `IncomingMessage` crudo) y lleva lo que le añaden el
+ * TenantMiddleware y el JwtAuthGuard.
+ */
+interface LoggedRequest {
+  headers: Record<string, string | string[] | undefined>;
+  tenantId?: string;
+  user?: { sub?: string };
+}
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -62,16 +74,48 @@ import { InsurancesModule } from './modules/insurances/insurances.module';
             ? { target: 'pino-pretty', options: { singleLine: true, colorize: true } }
             : undefined,
         // Campos que se loguean por defecto en cada request
-        customProps: (req: any) => ({
+        customProps: (req: LoggedRequest) => ({
           tenantId: req.tenantId,
           userId: req.user?.sub,
         }),
-        // Ocultar datos sensibles
-        redact: ['req.headers.authorization', 'req.body.password'],
+        // Ocultar datos sensibles. Los logs de una clínica terminan en un
+        // agregador y los mira gente que no debería ver ni credenciales ni
+        // datos identificables de pacientes. Se enumera explícitamente cada
+        // ruta porque pino no soporta comodines de profundidad arbitraria.
+        redact: {
+          paths: [
+            // ── Credenciales y tokens ──
+            'req.headers.authorization',
+            'req.headers.cookie',
+            'req.headers["x-internal-secret"]',
+            'req.headers["x-hub-signature-256"]',
+            'res.headers["set-cookie"]',
+            'req.body.password',
+            'req.body.turnstileToken',
+            'req.body.code', // OTP en claro
+            'req.body.imageBase64', // fotos/QR/comprobantes: ruido y datos
+            'req.body.fileBase64',
+            // ── Datos identificables de paciente (PII) ──
+            'req.body.ci',
+            'req.body.phone',
+            'req.body["patient"].ci',
+            'req.body["patient"].phone',
+            'req.query.ci',
+            // ── Contenido clínico: nunca al log ──
+            'req.body.symptoms',
+            'req.body.diagnosis',
+            'req.body.treatment',
+            'req.body.privateNotes',
+            'req.body.content',
+            'req.body.medications',
+            'req.body.instructions',
+          ],
+          censor: '[redacted]',
+        },
         // Nivel mínimo de log
         level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
         // Formato del requestId
-        genReqId: (req: any) => req.headers['x-request-id'] ?? crypto.randomUUID(),
+        genReqId: (req: LoggedRequest) => req.headers['x-request-id'] ?? randomUUID(),
         serializers: {
           req(req) {
             return {

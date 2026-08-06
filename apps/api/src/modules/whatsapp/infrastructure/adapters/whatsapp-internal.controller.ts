@@ -1,3 +1,4 @@
+import { timingSafeEqual } from 'node:crypto';
 import { Controller, Post, Body, Headers, UnauthorizedException } from '@nestjs/common';
 import { Logger } from 'nestjs-pino';
 import { Public } from '../../../../common/decorators';
@@ -7,6 +8,14 @@ import { WaBotService } from '../../application/services/wa-bot.service';
 import { WaMessageService } from '../../application/services/wa-message.service';
 
 type WaEvent = 'connected' | 'disconnected' | 'qr' | 'message_received' | 'image_received';
+
+/** Comparación de secretos en tiempo constante (evita distinguir por timing). */
+function timingSafeEqualStr(a: string | undefined, b: string): boolean {
+  if (!a) return false;
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  return bufA.length === bufB.length && timingSafeEqual(bufA, bufB);
+}
 
 interface WaWebhookPayload {
   tenantId: string;
@@ -36,7 +45,10 @@ export class WhatsappInternalController {
     @Headers('x-internal-secret') secret: string | undefined,
     @Body() payload: WaWebhookPayload,
   ) {
-    if (this.secret && secret !== this.secret) {
+    // Falla cerrado: sin secret configurado el webhook queda abierto y cualquiera
+    // podría inyectar mensajes "del bot". env.schema lo exige con
+    // ENABLE_WHATSAPP=true, pero el guard no puede depender de eso.
+    if (!this.secret || !timingSafeEqualStr(secret, this.secret)) {
       throw new UnauthorizedException('Invalid internal secret');
     }
 

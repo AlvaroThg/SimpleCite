@@ -5,13 +5,13 @@ import { PrismaService } from '../database/prisma.service';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 
 /**
- * Guard que valida que el tenant existe y estÃ¡ activo.
+ * Guard que valida que el tenant existe y está activo.
  *
- * Orden: se ejecuta DESPUÃ‰S de JwtAuthGuard (inyecta request.user
+ * Orden: se ejecuta DESPUÉS de JwtAuthGuard (inyecta request.user
  * cuyo tenantId es la fuente de verdad para rutas autenticadas).
  *
  * Para rutas @Public() con tenantId resuelto por subdominio, el guard
- * tambiÃ©n valida â€” eso protege el Web Booking portal.
+ * también valida — eso protege el Web Booking portal.
  * Rutas @Public() sin tenantId (ej: health) pasan libremente.
  */
 @Injectable()
@@ -29,6 +29,19 @@ export class TenantGuard implements CanActivate {
     if (context.getType() !== 'http') return true;
 
     const request = context.switchToHttp().getRequest();
+
+    // El JWT manda sobre el header. TenantMiddleware corre ANTES de
+    // JwtAuthGuard, así que su "estrategia 3: claim del JWT" nunca se alcanza y
+    // `request.tenantId` termina saliendo de `x-tenant-id`/`x-tenant-slug`, que
+    // los elige el cliente. Un usuario de una clínica SUSPENDIDA podía mandar el
+    // id de otra clínica activa y seguir operando: sus queries igual se filtran
+    // por el tenantId del JWT, pero la validación de estado se hacía contra el
+    // tenant equivocado. Aquí ya existe `request.user`: se reancla al JWT y se
+    // corrige también el contexto para el interceptor RLS.
+    const jwtTenantId: string | undefined = request.user?.tenantId;
+    if (jwtTenantId) {
+      request.tenantId = jwtTenantId;
+    }
     const tenantId: string | undefined = request.tenantId;
 
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
@@ -36,7 +49,7 @@ export class TenantGuard implements CanActivate {
       context.getClass(),
     ]);
 
-    // Rutas pÃºblicas sin tenant resuelto (health, etc.) pasan sin validaciÃ³n
+    // Rutas públicas sin tenant resuelto (health, etc.) pasan sin validación
     if (isPublic && !tenantId) return true;
 
     if (!tenantId) {
@@ -50,13 +63,13 @@ export class TenantGuard implements CanActivate {
 
     if (!tenant) {
       this.logger.warn(`Tenant no encontrado: ${tenantId}`);
-      throw new ForbiddenException('ClÃ­nica no encontrada');
+      throw new ForbiddenException('Clínica no encontrada');
     }
 
     if (tenant.status === 'SUSPENDED') {
       this.logger.warn(`Tenant suspendido: ${tenant.slug}`);
       throw new ForbiddenException(
-        'La cuenta de esta clÃ­nica ha sido suspendida. Contacte al administrador.',
+        'La cuenta de esta clínica ha sido suspendida. Contacte al administrador.',
       );
     }
 

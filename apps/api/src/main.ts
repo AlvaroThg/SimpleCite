@@ -33,9 +33,26 @@ async function bootstrap() {
 
   app.setGlobalPrefix('api');
 
-  // Headers de seguridad HTTP (API JSON puro: la CSP no aplica a respuestas
-  // de datos, pero X-Content-Type-Options, HSTS y compañía sí).
-  app.use(helmet({ contentSecurityPolicy: false }));
+  // Headers de seguridad HTTP. El API sirve JSON y PDFs, nunca HTML: en vez de
+  // apagar la CSP se declara la más restrictiva posible (`default-src 'none'`).
+  // No cambia nada para los clientes legítimos —ni fetch ni la descarga de un
+  // PDF pasan por la CSP del API—, pero si algún día una respuesta se renderiza
+  // como documento (un error de framework, un `Content-Type` mal puesto, un
+  // texto de paciente reflejado), el navegador no ejecuta nada de lo que venga
+  // dentro. La CSP del frontend la sirve Next.js por su lado.
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        useDefaults: false,
+        directives: {
+          'default-src': ["'none'"],
+          'frame-ancestors': ["'none'"],
+          'base-uri': ["'none'"],
+          'form-action': ["'none'"],
+        },
+      },
+    }),
+  );
 
   // No hay ValidationPipe global — toda la validación se hace con ZodValidationPipe
   // aplicado explícitamente en cada controller. Un ValidationPipe global con

@@ -31,10 +31,20 @@ export class AuthService {
   ) {}
 
   async login(email: string, password: string, tenantId: string): Promise<LoginResult> {
-    // prisma.client usa el tx RLS-scoped si hay contexto activo (login route lo tiene vÃ­a interceptor)
+    // prisma.client usa el tx RLS-scoped si hay contexto activo (login route lo
+    // tiene vía interceptor). El `select` es explícito: sin él la fila entera
+    // —incluido el hash— queda a un `return user` de distancia de la respuesta.
     const [user, tenant] = await Promise.all([
       this.prisma.client.user.findFirst({
         where: { email, tenantId, isActive: true },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+          tenantId: true,
+          password: true, // solo para bcrypt.compare; nunca sale de este método
+        },
       }),
       this.prisma.client.tenant.findUnique({
         where: { id: tenantId },
@@ -43,12 +53,12 @@ export class AuthService {
     ]);
 
     if (!user) {
-      throw new UnauthorizedException('Credenciales invÃ¡lidas');
+      throw new UnauthorizedException('Credenciales inválidas');
     }
 
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
-      throw new UnauthorizedException('Credenciales invÃ¡lidas');
+      throw new UnauthorizedException('Credenciales inválidas');
     }
 
     const payload = {

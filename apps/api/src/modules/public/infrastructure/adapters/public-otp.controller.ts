@@ -1,4 +1,5 @@
 import { Controller, Post, Body, Req, NotFoundException } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import type { Request } from 'express';
 import {
   OtpRequestSchema,
@@ -25,6 +26,10 @@ import { PublicOtpService } from '../../application/services/public-otp.service'
 export class PublicOtpController {
   constructor(private readonly service: PublicOtpService) {}
 
+  // Techo por IP además del límite por DB: el de DB cuenta OTPs *emitidos*, así
+  // que una ráfaga que falla el Turnstile no lo movía y solo topaba contra el
+  // límite global (300/min, pensado para el panel, no para esto).
+  @Throttle({ default: { limit: 20, ttl: 60 * 60 * 1000 } })
   @Post('request')
   async request(
     @CurrentTenant() tenantId: string,
@@ -41,6 +46,9 @@ export class PublicOtpController {
     return { success: true, data: result };
   }
 
+  // El lock de 5 intentos por OTP ya hace inviable adivinar un código concreto;
+  // esto acota además el barrido de códigos rotando teléfonos desde una IP.
+  @Throttle({ default: { limit: 30, ttl: 60 * 60 * 1000 } })
   @Post('verify')
   async verify(
     @CurrentTenant() tenantId: string,
