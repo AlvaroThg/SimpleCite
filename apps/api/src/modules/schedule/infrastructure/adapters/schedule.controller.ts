@@ -10,11 +10,19 @@ import { CurrentUser } from '../../../../common/decorators/current-user.decorato
 import { ZodValidationPipe } from '../../../../common/pipes/zod-validation.pipe';
 import { ScheduleService } from '../../application/services/schedule.service';
 
+/**
+ * Agenda de disponibilidad por especialista.
+ *
+ * Lectura abierta dentro de la clínica (recepción necesita ver quién atiende
+ * cuándo). Escritura scopeada: el `requester` sale del JWT y el service exige
+ * que un DOCTOR solo toque su propia agenda — el `:doctorId` de la ruta lo
+ * elige el cliente y por sí solo no es autoridad.
+ */
 @Controller('schedule')
 export class ScheduleController {
   constructor(private readonly scheduleService: ScheduleService) {}
 
-  // â”€â”€â”€â”€â”€ Reglas semanales â”€â”€â”€â”€â”€
+  // ───── Reglas semanales ─────
 
   @Get('doctors/:doctorId/rules')
   async listRules(@CurrentUser('tenantId') tenantId: string, @Param('doctorId') doctorId: string) {
@@ -26,23 +34,31 @@ export class ScheduleController {
   @Put('doctors/:doctorId/rules')
   async replaceRules(
     @CurrentUser('tenantId') tenantId: string,
+    @CurrentUser() user: { sub: string; role: string },
     @Param('doctorId') doctorId: string,
     @Body(new ZodValidationPipe(ReplaceScheduleRulesSchema)) dto: ReplaceScheduleRulesDto,
   ) {
-    const rules = await this.scheduleService.replaceRules(tenantId, doctorId, dto);
+    const rules = await this.scheduleService.replaceRules(tenantId, doctorId, dto, {
+      userId: user.sub,
+      role: user.role,
+    });
     return { success: true, data: rules };
   }
 
-  // â”€â”€â”€â”€â”€ Bloqueos puntuales â”€â”€â”€â”€â”€
+  // ───── Bloqueos puntuales ─────
 
   @Roles('ADMIN', 'DOCTOR')
   @Post('doctors/:doctorId/blocks')
   async createBlock(
     @CurrentUser('tenantId') tenantId: string,
+    @CurrentUser() user: { sub: string; role: string },
     @Param('doctorId') doctorId: string,
     @Body(new ZodValidationPipe(CreateScheduleBlockSchema)) dto: CreateScheduleBlockDto,
   ) {
-    const block = await this.scheduleService.createBlock(tenantId, doctorId, dto);
+    const block = await this.scheduleService.createBlock(tenantId, doctorId, dto, {
+      userId: user.sub,
+      role: user.role,
+    });
     return { success: true, data: block };
   }
 
@@ -62,7 +78,14 @@ export class ScheduleController {
 
   @Roles('ADMIN', 'DOCTOR')
   @Delete('blocks/:blockId')
-  async deleteBlock(@CurrentUser('tenantId') tenantId: string, @Param('blockId') blockId: string) {
-    return this.scheduleService.deleteBlock(tenantId, blockId);
+  async deleteBlock(
+    @CurrentUser('tenantId') tenantId: string,
+    @CurrentUser() user: { sub: string; role: string },
+    @Param('blockId') blockId: string,
+  ) {
+    return this.scheduleService.deleteBlock(tenantId, blockId, {
+      userId: user.sub,
+      role: user.role,
+    });
   }
 }

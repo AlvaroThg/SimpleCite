@@ -5,10 +5,15 @@ import {
   NotFoundException,
   ConflictException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { Logger } from 'nestjs-pino';
 import { toZonedTime } from 'date-fns-tz';
-import type { CreateAppointmentDto, AppointmentStatus } from '@simplecite/shared';
+import {
+  ALLOWED_APPOINTMENT_TRANSITIONS,
+  type CreateAppointmentDto,
+  type AppointmentStatus,
+} from '@simplecite/shared';
 import { PrismaService } from '../../../../common/database/prisma.service';
 import { MESSAGING_SERVICE, type IMessagingService } from '../../../messaging/messaging.port';
 
@@ -23,20 +28,36 @@ export function generateCancellationToken(): string {
 /** Estados desde los que una cita activa puede cancelarse (libera el slot). */
 const CANCELLABLE_STATUSES: AppointmentStatus[] = ['TENTATIVE', 'PENDING_PAYMENT', 'CONFIRMED'];
 
+/** Quién pide la operación, derivado del JWT (nunca del body/query). */
+export interface Requester {
+  userId: string;
+  role: string;
+}
+
 /**
- * Transiciones permitidas en el ciclo de vida de una cita.
- * Cualquier intento de cambio fuera de esta tabla retorna 400.
+ * Un DOCTOR solo opera sobre las citas de su propia agenda. ADMIN y STAFF
+ * (recepción) sí gestionan las de toda la clínica: son los roles que orquestan.
+ *
+ * Vive aquí y no en el controller a propósito: el controller puede calcular el
+ * scope para filtrar listados, pero la garantía tiene que estar en el service —
+ * es el único punto por el que pasan todas las llamadas (panel, bot, cron).
  */
-const ALLOWED_TRANSITIONS: Record<AppointmentStatus, AppointmentStatus[]> = {
-  // TENTATIVE → confirmada por OTP (sin pago) o pendiente de pago (Fase 5),
-  // o cancelada por expiración / decisión del paciente o staff.
-  TENTATIVE: ['CONFIRMED', 'PENDING_PAYMENT', 'CANCELLED'],
-  PENDING_PAYMENT: ['CONFIRMED', 'CANCELLED'],
-  CONFIRMED: ['COMPLETED', 'CANCELLED', 'NO_SHOW'],
-  COMPLETED: [], // terminal
-  CANCELLED: [], // terminal
-  NO_SHOW: [], // terminal
-};
+export function assertOwnDoctor(
+  requester: Requester | undefined,
+  appointmentDoctorId: string,
+  action: string,
+): void {
+  if (requester?.role === 'DOCTOR' && appointmentDoctorId !== requester.userId) {
+    throw new ForbiddenException(`No puedes ${action} una cita de otro especialista`);
+  }
+}
+
+/**
+ * Transiciones permitidas en el ciclo de vida de una cita — definidas en
+ * `@simplecite/shared` para que el panel muestre exactamente los botones que
+ * el API va a aceptar. Cualquier cambio fuera de esta tabla retorna 400.
+ */
+const ALLOWED_TRANSITIONS = ALLOWED_APPOINTMENT_TRANSITIONS;
 
 /**
  * Fechas de un tratamiento recurrente, incluida la primera.
@@ -76,17 +97,11 @@ export class AppointmentsService {
     private readonly logger: Logger,
   ) {}
 
-  async create(
-    tenantId: string,
-    dto: CreateAppointmentDto,
-    requester?: { userId: string; role: string },
-  ) {
+  async create(tenantId: string, dto: CreateAppointmentDto, requester?: Requester) {
     // Un doctor solo agenda en SU propia agenda: elegir a otro doctor es cosa
     // de admin/recepción (el select del panel también lo bloquea, esto cubre
     // llamadas directas al API).
-    if (requester?.role === 'DOCTOR' && dto.doctorId !== requester.userId) {
-      throw new BadRequestException('Un doctor solo puede crear citas en su propia agenda');
-    }
+    assertOwnDoctor(requester, dto.doctorId, 'crear');
 
     // Validar relaciones (pertenecen al tenant + doctor ofrece el servicio)
     const [patient, doctor, doctorService] = await Promise.all([
@@ -301,7 +316,7 @@ export class AppointmentsService {
     tenantId: string,
     id: string,
     nextStatus: AppointmentStatus,
-    opts?: { force?: boolean },
+    opts?: { force?: boolean; requester?: Requester },
   ) {
     const current = await this.prisma.client.appointment.findFirst({
       where: { id, tenantId },
@@ -311,10 +326,16 @@ export class AppointmentsService {
         isPaid: true,
         receiptUrl: true,
         paymentMethod: true,
+        doctorId: true,
         medicalRecord: { select: { id: true } },
       },
     });
     if (!current) throw new NotFoundException('Cita no encontrada');
+
+    // Un DOCTOR solo cambia el estado de SUS propias citas (defensa en
+    // profundidad): completar, cancelar o marcar no-asistió la cita de un
+    // colega altera su agenda y sus reportes.
+    assertOwnDoctor(opts?.requester, current.doctorId, 'cambiar el estado de');
 
     const allowed = ALLOWED_TRANSITIONS[current.status];
     if (!allowed.includes(nextStatus)) {
@@ -383,12 +404,21 @@ export class AppointmentsService {
    * mostrado físicamente). Pensado para clínicas con el módulo de pagos
    * apagado, donde el cobro ocurre en recepción antes de la sesión.
    */
-  async markPaid(tenantId: string, id: string, method: 'CASH' | 'STATIC_QR') {
+  async markPaid(
+    tenantId: string,
+    id: string,
+    method: 'CASH' | 'STATIC_QR',
+    requester?: Requester,
+  ) {
     const current = await this.prisma.client.appointment.findFirst({
       where: { id, tenantId },
-      select: { id: true, status: true, isPaid: true, paymentMethod: true },
+      select: { id: true, status: true, isPaid: true, paymentMethod: true, doctorId: true },
     });
     if (!current) throw new NotFoundException('Cita no encontrada');
+
+    // Registrar un cobro ajeno mueve el libro de ingresos de otro especialista.
+    assertOwnDoctor(requester, current.doctorId, 'registrar el pago de');
+
     if (current.paymentMethod === 'INSURANCE') {
       throw new BadRequestException('Las citas por seguro no registran cobro al paciente');
     }
@@ -498,7 +528,7 @@ export class AppointmentsService {
     tenantId: string,
     id: string,
     dto: { startTime: string; endTime: string },
-    requester?: { userId: string; role: string },
+    requester?: Requester,
   ) {
     const start = new Date(dto.startTime);
     const end = new Date(dto.endTime);
@@ -513,9 +543,8 @@ export class AppointmentsService {
     if (!current) throw new NotFoundException('Cita no encontrada');
 
     // Un DOCTOR solo reprograma sus propias citas (defensa en profundidad).
-    if (requester?.role === 'DOCTOR' && current.doctorId !== requester.userId) {
-      throw new BadRequestException('No puedes reprogramar citas de otro doctor');
-    }
+    // 403, no 400: es una negación de acceso, no un payload mal formado.
+    assertOwnDoctor(requester, current.doctorId, 'reprogramar');
 
     if (!CANCELLABLE_STATUSES.includes(current.status)) {
       throw new BadRequestException(`No se puede reprogramar una cita en estado ${current.status}`);

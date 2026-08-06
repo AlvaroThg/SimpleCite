@@ -1,4 +1,9 @@
-import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { AppointmentsService, occurrenceDates } from './appointments.service';
 
 // Stubs de dependencias no usadas por transitionStatus.
@@ -213,7 +218,7 @@ describe('AppointmentsService.reschedule', () => {
         { startTime: future(3_600_000), endTime: future(5_400_000) },
         { userId: 'd1', role: 'DOCTOR' },
       ),
-    ).rejects.toBeInstanceOf(BadRequestException);
+    ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
   it('rechaza reprogramar una cita en estado terminal', async () => {

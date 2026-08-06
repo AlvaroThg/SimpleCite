@@ -16,7 +16,10 @@ import { Roles } from '../../../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../../../common/decorators/current-user.decorator';
 import { ZodValidationPipe } from '../../../../common/pipes/zod-validation.pipe';
 import { SubscriptionGuard } from '../../../billing/infrastructure/guards/subscription.guard';
-import { AppointmentsService } from '../../application/services/appointments.service';
+import {
+  AppointmentsService,
+  assertOwnDoctor,
+} from '../../application/services/appointments.service';
 
 // Toda la gestión de citas requiere suscripción vigente (402 si vencida).
 @UseGuards(SubscriptionGuard)
@@ -70,10 +73,10 @@ export class AppointmentsController {
     @Param('id') id: string,
   ) {
     const appointment = await this.appointmentsService.findById(tenantId, id);
-    // Doctor solo ve sus citas; el guard a nivel ORM ya filtra por tenant
-    if (user.role === 'DOCTOR' && appointment.doctorId !== user.sub) {
-      return { success: false, error: 'No tienes acceso a esta cita' };
-    }
+    // Doctor solo ve sus citas; el guard a nivel ORM ya filtra por tenant.
+    // 403 real (no `{success:false}` con HTTP 200): el cliente debe poder
+    // distinguir "no autorizado" de "respuesta vacía".
+    assertOwnDoctor({ userId: user.sub, role: user.role }, appointment.doctorId, 'ver');
     return { success: true, data: appointment };
   }
 
@@ -81,11 +84,13 @@ export class AppointmentsController {
   @Patch(':id/status')
   async transitionStatus(
     @CurrentUser('tenantId') tenantId: string,
+    @CurrentUser() user: { sub: string; role: string },
     @Param('id') id: string,
     @Body(new ZodValidationPipe(UpdateAppointmentStatusSchema)) dto: UpdateAppointmentStatusDto,
   ) {
     const appointment = await this.appointmentsService.transitionStatus(tenantId, id, dto.status, {
       force: dto.force,
+      requester: { userId: user.sub, role: user.role },
     });
     return { success: true, data: appointment };
   }
@@ -110,10 +115,14 @@ export class AppointmentsController {
   @Patch(':id/mark-paid')
   async markPaid(
     @CurrentUser('tenantId') tenantId: string,
+    @CurrentUser() user: { sub: string; role: string },
     @Param('id') id: string,
     @Body(new ZodValidationPipe(MarkAppointmentPaidSchema)) dto: MarkAppointmentPaidDto,
   ) {
-    const appointment = await this.appointmentsService.markPaid(tenantId, id, dto.method);
+    const appointment = await this.appointmentsService.markPaid(tenantId, id, dto.method, {
+      userId: user.sub,
+      role: user.role,
+    });
     return { success: true, data: appointment };
   }
 
