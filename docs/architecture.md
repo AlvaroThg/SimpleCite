@@ -28,8 +28,7 @@ SimpleCite/
 │   └── web/                # Next.js 15 — landing pública por clínica + panel del staff
 ├── packages/
 │   ├── database/           # Prisma: schema, migraciones, seed, scripts de tenant
-│   ├── shared/             # Zod schemas + tipos + reglas que los DOS lados necesitan
-│   └── config/             # Validación de env compartida
+│   └── shared/             # Zod schemas + tipos + reglas que los DOS lados necesitan
 └── docs/                   # Esto, env.md, rls-enforcement.md
 ```
 

@@ -26,8 +26,7 @@ SimpleCite/
 │   └── web/                # Next.js (puerto 3000)
 ├── packages/
 │   ├── database/           # Prisma: schema, migraciones, seed, scripts
-│   ├── shared/             # Zod schemas, tipos y reglas compartidas
-│   └── config/             # Validación de env
+│   └── shared/             # Zod schemas, tipos y reglas compartidas
 └── docs/                   # architecture.md · env.md · rls-enforcement.md
 ```
 

@@ -26,7 +26,6 @@
     "@nestjs/platform-express": "^11.0.20",
     "@nestjs/schedule": "^6.1.3",
     "@nestjs/throttler": "^6.5.0",
-    "@simplecite/config": "workspace:*",
     "@simplecite/database": "workspace:*",
     "@simplecite/shared": "workspace:*",
     "bcrypt": "^6.0.0",

@@ -84,9 +84,6 @@ importers:
       '@nestjs/throttler':
         specifier: ^6.5.0
         version: 6.5.0(@nestjs/common@11.1.19(class-transformer@0.5.1)(class-validator@0.14.4)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.19)(reflect-metadata@0.2.2)
-      '@simplecite/config':
-        specifier: workspace:*
-        version: link:../../packages/config
       '@simplecite/database':
         specifier: workspace:*
         version: link:../../packages/database
@@ -272,19 +269,6 @@ importers:
       tailwindcss:
         specifier: ^4.1.7
         version: 4.2.4
-      typescript:
-        specifier: ^5.8.3
-        version: 5.9.3
-
-  packages/config:
-    dependencies:
-      zod:
-        specifier: ^3.25.6
-        version: 3.25.76
-    devDependencies:
-      '@types/node':
-        specifier: ^22.19.17
-        version: 22.19.17
       typescript:
         specifier: ^5.8.3
         version: 5.9.3
