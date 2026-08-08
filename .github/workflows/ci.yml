@@ -90,6 +90,14 @@ jobs:
       - name: Validate Prisma schema
         run: pnpm --filter @simplecite/database exec prisma validate
 
+      # Va ANTES de migrate: la migración phase3 crea políticas RLS que llaman a
+      # `public.current_tenant_id()`, y esa función no la crea ninguna migración
+      # (en la base original se creó a mano). Sin esto, una base FRESCA muere con
+      # P3018 / 42883 — que es justamente lo que este job existe para detectar.
+      # Idempotente (CREATE OR REPLACE): re-ejecutarlo en cualquier base es seguro.
+      - name: Bootstrap funciones RLS (base nueva)
+        run: pnpm db:bootstrap
+
       - name: Apply migrations (deploy)
         run: pnpm db:migrate:deploy
 
