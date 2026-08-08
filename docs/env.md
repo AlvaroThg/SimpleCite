@@ -58,27 +58,36 @@ no arranca y dice exactamente cuál.
 
 ## Enlaces salientes del API
 
-| Variable         | Descripción                                                                                                                                                                                 |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `WEB_PUBLIC_URL` | Base del frontend (`https://simplecite.com.bo`) para el magic link de cancelación que se manda por WhatsApp/Telegram. Vacía = se ofrece cancelar por chat en vez de mandar el token pelado. |
+| Variable         | Descripción                                                                                                                                                                             |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `WEB_PUBLIC_URL` | Base del frontend (`https://simplecite.com.bo`) para el magic link de cancelación que se manda por chat. Vacía = se ofrece cancelar por el mismo chat en vez de mandar el token pelado. |
 
-## Feature flags
+## Mensajería al paciente
 
-| Variable          | Default | Descripción                                                                                                                             |
-| ----------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `ENABLE_WHATSAPP` | `false` | Enciende los módulos del bot de WhatsApp (Baileys por tenant). **Apagado en main/prod.** Con `true` se vuelven obligatorias las `WA_*`. |
+El canal de **producción** es la WhatsApp Cloud API oficial de Meta: un único
+número para toda la plataforma. Sin las `META_WA_*` el canal es un no-op
+silencioso — el API arranca igual y el resto del producto funciona.
 
-## Bot de WhatsApp (solo con `ENABLE_WHATSAPP=true`)
+| Variable                  | Descripción                                                                                              |
+| ------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `META_WA_PHONE_NUMBER_ID` | Id del número emisor en Meta.                                                                            |
+| `META_WA_ACCESS_TOKEN`    | Token permanente de la app de Meta.                                                                      |
+| `META_WA_VERIFY_TOKEN`    | Cadena del handshake `GET /api/webhooks/whatsapp` al registrar la URL.                                   |
+| `META_WA_APP_SECRET`      | Verifica la firma `X-Hub-Signature-256` de cada webhook. **En producción, sin esto el webhook rechaza.** |
+| `META_WA_BASE_URL`        | Base versionada de la Graph API. Default `https://graph.facebook.com/v25.0`.                             |
 
-| Variable             | Descripción                                                                                                                                                                                                                                                                                 |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `WA_INTERNAL_SECRET` | Secret del webhook interno instancia→API. Mínimo 16 caracteres.                                                                                                                                                                                                                             |
-| `WA_DOCKER_NETWORK`  | Red Docker donde viven las instancias (`simplecite-internal`).                                                                                                                                                                                                                              |
-| `WA_CALLBACK_URL`    | URL del webhook del API vista desde las instancias.                                                                                                                                                                                                                                         |
-| `WA_INSTANCE_IMAGE`  | Imagen Docker de la instancia Baileys.                                                                                                                                                                                                                                                      |
-| `META_WA_*`          | Credenciales de WhatsApp Cloud API (bot centralizado futuro): `PHONE_NUMBER_ID`, `ACCESS_TOKEN`, `VERIFY_TOKEN`, `APP_SECRET`, y `BASE_URL` (base versionada de la Graph API; default `https://graph.facebook.com/v25.0`). **Nunca salen en una respuesta del API**, ni al panel del admin. |
-| `MESSAGING_PROVIDER` | `whatsapp` o `telegram` (pruebas).                                                                                                                                                                                                                                                          |
-| `TELEGRAM_BOT_TOKEN` | Solo pruebas locales del canal de mensajería.                                                                                                                                                                                                                                               |
+Ninguna de estas sale jamás en una respuesta del API, ni al panel del admin.
+
+### Telegram — solo desarrollo local
+
+| Variable             | Descripción                                                                                                  |
+| -------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `MESSAGING_PROVIDER` | `whatsapp` (default y valor de producción) o `telegram`.                                                     |
+| `TELEGRAM_BOT_TOKEN` | Solo local. Si está presente se carga el adaptador de Telegram; ausente, no. **No se define en producción.** |
+
+Telegram existe porque Meta exige un webhook HTTPS público: probar el motor
+conversacional en tu máquina requeriría un túnel y reconfigurar el webhook en
+cada sesión. Telegram usa polling — token y listo. No está desplegado.
 
 ## Compose (Postgres del stack)
 

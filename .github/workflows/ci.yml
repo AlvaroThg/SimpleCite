@@ -118,8 +118,6 @@ jobs:
           - image: web
             dockerfile: apps/web/Dockerfile
             context: .
-          # (whatsapp-instance se construye solo en develop: el bot está
-          # apagado en main con ENABLE_WHATSAPP=false.)
     steps:
       - name: Checkout
         uses: actions/checkout@v4

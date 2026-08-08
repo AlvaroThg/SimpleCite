@@ -24,7 +24,6 @@ import { ScheduleModule } from './modules/schedule/schedule.module';
 import { AppointmentsModule } from './modules/appointments/appointments.module';
 import { SlotsModule } from './modules/slots/slots.module';
 import { PublicModule } from './modules/public/public.module';
-import { WhatsappModule } from './modules/whatsapp/whatsapp.module';
 import { WhatsappCloudModule } from './modules/whatsapp-cloud/whatsapp-cloud.module';
 import { PatientsModule } from './modules/patients/patients.module';
 import { ReportsModule } from './modules/reports/reports.module';
@@ -155,12 +154,14 @@ interface LoggedRequest {
     SlotsModule,
     PatientsModule,
     PublicModule,
-    // Bot de WhatsApp (Baileys por tenant): APAGADO en main/producción.
-    // ENABLE_WHATSAPP=true lo enciende (rama develop / bot futuro).
-    // WhatsappCloudModule (Cloud API de Meta) igual se instancia vía
-    // MessagingModule como adaptador del puerto de mensajería; sin las envs
-    // META_* es inerte (no envía nada, best-effort).
-    ...(process.env.ENABLE_WHATSAPP === 'true' ? [WhatsappModule, WhatsappCloudModule] : []),
+    // WhatsApp: Cloud API oficial de Meta, un solo número para toda la
+    // plataforma. Se carga siempre (registra el webhook entrante y el envío
+    // saliente); sin las META_WA_* es inerte — no envía nada, best-effort.
+    //
+    // Reemplazó al orquestador Baileys (un contenedor por clínica), que se
+    // eliminó: exigía el socket de Docker montado en el API y nunca llegó a
+    // desplegarse en producción.
+    WhatsappCloudModule,
     ReportsModule,
     BillingModule,
     MedicalRecordsModule,

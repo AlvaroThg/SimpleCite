@@ -1147,24 +1147,6 @@ export const createBlock = (
 export const deleteBlock = (t: string, s: string, blockId: string) =>
   del<{ success: boolean }>(`/api/schedule/blocks/${blockId}`, t, s);
 
-// ─── WhatsApp (instancias) ────────────────────────────────────────────
-
-export interface WaInstance {
-  id: string;
-  status: string;
-  containerName: string;
-  phone: string | null;
-  lastSeen: string | null;
-}
-export const getWaInstances = (t: string, s: string) =>
-  get<{ data: WaInstance[] }>('/api/admin/whatsapp/instances', t, s).then((r) => r.data);
-export const createWaInstance = (t: string, s: string) =>
-  post<{ data: WaInstance }>('/api/admin/whatsapp/instances', t, s).then((r) => r.data);
-export const restartWaInstance = (t: string, s: string, id: string) =>
-  post<{ data: WaInstance }>(`/api/admin/whatsapp/instances/${id}/restart`, t, s);
-export const deleteWaInstance = (t: string, s: string, id: string) =>
-  del<{ success: boolean }>(`/api/admin/whatsapp/instances/${id}`, t, s);
-
 // `put` no estaba arriba; lo definimos aquí para replaceRules.
 function put<T>(p: string, t: string, s: string, b?: unknown) {
   return req<T>('PUT', p, t, s, b);

@@ -25,8 +25,7 @@ El segundo es el que se olvida. Ver ["Doctor scoping"](#doctor-scoping).
 SimpleCite/
 ├── apps/
 │   ├── api/                # NestJS — toda la lógica de negocio y el acceso a datos
-│   ├── web/                # Next.js 15 — landing pública por clínica + panel del staff
-│   └── whatsapp-instance/  # Contenedor Baileys por clínica (APAGADO en main)
+│   └── web/                # Next.js 15 — landing pública por clínica + panel del staff
 ├── packages/
 │   ├── database/           # Prisma: schema, migraciones, seed, scripts de tenant
 │   ├── shared/             # Zod schemas + tipos + reglas que los DOS lados necesitan
@@ -149,31 +148,49 @@ público se ejecuta en SSR para visitantes anónimos.
 
 ## Autenticación
 
-Tres identidades distintas, con secretos distintos:
+Dos identidades de usuario, con secretos distintos:
 
-| Quién              | Secreto              | Dónde viaja                         | Vida                            |
-| ------------------ | -------------------- | ----------------------------------- | ------------------------------- |
-| Staff del panel    | `JWT_SECRET`         | Cookie `httpOnly` (+ Bearer p/ CLI) | 12h, o 30d con sesión extendida |
-| Paciente (OTP)     | `PATIENT_JWT_SECRET` | Bearer del wizard de booking        | 30m                             |
-| Instancia WhatsApp | `WA_INTERNAL_SECRET` | Header `x-internal-secret`          | —                               |
+| Quién           | Secreto              | Dónde viaja                         | Vida                            |
+| --------------- | -------------------- | ----------------------------------- | ------------------------------- |
+| Staff del panel | `JWT_SECRET`         | Cookie `httpOnly` (+ Bearer p/ CLI) | 12h, o 30d con sesión extendida |
+| Paciente (OTP)  | `PATIENT_JWT_SECRET` | Bearer del wizard de booking        | 30m                             |
 
 No hay refresh token. El panel usa una **sesión deslizante**
 (`RollingSessionInterceptor`): la actividad renueva la cookie, así que un
 usuario trabajando no se cae, y uno inactivo expira.
 
+El webhook entrante de Meta se autentica distinto: firma HMAC
+`X-Hub-Signature-256` sobre el cuerpo crudo, con `META_WA_APP_SECRET`. En
+producción, sin app secret el webhook **rechaza** en vez de confiar.
+
 ## Mensajería
 
 `MESSAGING_SERVICE` es un puerto (`messaging.port.ts`) con dos adaptadores:
-Telegram (pruebas) y WhatsApp Cloud API (producción). El `ConversationEngine`
-del bot es único y no sabe por qué canal llegó el mensaje. Todos los envíos son
-**best-effort**: un fallo de mensajería nunca tumba la operación de negocio.
+
+| Adaptador          | Dónde                 | Por qué                                                                                                                                                  |
+| ------------------ | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **WhatsApp Cloud** | Producción            | Canal real. Un único número oficial de la plataforma (Meta), no uno por clínica.                                                                         |
+| **Telegram**       | Solo desarrollo local | Meta exige un webhook HTTPS público: probar el bot en tu máquina pediría túnel + reconfigurar el webhook cada vez. Telegram es polling. No se despliega. |
+
+El adaptador activo sale de `MESSAGING_PROVIDER`; Telegram además solo se carga
+si existe `TELEGRAM_BOT_TOKEN`, que **no se define en producción**.
+
+El `ConversationEngine` es único y no sabe por qué canal llegó el mensaje: los
+adaptadores traducen a `BotInbound` y renderizan los `BotOutbound`. Todos los
+envíos son **best-effort** — un fallo de mensajería nunca tumba la operación de
+negocio.
+
+> **Baileys (histórico).** Hubo un orquestador que levantaba un contenedor de
+> WhatsApp por clínica (`apps/whatsapp-instance` + `modules/whatsapp`), manejado
+> vía el socket de Docker. Se eliminó: exigía montar `/var/run/docker.sock` en
+> el API y nunca llegó a desplegarse. Sus tablas (`whatsapp_instances`,
+> `whatsapp_messages`, `wa_conversations`) siguen en el schema marcadas como
+> LEGACY, sin código que las use.
 
 ## Qué está apagado en `main`
 
-- `ENABLE_WHATSAPP=false` → no se cargan `WhatsappModule` ni `WhatsappCloudModule`.
 - `PUBLIC_BOOKING_REQUIRE_OTP=false` → booking abierto con Turnstile + rate
   limit por teléfono, en vez de OTP.
 - `RLS_ENFORCED=false` → RLS dormido.
-- `apps/whatsapp-instance` no se despliega (su imagen se construye en `develop`).
 
-Nada de eso está borrado: son flags, y el código del otro camino sigue vivo.
+Son flags: el código del otro camino sigue vivo y probado.

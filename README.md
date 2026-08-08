@@ -23,8 +23,7 @@ Diseño: [PRODUCT.md](PRODUCT.md) y [DESIGN.md](DESIGN.md).
 SimpleCite/
 ├── apps/
 │   ├── api/                # NestJS (puerto 3001)
-│   ├── web/                # Next.js (puerto 3000)
-│   └── whatsapp-instance/  # Baileys por clínica (apagado en main)
+│   └── web/                # Next.js (puerto 3000)
 ├── packages/
 │   ├── database/           # Prisma: schema, migraciones, seed, scripts
 │   ├── shared/             # Zod schemas, tipos y reglas compartidas

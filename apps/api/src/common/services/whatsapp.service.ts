@@ -1,24 +1,21 @@
-import { Injectable, Optional } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { Logger } from 'nestjs-pino';
-import { PrismaService } from '../database/prisma.service';
-import { WaMessageService } from '../../modules/whatsapp/application/services/wa-message.service';
+import { WhatsappCloudService } from '../../modules/whatsapp-cloud/application/services/whatsapp-cloud.service';
 
 /**
- * Notificador de WhatsApp. Abstrae el canal de envío para que los callers
- * (PublicOtpService, bot conversacional, etc.) no dependan de si hay una
- * instancia activa o no.
+ * Envío del OTP de paciente por WhatsApp.
  *
- * Modo real: llama a WaMessageService que POST al contenedor Baileys.
- * Fallback de dev: si WaMessageService falla (instancia no disponible o no
- *   configurada), loguea el código a consola con nivel WARN para que el
- *   flujo de OTP siga funcionando en entornos de desarrollo.
+ * Va por la Cloud API oficial de Meta (`WhatsappCloudService`). Antes pasaba por
+ * el contenedor Baileys por tenant, que ya no existe: la plataforma usa un único
+ * número oficial, así que no hay instancia que resolver ni slug que mirar.
+ *
+ * Si las `META_WA_*` no están configuradas, el envío es un no-op y el código cae
+ * al log en nivel WARN para que el flujo de OTP siga siendo usable en desarrollo.
  */
 @Injectable()
 export class WhatsAppService {
   constructor(
-    // Ausente cuando ENABLE_WHATSAPP != true (main/prod): cae al fallback de log.
-    @Optional() private readonly waMessage: WaMessageService | null,
-    private readonly prisma: PrismaService,
+    private readonly waCloud: WhatsappCloudService,
     private readonly logger: Logger,
   ) {}
 
@@ -35,41 +32,20 @@ export class WhatsAppService {
       `Tu código es: *${code}*\n\n` +
       `Expira en ${ttlMinutes} minutos. No lo compartas con nadie.`;
 
-    // Clave de idempotencia: incluye el código para que un reenvío del mismo
-    // OTP no duplique el mensaje si el paciente presiona "reenviar".
-    const messageKey = `otp:${tenantId}:${phone}:${code}`;
-
-    // Resolver slug del tenant para construir la URL del contenedor
-    const tenant = await this.prisma.tenant.findUnique({
-      where: { id: tenantId },
-      select: { slug: true },
-    });
-
-    if (!tenant) {
-      this.logger.warn({ event: 'whatsapp.otp.no-tenant', tenantId }, 'WhatsAppService');
-      return;
-    }
-
     try {
-      if (!this.waMessage) throw new Error('WhatsApp deshabilitado (ENABLE_WHATSAPP != true)');
-      await this.waMessage.send({
-        tenantId,
-        tenantSlug: tenant.slug,
-        messageKey,
-        phone,
-        text,
-      });
+      const sent = await this.waCloud.sendText(phone, text);
+      if (!sent) throw new Error('WhatsApp Cloud no configurado (META_WA_*)');
 
       this.logger.log({ event: 'whatsapp.otp.sent', tenantId, phone }, 'WhatsAppService');
     } catch (err) {
-      // Fallback dev: loguea el OTP para que el flujo no se rompa
-      // En producción, la instancia debería estar siempre activa.
+      // Fallback de desarrollo: loguea el OTP para que el flujo no se corte.
+      // En producción META_WA_* está configurado y esta rama no se toca.
       this.logger.warn(
         {
           event: 'whatsapp.otp.fallback',
           tenantId,
           phone,
-          otpCode: code, // Solo visible en dev (nivel WARN no llega a prod logs)
+          otpCode: code, // solo visible en dev (WARN no llega a los logs de prod)
           ttlMinutes,
           reason: (err as Error).message,
         },

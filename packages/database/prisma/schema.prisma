@@ -750,9 +750,21 @@ model PatientOtp {
   @@map("patient_otps")
 }
 
-/// Instancia de WhatsApp por tenant. Un contenedor Baileys por fila.
-/// El orquestador (NestJS InstanceManagerService) crea/destruye contenedores
-/// usando el Docker socket y mantiene esta tabla como source of truth.
+// ─────────────────────────────────────
+// LEGACY BAILEYS — sin código que las use
+//
+// Estos tres modelos (WhatsappInstance, WhatsappMessage, WaConversation) y sus
+// enums pertenecían al orquestador Baileys: un contenedor de WhatsApp por
+// clínica, manejado por InstanceManagerService a través del socket de Docker.
+// Ese camino se eliminó — la plataforma usa la Cloud API oficial de Meta con un
+// solo número, y el estado conversacional vive en `BotConversation`.
+//
+// Las tablas se conservan a propósito: dropearlas es lo único irreversible del
+// cambio y no hay ninguna prisa. Ningún código las lee ni las escribe. Cuando se
+// confirme que no hacen falta datos históricos, se borran en su propia migración.
+// ─────────────────────────────────────
+
+/// LEGACY (Baileys, sin uso). Instancia de WhatsApp por tenant.
 model WhatsappInstance {
   id       String @id @default(uuid())
   tenantId String
@@ -783,8 +795,7 @@ model WhatsappInstance {
   @@map("whatsapp_instances")
 }
 
-/// Mensaje enviado por WhatsApp (OTP u otros). Idempotencia por messageKey.
-/// El orquestador reintenta hasta MAX_ATTEMPTS veces; el estado final es SENT o FAILED.
+/// LEGACY (Baileys, sin uso). Mensaje saliente con idempotencia por messageKey.
 model WhatsappMessage {
   id         String           @id @default(uuid())
   tenantId   String
@@ -822,8 +833,7 @@ enum WaConversationState {
   COMPLETED
 }
 
-/// Estado conversacional de un paciente interactuando con el bot por WhatsApp.
-/// Una conversación por (tenant, phone). Expira tras 30 min de inactividad.
+/// LEGACY (Baileys, sin uso). El estado del bot vive hoy en `BotConversation`.
 model WaConversation {
   id         String           @id @default(uuid())
   tenantId   String

@@ -14,12 +14,12 @@ el servicio. Las reglas de abajo existen por eso, no por formalismo.
 
 ## Ramas
 
-| Rama          | Qué es                                                    |
-| ------------- | --------------------------------------------------------- |
-| `main`        | Lo que está en producción. Protegida: solo entra por PR.  |
-| `develop`     | Integración del bot de WhatsApp (`ENABLE_WHATSAPP=true`). |
-| `feat/<algo>` | Una funcionalidad. Sale de `main`, vuelve a `main`.       |
-| `fix/<algo>`  | Una corrección.                                           |
+| Rama          | Qué es                                                   |
+| ------------- | -------------------------------------------------------- |
+| `main`        | Lo que está en producción. Protegida: solo entra por PR. |
+| `develop`     | Integración del bot de reservas por WhatsApp.            |
+| `feat/<algo>` | Una funcionalidad. Sale de `main`, vuelve a `main`.      |
+| `fix/<algo>`  | Una corrección.                                          |
 
 Ramas cortas. Si una lleva más de una semana abierta, probablemente había que
 partirla en dos.

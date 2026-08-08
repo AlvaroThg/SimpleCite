@@ -3,7 +3,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { SlotsModule } from '../slots/slots.module';
-import { WhatsappModule } from '../whatsapp/whatsapp.module';
+import { WhatsappCloudModule } from '../whatsapp-cloud/whatsapp-cloud.module';
 import { PatientsModule } from '../patients/patients.module';
 import { BillingModule } from '../billing/billing.module';
 import { AppointmentsModule } from '../appointments/appointments.module';
@@ -36,9 +36,10 @@ import { WhatsAppService } from '../../common/services/whatsapp.service';
 @Module({
   imports: [
     SlotsModule,
-    // Bot de WhatsApp: solo con el flag activo. Sin él, WhatsAppService y
-    // PublicBookingService reciben WaMessageService como @Optional (no envían).
-    ...(process.env.ENABLE_WHATSAPP === 'true' ? [WhatsappModule] : []),
+    // Canal de WhatsApp para el OTP del paciente: la Cloud API oficial de Meta.
+    // Sin las META_WA_* el envío es un no-op y el código cae al log (ver
+    // WhatsAppService), así que el módulo se importa siempre.
+    WhatsappCloudModule,
     PatientsModule,
     BillingModule,
     AppointmentsModule,

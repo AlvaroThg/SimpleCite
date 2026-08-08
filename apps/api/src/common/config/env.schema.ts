@@ -11,7 +11,10 @@ import { z } from 'zod';
  *  - Siempre: DB + secrets JWT (con longitud mínima real, no strings de juguete).
  *  - Solo en producción: APP_DOMAIN (CORS/cookies) y R2 (logos/QR/galería
  *    son funcionalidad esencial del producto, no un extra).
- *  - ENABLE_WHATSAPP=true exige WA_INTERNAL_SECRET (el webhook interno del bot).
+ *
+ * Las META_WA_* (WhatsApp Cloud API) no se validan acá a propósito: sin ellas
+ * el canal es un no-op silencioso y el resto del producto funciona igual, así
+ * que exigirlas impediría levantar el API en local sin credenciales de Meta.
  *
  * `.passthrough()` es obligatorio: ConfigModule reemplaza el config por lo que
  * retorna `validate`; sin passthrough, toda env no listada desaparecería.
@@ -55,11 +58,7 @@ export const envSchema = z
     R2_PUBLIC_URL: z.string().optional(),
 
     // ─── Feature flags ───
-    ENABLE_WHATSAPP: z.enum(['true', 'false']).default('false'),
     RLS_ENFORCED: z.enum(['true', 'false']).default('false'),
-
-    // ─── Bot de WhatsApp (solo con ENABLE_WHATSAPP=true) ───
-    WA_INTERNAL_SECRET: z.string().optional(),
   })
   .passthrough()
   .superRefine((env, ctx) => {
@@ -88,13 +87,6 @@ export const envSchema = z
           message: `${key} es obligatoria en producción (logos/QR/galería viven en R2)`,
         });
       }
-    }
-    if (env.ENABLE_WHATSAPP === 'true' && (env.WA_INTERNAL_SECRET?.length ?? 0) < 16) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['WA_INTERNAL_SECRET'],
-        message: 'WA_INTERNAL_SECRET (16+ caracteres) es obligatoria con ENABLE_WHATSAPP=true',
-      });
     }
   });
 

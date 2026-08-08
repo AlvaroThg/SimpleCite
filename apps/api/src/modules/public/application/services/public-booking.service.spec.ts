@@ -97,8 +97,15 @@ function makeHarness(o: Overrides = {}) {
     findOrCreate: jest.fn().mockResolvedValue({ id: 'pat-1' }),
   } as never;
 
-  const svc = new PublicBookingService(prisma, config, turnstile, patients, null, logger);
-  return { svc, appointmentCreate, appointmentUpdate, patients, prisma };
+  // El canal de WhatsApp es best-effort y no participa de estas reglas: se
+  // stubea con no-ops para que un fallo de envío nunca disfrace un fallo real.
+  const waCloud = {
+    sendText: jest.fn().mockResolvedValue('wamid.test'),
+    sendImage: jest.fn().mockResolvedValue('wamid.test'),
+  } as never;
+
+  const svc = new PublicBookingService(prisma, config, turnstile, patients, waCloud, logger);
+  return { svc, appointmentCreate, appointmentUpdate, patients, prisma, waCloud };
 }
 
 const baseDto: CreatePublicAppointmentDto = {

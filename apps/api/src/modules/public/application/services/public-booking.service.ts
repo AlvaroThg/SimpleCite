@@ -1,6 +1,5 @@
 import {
   Injectable,
-  Optional,
   NotFoundException,
   ConflictException,
   BadRequestException,
@@ -15,7 +14,7 @@ import type { CreatePublicAppointmentDto, PaymentMethod } from '@simplecite/shar
 import { PrismaService } from '../../../../common/database/prisma.service';
 import { TurnstileService } from '../../../../common/services/turnstile.service';
 import { PatientsService } from '../../../patients/application/services/patients.service';
-import { WaMessageService } from '../../../whatsapp/application/services/wa-message.service';
+import { WhatsappCloudService } from '../../../whatsapp-cloud/application/services/whatsapp-cloud.service';
 import { generateCancellationToken } from '../../../appointments/application/services/appointments.service';
 
 // Anti-spam del flujo abierto (sin OTP): un mismo teléfono no puede crear más
@@ -42,8 +41,7 @@ export class PublicBookingService {
     private readonly config: ConfigService,
     private readonly turnstile: TurnstileService,
     private readonly patients: PatientsService,
-    // Ausente cuando ENABLE_WHATSAPP != true: el envío del QR por bot no corre.
-    @Optional() private readonly waMessage: WaMessageService | null,
+    private readonly waCloud: WhatsappCloudService,
     private readonly logger: Logger,
   ) {}
 
@@ -384,44 +382,36 @@ export class PublicBookingService {
 
   /**
    * Envía el QR bancario estático del tenant al paciente por WhatsApp y le pide
-   * el comprobante. Best-effort: si no hay instancia conectada (dev), se ignora.
+   * el comprobante. Best-effort: sin las META_WA_* configuradas es un no-op.
+   *
+   * Solo corre en modo OTP (bot activo). En el modo abierto de `main` el QR se
+   * muestra en la propia UI del booking, sin depender de WhatsApp.
    */
   private async sendStaticQrByWhatsApp(tenantId: string, phone: string, appointmentId: string) {
-    if (!this.waMessage) return; // bot apagado (ENABLE_WHATSAPP != true)
     try {
       const tenant = await this.prisma.client.tenant.findUnique({
         where: { id: tenantId },
-        select: { slug: true, staticQrUrl: true },
+        select: { staticQrUrl: true },
       });
       if (!tenant) return;
 
       if (tenant.staticQrUrl) {
-        await this.waMessage.send({
-          tenantId,
-          tenantSlug: tenant.slug,
+        await this.waCloud.sendText(
           phone,
-          messageKey: `qr-booking:${appointmentId}`,
-          text:
-            '🎉 *Cita registrada — pendiente de pago.*\n\n' +
+          '🎉 *Cita registrada — pendiente de pago.*\n\n' +
             'Escanea el QR que te enviamos, realiza el pago y envíanos la *foto del comprobante* ' +
             'por aquí para confirmar tu cita.',
-        });
-        await this.waMessage.sendImage({
-          tenantId,
-          tenantSlug: tenant.slug,
+        );
+        await this.waCloud.sendImage(
           phone,
-          imageUrl: tenant.staticQrUrl,
-          caption: '📲 Escanea este QR para realizar tu pago',
-          messageKey: `qr-booking-img:${appointmentId}`,
-        });
+          tenant.staticQrUrl,
+          '📲 Escanea este QR para realizar tu pago',
+        );
       } else {
-        await this.waMessage.send({
-          tenantId,
-          tenantSlug: tenant.slug,
+        await this.waCloud.sendText(
           phone,
-          messageKey: `qr-booking:${appointmentId}`,
-          text: 'Tu cita quedó registrada. Contacta a la clínica para coordinar el pago por QR y confirmarla.',
-        });
+          'Tu cita quedó registrada. Contacta a la clínica para coordinar el pago por QR y confirmarla.',
+        );
       }
     } catch (err) {
       this.logger.warn(

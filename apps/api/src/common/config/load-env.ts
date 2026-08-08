@@ -7,7 +7,7 @@ import { config } from 'dotenv';
  *
  * ConfigModule también lee estos archivos, pero lo hace al inicializar la DI,
  * es decir DESPUÉS de que los `imports` de cada @Module ya se evaluaron. Los
- * feature flags eager (ENABLE_WHATSAPP, TELEGRAM_BOT_TOKEN) se deciden en ese
+ * feature flags eager (TELEGRAM_BOT_TOKEN, MESSAGING_PROVIDER) se deciden en ese
  * momento leyendo process.env, así que sin esta pre-carga solo funcionan si la
  * variable viene del shell/contenedor — nunca de un archivo .env local.
  *

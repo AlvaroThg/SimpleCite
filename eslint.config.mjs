@@ -124,23 +124,9 @@ export default tseslint.config(
     },
   },
   {
-    // Instancia WhatsApp: JS/ESM plano de Node (Baileys wrapper). Usa globals
-    // de Node (process, fetch, timers, console) y un catch vacío intencional.
-    files: ['apps/whatsapp-instance/**/*.{js,mjs}'],
-    languageOptions: {
-      ecmaVersion: 2023,
-      sourceType: 'module',
-      globals: NODE_GLOBALS,
-    },
-    rules: {
-      'no-empty': ['error', { allowEmptyCatch: true }],
-      'no-unused-vars': ['error', { caughtErrorsIgnorePattern: '^_' }],
-    },
-  },
-  {
     // Scripts sueltos de Node en ESM (smoke tests, utilidades de deploy).
     // No pasan por TypeScript ni por un bundler: necesitan los globals de Node
-    // declarados a mano, igual que `apps/whatsapp-instance`.
+    // declarados a mano.
     files: ['scripts/**/*.{js,mjs}', 'apps/*/scripts/**/*.{js,mjs}'],
     languageOptions: {
       ecmaVersion: 2023,
